@@ -8,6 +8,9 @@ use super::{CoordinatorError, VideoCoordinator, VideoOutput};
 use crate::ports::capture::{Capture, RawFrame};
 use crate::ports::encoder::{EncodedOutput, Encoder};
 
+/// The shortest wait between keyframes asked for because an encoded frame was dropped.
+const DROP_KEYFRAME_INTERVAL: f64 = 1.0;
+
 impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     pub(super) fn apply_pending_reconfigure(&mut self) -> Result<(), CoordinatorError> {
         if !std::mem::take(&mut self.reconfigure_pending) {
@@ -56,10 +59,24 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             }
         }
         let frame = output.frame;
-        let pending = PendingFrame { is_keyframe: frame.is_keyframe, data: frame.encode()? };
-        self.dropped_frames += slot.offer(pending) as u64;
+        let is_keyframe = frame.is_keyframe;
+        let pending = PendingFrame { is_keyframe, data: frame.encode()? };
+        let dropped = slot.offer(pending);
+        self.dropped_frames += dropped as u64;
+        if dropped > 0 && !is_keyframe {
+            self.recover_from_drop(now);
+        }
         self.last_frame_at = Some(now);
         Ok(())
+    }
+
+    /// An encoded delta that never reached the phone breaks the chain behind it, so the next frame starts a new one. At most once
+    /// a second: a keyframe is several times the size of a delta, and a link that is dropping frames cannot take a burst of them.
+    fn recover_from_drop(&mut self, now: f64) {
+        if self.last_drop_keyframe_at.is_none_or(|last| now - last >= DROP_KEYFRAME_INTERVAL) {
+            self.last_drop_keyframe_at = Some(now);
+            self.keyframe_pending = true;
+        }
     }
 
     pub(super) fn stamped(&self, mut config: VideoStreamConfig) -> VideoStreamConfig {

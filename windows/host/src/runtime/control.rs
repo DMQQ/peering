@@ -179,6 +179,7 @@ impl HostState {
         let siblings = self.sessions.iter().map(|(id, slot)| (*id, slot.client_id.as_str()));
         for id in sessions_of_client(siblings, client_id) {
             self.sessions.remove(&id);
+            self.pictures.forget_session(id);
         }
         self.video.request(VideoIntent::Detach(client_id.to_owned()));
         self.video.request(VideoIntent::StopWhenIdle);

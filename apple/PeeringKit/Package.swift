@@ -23,7 +23,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PeeringKitTests",
-            dependencies: ["PeeringKit"],
+            dependencies: ["PeeringKit", .product(name: "RemoteCore", package: "RemoteCore")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

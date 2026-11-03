@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import pl.dmq.peering.MainActivity
+import pl.dmq.peering.PermissionHost
 
 /** A dictation tied to the screen it is on: listening stops when the screen goes. */
 @Composable
@@ -20,8 +20,9 @@ fun rememberVoiceDictation(): VoiceDictation {
             context = context.applicationContext,
             hasMicrophone = { context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED },
             askMicrophone = { answer ->
-                val host = context.findActivity() as? MainActivity
-                if (host == null) answer(false) else host.permissionRequests.request(host, Manifest.permission.RECORD_AUDIO, answer)
+                val host = context.findActivity()
+                val requests = (host as? PermissionHost)?.permissionRequests
+                if (host == null || requests == null) answer(false) else requests.request(host, Manifest.permission.RECORD_AUDIO, answer)
             },
         )
     }

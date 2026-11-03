@@ -3,8 +3,13 @@ import RemoteCore
 import SwiftUI
 
 extension AgentChatScreen {
+    /// The hub's Chats list: stopped chats sit in History there, so they get no tab either. The open one always keeps its tab.
+    var tabbedSessions: [RemoteAgentSession] {
+        model.agentSessions.filter { $0.id == currentID || !AgentPause.isPaused($0.transcript) }
+    }
+
     var tabStrip: some View {
-        TabStrip(items: model.agentSessions, selection: currentID) { session, isSelected in
+        TabStrip(items: tabbedSessions, selection: currentID) { session, isSelected in
             chip(session, isSelected: isSelected)
         } accessory: {
             EmptyView()

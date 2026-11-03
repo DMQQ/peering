@@ -26,7 +26,7 @@ import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.debug.DebugPreview
 import pl.dmq.peering.ui.debug.PREVIEW_EXTRA
 import pl.dmq.peering.ui.nav.PeeringScaffold
-import pl.dmq.peering.ui.EndSessionPrompt
+import pl.dmq.peering.ui.OutsideLinkPrompt
 import pl.dmq.peering.ui.hasLiveSession
 import pl.dmq.peering.ui.openFromWidget
 import pl.dmq.peering.ui.theme.PeeringTheme
@@ -41,8 +41,8 @@ import pl.dmq.peering.widget.WidgetLink
 import pl.dmq.peering.widget.WidgetLinkGate
 
 /** A FragmentActivity because the system's unlock prompt is hosted by one. */
-class MainActivity : FragmentActivity() {
-    internal val permissionRequests = PermissionRequests()
+class MainActivity : FragmentActivity(), PermissionHost {
+    override val permissionRequests = PermissionRequests()
 
     @Deprecated("Forwards the answer to PermissionRequests")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -93,7 +93,7 @@ class MainActivity : FragmentActivity() {
                     else -> PeeringScaffold(connectRequests)
                 }
                 if (!locked) notificationPermission?.let { NotificationExplanation(it) }
-                confirmingLink?.let { EndSessionPrompt(onConfirm = ::confirmLink, onCancel = ::cancelLink) }
+                confirmingLink?.let { OutsideLinkPrompt(it, onConfirm = ::confirmLink, onCancel = ::cancelLink) }
             }
         }
     }

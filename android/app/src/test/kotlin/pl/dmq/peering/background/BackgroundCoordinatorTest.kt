@@ -1,6 +1,8 @@
 package pl.dmq.peering.background
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -9,6 +11,7 @@ import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.session.notices.KeepAliveStatus
 import pl.dmq.peering.session.notices.Notice
+import pl.dmq.peering.session.notices.ProgressNotice
 import pl.dmq.peering.session.terminal.TerminalTab
 import pl.dmq.peering.session.terminal.TerminalsState
 import pl.dmq.peering.wire.TerminalAttentionKind
@@ -30,6 +33,7 @@ class BackgroundCoordinatorTest {
     private class FakeSink : NoticeSink {
         val posted = mutableListOf<Notice>()
         val retracted = mutableListOf<Set<String>>()
+        val progress = mutableListOf<String>()
 
         override fun post(notice: Notice) {
             posted += notice
@@ -37,6 +41,18 @@ class BackgroundCoordinatorTest {
 
         override fun retract(keys: Set<String>) {
             retracted += keys
+        }
+
+        override fun showProgress(notice: ProgressNotice) {
+            progress += "show ${notice.chatID} ${notice.stage}"
+        }
+
+        override fun endProgress(chatID: String) {
+            progress += "end $chatID"
+        }
+
+        override fun endAllProgress() {
+            progress += "end all"
         }
     }
 
@@ -50,6 +66,13 @@ class BackgroundCoordinatorTest {
     private val waiting = TerminalsState(tabs = listOf(TerminalTab("t1", "prod", true, 80, 24, attention = TerminalAttentionKind.PASSWORD)))
 
     private fun session(phase: SessionPhase = ready, terminals: TerminalsState? = null) = LiveSession(phase, "host1", null, terminals)
+
+    @Test
+    fun startingClearsProgressAnEarlierProcessLeftBehind() {
+        coordinator.start(CoroutineScope(UnconfinedTestDispatcher()))
+
+        assertEquals(listOf("end all"), sink.progress)
+    }
 
     @Test
     fun theServiceStartsWithTheSessionOnceAndStopsWhenItEnds() {

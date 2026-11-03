@@ -99,7 +99,7 @@ extension MacSession {
 
         // The offer reads ``SessionModel/relaySecondsRemainingEstimate``, which counts the
         // finished session out of the history *and* the live one out of
-        // ``activeSessionDuration`` — so armed before the clear, the session that just ended
+        // ``activeSessionDuration``, so armed before the clear, the session that just ended
         // would be counted twice, and the user would be told they had less relay left than they
         // do. The record is already in `sessionHistory` by this point, which is what makes the
         // figure right rather than merely uncounted.

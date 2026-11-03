@@ -139,6 +139,7 @@ final class HostSession: @unchecked Sendable {
     var clientSupportsAgentChat: Bool?
     var clientSupportsAgentPermissionModes: Bool?
     var clientSupportsAgentUsage: Bool?
+    var clientSupportsAgentQueue: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
     var lastHeard = DispatchTime.now()

@@ -4,10 +4,9 @@
 use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
+use super::icon;
 use super::model::{MenuAction, MenuEntry};
 use crate::strings;
-
-const ICON_SIZE: u32 = 32;
 
 pub struct Tray {
     icon: TrayIcon,
@@ -23,7 +22,7 @@ impl Tray {
             menu.append(&item).map_err(|error| error.to_string())?;
             items.push((entry.action, item));
         }
-        let icon = Icon::from_rgba(solid_icon(), ICON_SIZE, ICON_SIZE).map_err(|error| error.to_string())?;
+        let icon = Icon::from_rgba(icon::RGBA.to_vec(), icon::SIDE, icon::SIDE).map_err(|error| error.to_string())?;
         let icon = TrayIconBuilder::new()
             .with_menu(Box::new(menu))
             .with_tooltip(strings::TOOLTIP)
@@ -53,9 +52,4 @@ impl Tray {
 
 fn menu_id(action: MenuAction) -> MenuId {
     MenuId::new(format!("{action:?}"))
-}
-
-/// A plain white square. The tray shows it on the user's own taskbar colour, so it carries no accent colour.
-fn solid_icon() -> Vec<u8> {
-    [255u8, 255, 255, 255].repeat((ICON_SIZE * ICON_SIZE) as usize)
 }

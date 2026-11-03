@@ -34,16 +34,16 @@ struct MacroBar: View {
                 .accessibilityLabel("Edit macros")
         }
         .confirmationDialog(
-            "Quit the active Mac app?",
+            model.hostPlatform == .mac ? "Quit the active Mac app?" : "Close the active app?",
             isPresented: Binding(get: { quitting != nil }, set: { if !$0 { quitting = nil } }),
             titleVisibility: .visible
         ) {
-            Button("Send ⌘Q", role: .destructive) {
+            Button(model.hostPlatform == .mac ? "Send ⌘Q" : "Send Alt+F4", role: .destructive) {
                 if let quitting { model.run(quitting) }
                 quitting = nil
             }
         } message: {
-            Text("The Mac may ask you to save open documents first.")
+            Text(model.hostPlatform == .mac ? "The Mac may ask you to save open documents first." : "The app may ask you to save open documents first.")
         }
         .sheet(isPresented: $showingMacroEditor) {
             MacroEditorView(model: model)

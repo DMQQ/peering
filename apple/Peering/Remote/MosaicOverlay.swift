@@ -6,7 +6,7 @@ struct MosaicOverlay: View {
     struct Placed: Identifiable, Equatable {
         /// **The window, not its place in the arrangement.** Two tiles of one arrangement are two
         /// windows in two rectangles, and a reorder is the same rectangles holding different
-        /// windows — so an identity that is the *place* cannot tell the app that anything has
+        /// windows, so an identity that is the *place* cannot tell the app that anything has
         /// happened, and the drawing has nothing to animate. Identified by the window, the outline
         /// being carried and the ones it displaces are all things that move. See
         /// ``RemoteScreen/dropHeldTile()``.
@@ -37,7 +37,7 @@ struct MosaicOverlay: View {
                 ) } ?? tile.rect) : tile.rect
 
                 // **Corners are square, and rounded ones were a mistake worth naming.** These
-                // lines are not the outlines of cards — they are where one window's picture stops
+                // lines are not the outlines of cards, they are where one window's picture stops
                 // and the next one's begins, and the tiles share those edges. A corner radius on
                 // each tile separately draws four little arcs wherever four tiles meet, which is
                 // every interior junction in the arrangement: the grid looks like a tray of

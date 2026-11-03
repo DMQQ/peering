@@ -15,4 +15,8 @@
     <string name="link_end_title">Terminare questa sessione?</string>
     <string name="link_end_message">Un link esterno a Peering ha chiesto di disconnetterti dal tuo computer.</string>
     <string name="link_end_confirm">Termina sessione</string>
+    <string name="link_open_title">Aprire questo link?</string>
+    <string name="link_open_message">Un link esterno a Peering vuole collegarsi a uno dei tuoi computer. Continua solo se l’hai aperto tu.</string>
+    <string name="link_pair_message">Un link esterno a Peering vuole abbinare un computer. Continua solo se l’hai aperto tu.</string>
+    <string name="link_open_confirm">Continua</string>
 </resources>

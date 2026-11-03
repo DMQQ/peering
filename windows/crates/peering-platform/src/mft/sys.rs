@@ -1,25 +1,27 @@
 //! Media Foundation calls behind the encoder: startup, the D3D11 device manager, enumerating and opening H.264 MFTs, and
 //! their type and codec property setup. Sample handling is in `sys/io.rs`.
 
+mod events;
 pub(super) mod io;
 
 use super::candidates::{rank_candidates, CandidateInfo};
 use super::settings::EncoderSettings;
 use std::ffi::c_void;
+use std::sync::atomic::AtomicU32;
 use windows::core::{Interface, Result as WinResult, GUID};
 use windows::Win32::Foundation::E_FAIL;
 use windows::Win32::Graphics::Direct3D11::ID3D11Device;
 use windows::Win32::Media::MediaFoundation::{
     eAVEncCommonRateControlMode_CBR, eAVEncH264VProfile_Main, CODECAPI_AVEncCommonMeanBitRate,
     CODECAPI_AVEncCommonRateControlMode, CODECAPI_AVEncMPVDefaultBPictureCount, CODECAPI_AVEncMPVGOPSize,
-    CODECAPI_AVEncVideoForceKeyFrame, CODECAPI_AVLowLatencyMode, ICodecAPI, IMFActivate, IMFDXGIDeviceManager,
+    CODECAPI_AVEncVideoForceKeyFrame, CODECAPI_AVLowLatencyMode, ICodecAPI, IMFActivate, IMFDXGIDeviceManager, IMFMediaEventGenerator,
     IMFMediaType, IMFTransform, MFCreateDXGIDeviceManager, MFCreateMediaType, MFMediaType_Video, MFShutdown, MFStartup,
     MFTEnumEx, MFVideoFormat_H264, MFVideoFormat_NV12, MFVideoInterlace_Progressive, MFT_CATEGORY_VIDEO_ENCODER,
     MFT_ENUM_FLAG, MFT_ENUM_FLAG_ASYNCMFT, MFT_ENUM_FLAG_HARDWARE, MFT_ENUM_FLAG_LOCALMFT, MFT_ENUM_FLAG_SORTANDFILTER,
     MFT_ENUM_FLAG_SYNCMFT, MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, MFT_MESSAGE_NOTIFY_START_OF_STREAM,
     MFT_MESSAGE_SET_D3D_MANAGER, MFT_OUTPUT_STREAM_INFO, MFT_REGISTER_TYPE_INFO, MFSTARTUP_FULL, MF_MT_AVG_BITRATE,
     MF_MT_FRAME_RATE, MF_MT_FRAME_SIZE, MF_MT_INTERLACE_MODE, MF_MT_MAJOR_TYPE, MF_MT_MPEG2_PROFILE, MF_MT_SUBTYPE,
-    MF_SA_D3D11_AWARE, MF_TRANSFORM_ASYNC_UNLOCK, MF_VERSION,
+    MF_SA_D3D11_AWARE, MF_TRANSFORM_ASYNC, MF_TRANSFORM_ASYNC_UNLOCK, MF_VERSION,
 };
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::core::VARIANT;
@@ -30,6 +32,11 @@ pub(super) struct Session {
     pub(super) codec: ICodecAPI,
     pub(super) settings: EncoderSettings,
     pub(super) output_info: MFT_OUTPUT_STREAM_INFO,
+    /// Present for an event-driven (asynchronous) encoder, which is how every hardware H.264 encoder works. Such an MFT answers
+    /// `ProcessInput` and `ProcessOutput` with E_UNEXPECTED (0x8000FFFF) unless an event said it was ready for that call.
+    pub(super) events: Option<IMFMediaEventGenerator>,
+    /// Input slots the encoder has announced and this session has not yet used.
+    pub(super) input_credits: AtomicU32,
 }
 
 pub(super) fn startup() -> WinResult<()> {
@@ -126,7 +133,15 @@ fn open_candidate(activate: &IMFActivate, manager: &IMFDXGIDeviceManager, settin
     }
     // SAFETY: stream 0 is the encoder's only output.
     let output_info = unsafe { transform.GetOutputStreamInfo(0)? };
-    Ok(Session { transform, codec, settings, output_info })
+    let events = if is_async(&transform) { Some(transform.cast::<IMFMediaEventGenerator>()?) } else { None };
+    Ok(Session { transform, codec, settings, output_info, events, input_credits: AtomicU32::new(0) })
+}
+
+fn is_async(transform: &IMFTransform) -> bool {
+    // SAFETY: GetAttributes returns a reference-counted store; a synchronous encoder has none.
+    unsafe { transform.GetAttributes() }
+        .and_then(|attributes| unsafe { attributes.GetUINT32(&MF_TRANSFORM_ASYNC) })
+        .is_ok_and(|value| value != 0)
 }
 
 fn allow_async_unlock(transform: &IMFTransform) -> WinResult<()> {

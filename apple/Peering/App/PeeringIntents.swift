@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Intents cannot quietly run in the background. A session is a certificate identity and two sockets
 /// opened in this process, so an intent that wanted one without the app being open would have
-/// nothing to open it with — see ``SessionModel``'s note on why the model is owned by the `App`.
+/// nothing to open it with, see ``SessionModel``'s note on why the model is owned by the `App`.
 /// `openAppWhenRun` is the honest description of that, not a workaround.
 
 /// `SessionModel` is owned by the `App` struct and has no view hierarchy an intent could read it
@@ -181,7 +181,7 @@ struct EndShellsIntent: AppIntent {
     }
 }
 
-/// Every phrase has to contain `\(.applicationName)` — that is the rule that keeps a shortcut
+/// Every phrase has to contain `\(.applicationName)`, that is the rule that keeps a shortcut
 /// from being claimable by two apps at once, and a phrase without it is rejected at build time
 /// rather than quietly ignored at run time.
 struct PeeringShortcuts: AppShortcutsProvider {

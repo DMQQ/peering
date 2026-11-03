@@ -125,7 +125,12 @@ pub enum HostAnswer {
 pub struct HostFallbackGate;
 
 impl HostFallbackGate {
-    pub fn decide(&self, now: f64, last_frame_produced_at: Option<f64>) -> HostAnswer {
+    /// `can_repeat` is whether the last picture can be encoded again on request. A move then always delivers a
+    /// picture, so a client whose first one was lost on a blocked lane is not left blank by a still screen.
+    pub fn decide(&self, now: f64, last_frame_produced_at: Option<f64>, can_repeat: bool) -> HostAnswer {
+        if can_repeat {
+            return HostAnswer::Serve;
+        }
         match last_frame_produced_at {
             Some(produced) if now - produced <= HOST_PRODUCTION_WINDOW => HostAnswer::Serve,
             _ => HostAnswer::Decline,
@@ -221,7 +226,12 @@ mod tests {
             (1.0, None, HostAnswer::Decline),
         ];
         for (now, produced, expected) in cases {
-            assert_eq!(gate.decide(now, produced), expected, "now {now}");
+            assert_eq!(gate.decide(now, produced, false), expected, "now {now}");
         }
+    }
+
+    #[test]
+    fn host_serves_a_still_screen_whose_last_picture_can_be_repeated() {
+        assert_eq!(HostFallbackGate.decide(60.0, Some(1.0), true), HostAnswer::Serve);
     }
 }

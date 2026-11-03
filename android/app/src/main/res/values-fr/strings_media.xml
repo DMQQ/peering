@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_save_to_photos">Enregistrer dans Photos</string>
+    <string name="preview_saved_to_photos">Enregistré dans Photos</string>
+    <string name="preview_save_to_photos_failed">Impossible d\'enregistrer dans Photos</string>
+    <string name="bg_progress_working">En cours</string>
+    <string name="bg_progress_awaiting_approval">En attente d\'approbation</string>
+</resources>

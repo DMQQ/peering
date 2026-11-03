@@ -6,7 +6,7 @@ import ScreenCaptureKit
 ///
 /// **Written to answer one question: what *is* a window with no name.** A window titled "Window"
 /// turned up in the picker, photographed as a black rectangle and unpressable, and nothing the
-/// catalogue carries told it apart from a real window — so the two APIs are dumped side by side,
+/// catalogue carries told it apart from a real window, so the two APIs are dumped side by side,
 /// for the same window numbers, including the fields the catalogue never reads: the alpha, the
 /// store type, the memory the window server has behind it, and whether CoreGraphics agrees with
 /// ScreenCaptureKit about it being on screen.

@@ -6,12 +6,12 @@ import org.junit.Test
 class PathLabelTest {
     @Test
     fun aShortPathIsUntouched() {
-        assertEquals("/Users/dmq", headTruncated("/Users/dmq"))
+        assertEquals("/Users/alex", headTruncated("/Users/alex"))
     }
 
     @Test
     fun aLongPathLosesItsFrontAtAFolderBoundary() {
-        assertEquals("…/projects/Peering", headTruncated("/Users/dmq/Desktop/projects/Peering", limit = 20))
+        assertEquals("…/projects/Peering", headTruncated("/Users/alex/Desktop/projects/Peering", limit = 20))
     }
 
     @Test

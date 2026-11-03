@@ -14,7 +14,7 @@ extension HostModel {
             // `ServerHello`, so renaming the Mac never invalidates anything.
             identity = try SelfSignedIdentity.loadOrCreate(role: .server, commonName: device.name)
         } catch {
-            Analytics.failed(error, in: .network)
+            Analytics.failed(error, in: .network, context: ["operation": "load server identity"])
             let message = HostFailureText.resource(for: error)
             status = .failed(message)
             record("Identity unavailable: \(message)", level: .failure)
@@ -73,9 +73,13 @@ extension HostModel {
             Task { @MainActor [weak self] in self?.captureWasRestored() }
         }
         coordinator.onInputTransform = { [weak self] transform in
-            // Straight through, not hopped to the main actor: `input` is not UI state and its
-            // `transform` is lock-guarded for exactly this.
-            self?.input.transform = transform
+            // Not hopped to the main actor: `transform` is lock-guarded. nil (paused capture) keeps the last mapping.
+            guard let input = self?.input else { return }
+            if let transform {
+                input.transform = transform
+            } else if input.transform == nil {
+                input.transform = DisplayGeometry.activeTransform()
+            }
         }
         // The authoritative geometry for an application or window: the value above was read when capture started and a dragged window has moved since.
         coordinator.onGeometry = { [weak self] geometry in
@@ -166,7 +170,7 @@ extension HostModel {
             )
             server.externalApprovalResolver = terminalHooks.resolver
         } catch {
-            Analytics.failed(error, in: .network)
+            Analytics.failed(error, in: .network, context: ["operation": "start terminal hooks"])
             let message = HostFailureText.resource(for: error)
             status = .failed(message)
             record(message)

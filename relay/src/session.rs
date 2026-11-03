@@ -80,6 +80,22 @@ pub const HOST_SLOT: usize = 1;
 /// addressing hint that has no business being copied into a log line.
 pub type SessionId = u64;
 
+/// How long a slot must have been silent before a datagram from another IP may take it. Longer
+/// than the clients' 10 second keepalive, so a live end cannot be moved by someone who saw its token.
+const FOREIGN_REBIND_AFTER: Duration = Duration::from_secs(25);
+
+/// A slot follows its end to a new port freely (a NAT remapping), but to a new IP only once the old
+/// address has gone quiet: a spoofed or observed token must not redirect a live stream elsewhere.
+fn may_bind(route: &Route, from: SocketAddr, now: Instant) -> bool {
+    let Some(bound) = route.addr else { return true };
+    if fold(bound).ip() == fold(from).ip() {
+        return true;
+    }
+    route
+        .last_active
+        .is_none_or(|last| now.saturating_duration_since(last) >= FOREIGN_REBIND_AFTER)
+}
+
 /// One end's place in the routing table: which session a token belongs to, which end is its peer,
 /// and where that end has been heard from.
 ///
@@ -261,6 +277,10 @@ impl VideoRoutes {
     /// [`route`](Self::route) for a datagram carrying `payload_len` bytes after its token, which
     /// are counted towards the session's [`VideoUsage`] when they have somewhere to go.
     pub fn route_sized(&self, token: &Token, from: SocketAddr, payload_len: usize) -> Routed {
+        self.route_at(token, from, payload_len, Instant::now())
+    }
+
+    fn route_at(&self, token: &Token, from: SocketAddr, payload_len: usize, now: Instant) -> Routed {
         let mut inner = lock(&self.inner);
         let Some(route) = inner.routes.get(token).copied() else {
             return Routed::Dropped;
@@ -276,6 +296,9 @@ impl VideoRoutes {
         if peer == Some(from) {
             return Routed::Dropped;
         }
+        if !may_bind(&route, from, now) {
+            return Routed::Dropped;
+        }
 
         // The entry was read under this same guard and nothing above this line awaits, so it is
         // still there and `get_mut` cannot be `None`. The branch is here rather than an `expect`
@@ -285,11 +308,11 @@ impl VideoRoutes {
         let forwarded = peer.is_some() && payload_len > 0;
         if let Some(route) = inner.routes.get_mut(token) {
             route.addr = Some(from);
-            route.last_active = Some(Instant::now());
+            route.last_active = Some(now);
             if forwarded {
                 route.datagrams += 1;
                 route.bytes += payload_len as u64;
-                route.first_forwarded.get_or_insert_with(Instant::now);
+                route.first_forwarded.get_or_insert(now);
             }
         }
 
@@ -920,9 +943,9 @@ mod tests {
         routes.route(&CLIENT, addr(1, 4000));
         routes.route(&HOST, addr(2, 5000));
 
-        routes.route(&HOST, addr(3, 6000));
+        routes.route(&HOST, addr(2, 6001));
 
-        assert_eq!(routes.peer_address(&CLIENT), Some(addr(3, 6000)));
+        assert_eq!(routes.peer_address(&CLIENT), Some(addr(2, 6001)));
     }
 
     /// Nothing is learned by asking with a token the table does not hold, and asking must not be a
@@ -1037,8 +1060,34 @@ mod tests {
         table.route(&CLIENT, addr(1, 5000));
         table.route(&HOST, addr(2, 6000));
 
-        assert_eq!(table.route(&HOST, addr(3, 7000)), Routed::Peer(addr(1, 5000)));
-        assert_eq!(table.route(&CLIENT, addr(1, 5000)), Routed::Peer(addr(3, 7000)));
+        assert_eq!(table.route(&HOST, addr(2, 7000)), Routed::Peer(addr(1, 5000)));
+        assert_eq!(table.route(&CLIENT, addr(1, 5000)), Routed::Peer(addr(2, 7000)));
+    }
+
+    #[test]
+    fn a_live_slot_cannot_be_moved_to_another_ip() {
+        let table = routes();
+        table.open(&[CLIENT, HOST]);
+        let start = Instant::now();
+        table.route_at(&CLIENT, addr(1, 5000), 0, start);
+        table.route_at(&HOST, addr(2, 6000), 0, start);
+
+        let soon = start + Duration::from_secs(10);
+        assert_eq!(table.route_at(&HOST, addr(9, 6000), 100, soon), Routed::Dropped);
+        assert_eq!(table.route_at(&CLIENT, addr(1, 5000), 0, soon), Routed::Peer(addr(2, 6000)));
+    }
+
+    #[test]
+    fn a_slot_that_went_quiet_may_move_to_another_ip() {
+        let table = routes();
+        table.open(&[CLIENT, HOST]);
+        let start = Instant::now();
+        table.route_at(&CLIENT, addr(1, 5000), 0, start);
+        table.route_at(&HOST, addr(2, 6000), 0, start);
+
+        let later = start + FOREIGN_REBIND_AFTER;
+        assert_eq!(table.route_at(&CLIENT, addr(3, 5000), 0, later), Routed::Peer(addr(2, 6000)));
+        assert_eq!(table.route_at(&HOST, addr(2, 6000), 0, later), Routed::Peer(addr(3, 5000)));
     }
 
     #[test]

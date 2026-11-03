@@ -105,20 +105,20 @@ fn chats_in_the_same_folder_get_numbered_titles() {
 }
 
 #[test]
-fn an_agent_other_than_claude_fails_with_a_clear_message() {
+fn an_agent_this_host_does_not_know_fails_with_a_clear_message() {
     let (mut manager, _) = manager();
     let events = manager.handle(AgentRequest::Start {
-        agent_id: "codex".to_owned(),
+        agent_id: "gemini".to_owned(),
         directory: Some(WORK_DIR.to_owned()),
     });
     assert_eq!(
         events,
         [AgentEvent::Failed {
             session_id: None,
-            message: "codex is not supported on this host yet.".to_owned(),
+            message: "gemini is not supported on this host yet.".to_owned(),
         }]
     );
-    assert_eq!(agent_chat_agents(), ["claude"]);
+    assert_eq!(agent_chat_agents(), ["claude", "codex", "opencode"]);
 }
 
 #[test]
@@ -446,4 +446,54 @@ fn the_snapshot_keeps_the_fields_a_client_draws_a_chat_with() {
     assert_eq!(info.model, None);
     let mode_json: Value = serde_json::to_value(info.permission_mode).expect("serialises");
     assert_eq!(mode_json, json!("manual"));
+}
+
+#[test]
+fn a_codex_chat_runs_a_process_per_prompt_and_reports_usage_when_it_ends() {
+    let (mut manager, script) = manager();
+    let events = manager.handle(AgentRequest::Start {
+        agent_id: "codex".to_owned(),
+        directory: Some(WORK_DIR.to_owned()),
+    });
+    let [AgentEvent::Created { session }] = events.as_slice() else {
+        panic!("expected created, got {events:?}");
+    };
+    assert_eq!(session.title, "Codex · project");
+    assert_eq!(session.permission_modes, Some(vec![AgentPermissionMode::AcceptEdits, AgentPermissionMode::Auto]));
+    assert!(lock(&script).launches.is_empty(), "nothing runs before the first prompt");
+    let id = session.id.clone();
+    manager.handle(AgentRequest::Prompt { session_id: id.clone(), text: "hi".to_owned() });
+    assert_eq!(lock(&script).launches[0].program, "codex");
+    push_lines(
+        &script,
+        &[
+            r#"{"type":"thread.started","thread_id":"t-1"}"#,
+            r#"{"type":"turn.completed","usage":{"input_tokens":5,"output_tokens":2}}"#,
+        ],
+    );
+    lock(&script).closed = true;
+    let events = manager.poll();
+    let usage = events.iter().find_map(|event| match event {
+        AgentEvent::UsageChanged { usage, .. } => Some(usage.output_tokens),
+        _ => None,
+    });
+    assert_eq!(usage, Some(2));
+    assert_eq!(state_of(&mut manager, &id), AgentSessionState::Idle);
+}
+
+#[test]
+fn a_codex_chat_refuses_a_mode_it_has_no_sandbox_for() {
+    let (mut manager, _) = manager();
+    let events = manager.handle(AgentRequest::Start {
+        agent_id: "codex".to_owned(),
+        directory: Some(WORK_DIR.to_owned()),
+    });
+    let [AgentEvent::Created { session }] = events.as_slice() else {
+        panic!("expected created, got {events:?}");
+    };
+    let refused = manager.handle(AgentRequest::SetPermissionMode {
+        session_id: session.id.clone(),
+        mode: AgentPermissionMode::Plan,
+    });
+    assert!(matches!(refused.as_slice(), [AgentEvent::Failed { .. }]));
 }

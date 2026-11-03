@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>安卓与 iPhone 远程控制 Mac 有何不同</title>
+<meta name="description" content="用 Peering 从安卓或 iPhone 控制 Mac：配对、方案和功能都一样，少数不同之处在此如实列出。">
+<link rel="canonical" href="https://getpeering.app/zh/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/mac-remote-android-vs-iphone">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/mac-remote-android-vs-iphone">
+<meta property="og:title" content="安卓与 iPhone 远程控制 Mac 有何不同">
+<meta property="og:description" content="用 Peering 从安卓或 iPhone 控制 Mac：配对、方案和功能都一样，少数不同之处在此如实列出。">
+<meta property="og:image" content="https://getpeering.app/assets/og/mac-remote-android-vs-iphone.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="安卓与 iPhone 远程控制 Mac 有何不同">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="安卓与 iPhone 远程控制 Mac 有何不同">
+<meta name="twitter:description" content="用 Peering 从安卓或 iPhone 控制 Mac：配对、方案和功能都一样，少数不同之处在此如实列出。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/mac-remote-android-vs-iphone.png">
+<meta name="twitter:image:alt" content="安卓与 iPhone 远程控制 Mac 有何不同">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "inLanguage": "zh-Hans",
+  "name": "Peering",
+  "url": "https://getpeering.app/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android 10 或更高版本、iOS 18 或更高版本、macOS 15 或更高版本",
+  "description": "用 Peering 从安卓或 iPhone 控制 Mac：配对、方案和功能都一样，少数不同之处在此如实列出。",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "zh-Hans",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "能用安卓手机代替 iPhone 来控制 Mac 吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "能。Peering 的安卓应用与 Mac 配对的方式和 iPhone 应用相同，无需账户。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "安卓应用缺少功能吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "少数几项。提醒只在会话保持于后台时到达，一次只连接一台 Mac，暂时还没有小组件。其余都一样。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "我的 Pro 方案能在安卓和 iPhone 之间通用吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "不能。购买通过 Google Play 或 App Store 进行，归属于各自的商店。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "安卓手机和 iPhone 能同时与同一台 Mac 配对吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "能。一台 Mac 可以接受任意数量的已配对设备。"
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/zh/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "安卓版与 iPhone 版 Peering",
+      "item": "https://getpeering.app/zh/mac-remote-android-vs-iphone"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/download">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>用安卓还是 iPhone 控制 Mac：有什么不同</h1>
+    <p class="updated">由 Peering 的开发者撰写，并对照应用自身代码核实，2026 年 11 月。</p>
+
+<div class="card callout">
+      <strong>简而言之。</strong>控制 Mac 不一定需要 iPhone。Peering 的安卓应用配对方式相同，方案相同，
+      几乎能做 iPhone 应用能做的一切。区别在于两种手机如何处理后台，以及少数先在 iPhone 上推出的功能。
+    </div>
+
+    <h2>两者相同的部分</h2>
+    <ul>
+      <li>用六位数字代码或二维码配对，无需账户。</li>
+      <li>端到端加密，尽可能直连，否则使用无法读取会话的中继。</li>
+      <li>画面、触控板模式、直接触控和摇杆、双指缩放、画质设置。</li>
+      <li>带 Mac 按键、功能键、按应用快捷键、宏和听写的键盘栏。</li>
+      <li>Mac 的声音、能传图片的剪贴板、文件、终端和 SSH 服务器。</li>
+      <li>以显示器、应用、窗口和桌面作为来源；让 Mac 屏幕变暗或锁定 Mac。</li>
+      <li>Claude Code、Codex 和 OpenCode 对话，改动审阅和“待审阅”收件箱。</li>
+      <li>方案：在自己的网络上免费，每天 30 分钟中继，Pro 月付或终身版。</li>
+    </ul>
+
+    <figure class="card doc-figure">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <img src="/assets/android/android-control-mac.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="安卓手机上的 Peering 正在显示 Mac 的代码编辑器，会话栏标出 Mac 的名称和 RELAY 标记。">
+      <img src="/assets/android/android-agents.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="安卓版 Peering 的智能体页面，列出在 Mac 上运行的 Claude Code、Codex 和 OpenCode 对话，并有一张待审阅卡片。">
+      </div>
+      <figcaption>安卓应用：会话中的 Mac 屏幕，以及在 Mac 上运行的智能体对话。</figcaption>
+    </figure>
+
+    <h2>不同之处</h2>
+    <div class="doc-table-wrap">
+      <table class="doc-table">
+        <thead>
+          <tr><th></th><th>安卓</th><th>iPhone 和 iPad</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>上架情况</td><td>即将登陆 Google Play</td><td>现已在 App Store 推出</td></tr>
+          <tr><td>最低版本</td><td>Android 10</td><td>iOS 18</td></tr>
+          <tr><td>智能体和终端提醒</td><td>会话保持在后台时到达，通知中带允许和拒绝</td><td>应用关闭时也能通过推送收到，锁定屏幕上也有</td></tr>
+          <tr><td>后台会话</td><td>继续运行，带常驻通知和断开按钮</td><td>画中画让屏幕悬浮显示</td></tr>
+          <tr><td>同时连接多台 Mac</td><td>一次一个会话</td><td>多个，用标签页切换</td></tr>
+          <tr><td>小组件和实时活动</td><td>暂未支持</td><td>支持</td></tr>
+          <tr><td>会话截屏</td><td>默认阻止，提供分享画面的按钮</td><td>允许</td></tr>
+          <tr><td>Windows 端程序（测试版）</td><td>隐藏电脑不支持的控件</td><td>会显示一些仅适用于 Mac 的控件</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>该用哪个</h2>
+    <p>
+      用你本来就带在身上的那部手机。Mac 不在乎连上来的是哪一部，而且两部都可以配对：一家人可以让安卓手机和 iPad 连同一台 Mac。
+      方案在各个商店分别购买，所以在 Google Play 买的终身版不会转到 iPhone 上，反过来也一样。
+    </p>
+    <p>
+      如果你想要这个是为了编程智能体，并且很在意应用完全关闭时也能收到提醒，目前 iPhone 应用更领先。
+      在安卓上，让会话保持在后台，批准请求就会出现在通知栏中，请参阅<a href="/zh/claude-code-on-android">安卓上的 Claude Code</a>。
+    </p>
+
+    <h2>开始使用</h2>
+    <p>
+      Mac 这一端两种情况都一样：<a href="/zh/download">下载 Mac 版 Peering</a>，允许屏幕录制和辅助功能，然后在家庭网络中配对。
+      安卓的详细步骤见<a href="/zh/control-mac-from-android">用安卓控制 Mac</a>；iPhone 的步骤见<a href="/zh/how-to-pair-iphone-mac">配对指南</a>。
+    </p>
+
+    <h2>常见问题</h2>
+    <h3>能用安卓手机代替 iPhone 来控制 Mac 吗？</h3>
+    <p>能。Peering 的安卓应用与 Mac 配对的方式和 iPhone 应用相同，无需账户。</p>
+    <h3>安卓应用缺少功能吗？</h3>
+    <p>少数几项。提醒只在会话保持于后台时到达，一次只连接一台 Mac，暂时还没有小组件。其余都一样。</p>
+    <h3>我的 Pro 方案能在安卓和 iPhone 之间通用吗？</h3>
+    <p>不能。购买通过 Google Play 或 App Store 进行，归属于各自的商店。</p>
+    <h3>安卓手机和 iPhone 能同时与同一台 Mac 配对吗？</h3>
+    <p>能。一台 Mac 可以接受任意数量的已配对设备。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/zh/download">下载 Mac 版 Peering</a>
+      <a class="btn btn-quiet" href="https://play.google.com/store/apps/details?id=pl.dmq.peering">即将登陆 Google Play</a>
+      <a class="btn btn-quiet" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">获取 iPhone 版应用</a>
+    </div>
+
+    <div class="related">
+      <h2>继续阅读</h2>
+      <ul>
+      <li><a href="/zh/control-mac-from-android">用安卓手机远程控制你的 Mac</a></li>
+      <li><a href="/zh/claude-code-on-android">安卓上的 Claude Code</a></li>
+      <li><a href="/zh/android-tablet-remote-desktop">安卓平板的远程桌面</a></li>
+      <li><a href="/zh/how-to-pair-iphone-mac">配对是如何进行的</a></li>
+      <li><a href="/zh/best-remote-desktop-app-for-ipad">最好的 iPad 远程桌面应用</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/best-remote-desktop-app-for-ipad">最佳 iPad 应用</a>
+      <a href="/zh/apple-remote-desktop-alternative">ARD 替代方案</a>
+      <a href="/zh/apple-remote-desktop-vs-screen-sharing">ARD 与屏幕共享</a>
+      <a href="/zh/screens-vs-jump-desktop">Screens 与 Jump</a>
+      <a href="/zh/rustdesk-alternative-for-mac">RustDesk 替代方案</a>
+      <a href="/zh/control-mac-from-android">安卓控制 Mac</a>
+      <a href="/zh/claude-code-on-android">安卓上的 Claude Code</a>
+      <a href="/zh/chrome-remote-desktop-alternative">Chrome 远程桌面替代方案</a>
+      <a href="/zh/teamviewer-alternative-for-mac">TeamViewer 替代方案</a>
+      <a href="/zh/control-windows-pc-from-phone">手机控制 Windows</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/mac-remote-android-vs-iphone" hreflang="en" lang="en">English</a>
+      <a href="/de/mac-remote-android-vs-iphone" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/mac-remote-android-vs-iphone" hreflang="es" lang="es">Español</a>
+      <a href="/fr/mac-remote-android-vs-iphone" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/mac-remote-android-vs-iphone" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/mac-remote-android-vs-iphone" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/mac-remote-android-vs-iphone" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/mac-remote-android-vs-iphone" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/mac-remote-android-vs-iphone" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/mac-remote-android-vs-iphone" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Android 和 Google Play 是 Google LLC 的商标。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

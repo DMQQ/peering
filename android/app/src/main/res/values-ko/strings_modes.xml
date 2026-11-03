@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_ask_how_to_use">연결할 때 컴퓨터 사용 방식 묻기</string>
+    <string name="remote_chip_mode">모드</string>
+    <string name="mode_picker_title">이 컴퓨터를 어떻게 사용하시겠어요?</string>
+    <string name="mode_screen_title">화면</string>
+    <string name="mode_screen_body">데스크톱을 보고 터치로 제어합니다.</string>
+    <string name="mode_workspace_title">워크스페이스</string>
+    <string name="mode_workspace_body">화면 없이 에이전트, 파일, 터미널을 사용합니다.</string>
+    <string name="mode_remote_title">리모컨</string>
+    <string name="mode_remote_body">화면 없이 트랙패드와 키보드를 사용합니다.</string>
+    <string name="dock_show_screen">화면</string>
+    <string name="dock_change_mode">모드</string>
+    <string name="dock_keyboard">키보드</string>
+    <string name="dock_hide_keyboard">키보드 숨기기</string>
+    <string name="dock_space_previous">이전 데스크톱</string>
+    <string name="dock_space_next">다음 데스크톱</string>
+    <string name="dock_lock">잠금</string>
+    <string name="dock_full_screen">전체 화면</string>
+    <string name="dock_exit_full_screen">전체 화면 종료</string>
+    <string name="dock_desktops">데스크탑</string>
+    <string name="dock_desktop_number">데스크탑 %1$d</string>
+    <string name="dock_type_hint">Mac에 입력</string>
+    <string name="dock_apps_hint">앱을 길게 눌러 즐겨찾기에 추가하세요.</string>
+    <string name="dock_apps_favourites">즐겨찾기</string>
+    <string name="dock_apps_running">실행 중</string>
+    <string name="dock_apps_installed">Mac에 설치됨</string>
+    <string name="dock_shortcut_spotlight">Spotlight</string>
+    <string name="dock_shortcut_switch_app">앱 전환</string>
+    <string name="dock_shortcut_mission_control">Mission Control</string>
+    <string name="dock_shortcut_show_desktop">데스크탑 보기</string>
+    <string name="dock_shortcut_copy">복사</string>
+    <string name="dock_shortcut_paste">붙여넣기</string>
+    <string name="dock_shortcut_undo">실행 취소</string>
+    <string name="dock_shortcut_close_window">윈도우 닫기</string>
+    <string name="dock_shortcut_quit_app">앱 종료</string>
+    <string name="dock_shortcut_screenshot">스크린샷</string>
+    <string name="terminal_pane_empty_title">터미널 선택</string>
+    <string name="terminal_pane_empty_body">목록에서 선택하거나 새로 시작하세요.</string>
+    <string name="files_pane_empty_title">파일 선택</string>
+    <string name="files_pane_empty_body">목록에서 파일을 열면 여기에서 미리 볼 수 있습니다.</string>
+</resources>

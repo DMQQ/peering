@@ -30,18 +30,20 @@ fun TabScreen(
     bottomClearance: Dp = 36.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp)
-            .padding(top = 16.dp, bottom = bottomClearance),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
-        Column(Modifier.fillMaxWidth().semantics { heading() }, verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(title, style = PeeringText.display(size = 34f, tracking = -1.2f), color = PeeringColors.ink)
-            if (detail != null) Text(detail, style = PeeringText.subheadline, color = PeeringColors.muted)
+    ReadableWidth(modifier, max = 640.dp) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp)
+                .padding(top = 16.dp, bottom = bottomClearance),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Column(Modifier.fillMaxWidth().semantics { heading() }, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(title, style = PeeringText.display(size = 34f, tracking = -1.2f), color = PeeringColors.ink)
+                if (detail != null) Text(detail, style = PeeringText.subheadline, color = PeeringColors.muted)
+            }
+            content()
         }
-        content()
     }
 }

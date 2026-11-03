@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import RemoteCore
 
 @testable import PeeringKit
 
@@ -18,6 +19,15 @@ struct ErrorReportFilterTests {
         var filter = ErrorReportFilter()
         let r2 = filter.shouldReport(NSError(domain: NSPOSIXErrorDomain, code: Int(ENOTCONN)), area: "relay")
         #expect(!r2)
+    }
+
+    @Test("a reset connection is weather, also under a wrapper")
+    func resetIsWeatherThroughWrappers() {
+        let reset = NSError(domain: NSPOSIXErrorDomain, code: Int(ECONNRESET))
+        let wrapped = NSError(domain: "Wrapper", code: 1, userInfo: [NSUnderlyingErrorKey: reset])
+        #expect(ErrorReportFilter.isNetworkWeather(reset))
+        #expect(ErrorReportFilter.isNetworkWeather(wrapped))
+        #expect(!ErrorReportFilter.isNetworkWeather(NSError(domain: "Wrapper", code: 1)))
     }
 
     @Test("a wrapper over a network failure is not reported")
@@ -69,5 +79,57 @@ struct ErrorReportFilterTests {
         let tooLarge = NSError(domain: "com.apple.ActivityKit.ActivityAuthorization", code: 0)
         let r11 = filter.shouldReport(tooLarge, area: "liveActivity")
         #expect(r11)
+    }
+
+    @Test("a launch stops reporting once its budget is spent, even for new codes")
+    func launchBudget() {
+        var filter = ErrorReportFilter()
+        var accepted = 0
+        for code in 1...(ErrorReportFilter.reportsPerLaunch + 10) {
+            if filter.shouldReport(NSError(domain: "Sample", code: code), area: "relay") { accepted += 1 }
+        }
+        #expect(accepted == ErrorReportFilter.reportsPerLaunch)
+    }
+
+    @Test("an address that cannot be assigned after a network change is weather")
+    func addressNotAvailableIsWeather() {
+        var filter = ErrorReportFilter()
+        let reported = filter.shouldReport(NSError(domain: NSPOSIXErrorDomain, code: Int(EADDRNOTAVAIL)), area: "relay")
+        #expect(!reported)
+    }
+
+    @Test("audio another app holds is the system declining, whichever way it says so")
+    func audioHeldElsewhere() {
+        var filter = ErrorReportFilter()
+        let priority = filter.shouldReport(NSError(domain: NSOSStatusErrorDomain, code: 561017449), area: "audio")
+        let interrupt = filter.shouldReport(NSError(domain: NSOSStatusErrorDomain, code: 560557684), area: "audio")
+        #expect(!priority)
+        #expect(!interrupt)
+    }
+
+    @Test("a Mac the relay reports offline or a relay timing out is not a defect, any other relay error is")
+    func relayStatesBridgedFromRealCases() {
+        var filter = ErrorReportFilter()
+        let offline = filter.shouldReport(RelaySignallingError.hostOffline("mac") as NSError, area: "relay")
+        let timedOut = filter.shouldReport(RelaySignallingError.timedOut as NSError, area: "relay")
+        let refused = filter.shouldReport(RelaySignallingError.refused(code: "x", message: "y") as NSError, area: "relay")
+        let nonWebSocket = filter.shouldReport(RelaySignallingError.nonWebSocketResponse as NSError, area: "relay")
+        let unexpected = filter.shouldReport(RelaySignallingError.unexpectedResponse as NSError, area: "relay")
+        #expect(!offline)
+        #expect(!timedOut)
+        #expect(refused)
+        #expect(nonWebSocket)
+        #expect(unexpected)
+    }
+
+    @Test("a failed secure connection is the person's network, not a defect, also under a wrapper")
+    func secureConnectionFailure() {
+        var filter = ErrorReportFilter()
+        let tls = NSError(domain: NSURLErrorDomain, code: NSURLErrorSecureConnectionFailed)
+        let wrapped = NSError(domain: "Wrapper", code: 1, userInfo: [NSUnderlyingErrorKey: tls])
+        #expect(ErrorReportFilter.isSecureConnectionFailure(wrapped))
+        #expect(!ErrorReportFilter.isSecureConnectionFailure(NSError(domain: NSURLErrorDomain, code: NSURLErrorBadURL)))
+        let reported = filter.shouldReport(tls, area: "relay")
+        #expect(!reported)
     }
 }

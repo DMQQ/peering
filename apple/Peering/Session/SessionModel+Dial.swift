@@ -43,11 +43,15 @@ extension SessionModel {
         WidgetCenter.shared.reloadAllTimelines()
 
         // An attempt from the backoff timer would race this one and start a second session.
-        stopReconnecting()
-        // A session already up is torn down rather than replaced: assigning over it leaves the first connection running unheld, so the peer sees it drop mid-handshake, which with a retry is a loop.
-        activeSession?.connectTask?.cancel()
-        activeSession?.connectTask = nil
-        activeSession?.wire?.disconnect()
+        // Only the session being replaced: tearing down the active one here closed the first Mac whenever a second was opened.
+        // Also a dead attempt at this same Mac, whose ladder would otherwise race this dial.
+        let targetHostID = Self.hostID(of: target)
+        let superseded = old ?? sessions.first { !$0.isLive && targetHostID != nil && $0.hostID == targetHostID }
+        superseded?.stopReconnecting()
+        // Torn down rather than replaced: assigning over it leaves the first connection running unheld, so the peer sees it drop mid-handshake, which with a retry is a loop.
+        superseded?.connectTask?.cancel()
+        superseded?.connectTask = nil
+        superseded?.wire?.disconnect()
         // The user has just asked to reach a Mac, the first moment "tell you when it needs you?" means anything.
         notifier.prepareForFirstConnect()
 
@@ -87,7 +91,6 @@ extension SessionModel {
         // Fresh for the path this session just chose: the policy's tier is tuned per path.
         session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
         session.lastAutoDroppedFrames = 0
-        session.beginRoute(.init(session.connectionPath))
 
         // Two facts belong to the Mac, not this attempt, and are carried across a dial of that Mac only.
         // `hasBeenReady` tells a resume from a first connection: the ladder builds a new object, so otherwise a blip would put the connecting card back.
@@ -97,6 +100,9 @@ extension SessionModel {
 
         if let old, let targetID = target.hostID, targetID == old.hostID {
             session.hasBeenReady = old.hasBeenReady
+            // The way the Mac was being used survives a blip; the screen re-applies it, including the paused picture, when the new object is ready.
+            session.mode = old.mode
+            session.modeResolved = old.modeResolved
             session.reconnectAttempt = old.reconnectAttempt
             // And the clock the window is measured on: the run of attempts is one run however many objects it spans.
             session.reconnectingSince = old.reconnectingSince
@@ -115,12 +121,16 @@ extension SessionModel {
             session.pictureMosaicLayout = old.pictureMosaicLayout
         }
 
+        // After the carry above, which replaces the telemetry: begun earlier, a resumed dial's route was overwritten and `route_attempts` showed the previous session's.
+        session.beginRoute(.init(session.connectionPath))
+
         // The episode begins with the dial, not only a rung: a restoration and the relay-to-LAN handover dial with no ladder, so a dial that never answers is otherwise unbounded. See `reconnectWindow`.
         if isResuming, session.reconnectingSince == nil {
             session.reconnectingSince = .now
         }
 
         session.hostName = target.displayName
+        session.hostPlatform = HostPlatformMemory().platform(forHostID: target.hostID)
 
         let race = relay == nil ? nil : DialRace(session: session)
         session.dialRace = race

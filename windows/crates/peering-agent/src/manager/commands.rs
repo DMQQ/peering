@@ -2,8 +2,9 @@
 //! what it said.
 
 use super::session::ManagedSession;
-use super::{failed, no_chat, AgentSessionManager, AGENT_ID, MAXIMUM_PROMPT_BYTES};
-use crate::claude_adapter::{ClaudeAdapter, ClaudeResume, ProcessLauncher, PERMISSION_MODES};
+use super::{failed, no_chat, AgentSessionManager, MAXIMUM_PROMPT_BYTES};
+use crate::adapter::{agent_name, AgentResume};
+use crate::claude_adapter::ProcessLauncher;
 use peering_wire::agent::{
     AgentApprovalDecision, AgentEvent, AgentPermissionMode, AgentSessionState, AgentStreamPayload,
 };
@@ -15,7 +16,7 @@ const CANNOT_CONTINUE: &str = "That chat cannot be continued. Start a new one.";
 
 impl<L: ProcessLauncher> AgentSessionManager<L> {
     pub(super) fn start(&mut self, agent_id: &str, directory: Option<&str>) -> Vec<AgentEvent> {
-        if agent_id != AGENT_ID {
+        if agent_name(agent_id).is_none() {
             return vec![failed(None, &format!("{agent_id} is not supported on this host yet."))];
         }
         let Some(directory) = directory else {
@@ -25,7 +26,9 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
         if !Path::new(directory).is_absolute() {
             return vec![failed(None, "That is not a folder this host can open.")];
         }
-        let mut session = self.new_session(Path::new(directory));
+        let Some(mut session) = self.new_session(agent_id, Path::new(directory)) else {
+            return vec![failed(None, &format!("{agent_id} is not supported on this host yet."))];
+        };
         session.adapter.start(&mut self.launcher);
         let info = session.info();
         self.sessions.insert(session.id.clone(), session);
@@ -42,11 +45,14 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
         if text.trim().is_empty() {
             return Vec::new();
         }
-        let Some(session) = self.ensure_live(id) else {
+        if self.ensure_live(id).is_none() {
             return vec![failed(Some(id), CANNOT_CONTINUE)];
+        }
+        let Some(session) = self.sessions.get_mut(id) else {
+            return vec![no_chat(id)];
         };
         let mut events = vec![session.record(AgentStreamPayload::UserPrompt { text: text.to_owned() })];
-        if !session.adapter.prompt(text) {
+        if !session.adapter.prompt(text, &mut self.launcher) {
             events.push(failed(Some(id), "The agent did not take the prompt."));
         }
         events
@@ -98,7 +104,11 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
         if !self.sessions.contains_key(id) {
             return vec![no_chat(id)];
         }
-        if !PERMISSION_MODES.contains(&mode) {
+        let supported = self
+            .sessions
+            .get(id)
+            .is_some_and(|session| session.adapter.permission_modes().contains(&mode));
+        if !supported {
             return vec![failed(Some(id), "This agent cannot run in that mode.")];
         }
         let Some(session) = self.ensure_live(id) else {
@@ -177,29 +187,31 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
     /// The chat with a live CLI, starting one that resumes its conversation if it has none. `None` for a chat that
     /// had a conversation and never learned its CLI session, since a new process would not remember it.
     pub(super) fn ensure_live(&mut self, id: &str) -> Option<&mut ManagedSession> {
-        let launcher = &mut self.launcher;
-        let session = self.sessions.get_mut(id)?;
+        let session = self.sessions.get(id)?;
         if !session.adapter.is_running() {
             if session.adapter.cli_session_id().is_none() && session.transcript.has_prompt() {
                 return None;
             }
-            revive(session, launcher);
+            self.revive(id)?;
         }
-        Some(session)
+        self.sessions.get_mut(id)
     }
-}
 
-/// Starts a fresh adapter for `session`, resuming the CLI's conversation and the model and mode it had.
-fn revive<L: ProcessLauncher>(session: &mut ManagedSession, launcher: &mut L) {
-    let resume = ClaudeResume {
-        cli_session_id: session.adapter.cli_session_id().map(str::to_owned),
-        model: session.model.clone(),
-        permission_mode: Some(session.permission_mode),
-    };
-    let mut adapter = ClaudeAdapter::new(PathBuf::from(&session.directory), resume);
-    adapter.start(launcher);
-    session.adapter = adapter;
-    if matches!(session.state, AgentSessionState::Exited | AgentSessionState::Failed) {
-        session.state = AgentSessionState::Idle;
+    /// Starts a fresh adapter for the chat, resuming the CLI's conversation and the model and mode it had.
+    fn revive(&mut self, id: &str) -> Option<()> {
+        let session = self.sessions.get(id)?;
+        let resume = AgentResume {
+            cli_session_id: session.adapter.cli_session_id().map(str::to_owned),
+            model: session.model.clone(),
+            permission_mode: Some(session.permission_mode),
+        };
+        let mut adapter = self.make_adapter(&session.agent_id, &PathBuf::from(&session.directory), resume)?;
+        adapter.start(&mut self.launcher);
+        let session = self.sessions.get_mut(id)?;
+        session.adapter = adapter;
+        if matches!(session.state, AgentSessionState::Exited | AgentSessionState::Failed) {
+            session.state = AgentSessionState::Idle;
+        }
+        Some(())
     }
 }

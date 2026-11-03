@@ -73,6 +73,12 @@ extension SettingsTab {
                     .font(.subheadline)
                     .foregroundStyle(model.pushRegistration == nil ? .secondary : ColorPalette.caution)
             }
+
+            Controls.divider
+
+            Controls.toggle(String(localized: "Notify me only for decisions"), systemImage: "hand.raised", isOn: $agentDecisionsOnly)
+                .onChange(of: agentDecisionsOnly) { _, _ in model.agentAlertPreferenceChanged() }
+                .accessibilityHint(Text("Agent chats alert you when they need an approval or an answer, not when a turn finishes."))
         }
     }
 }

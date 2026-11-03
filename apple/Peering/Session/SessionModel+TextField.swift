@@ -14,6 +14,8 @@ extension SessionModel {
         pendingField = nil
         fieldCaret = nil
         guard enabled, !isObserving, !isShowingMosaic, !isPanelOpen else { return }
+        // Only the screen view has the floating keyboard; in the trackpad or the workspace it opened over a view with its own typing field.
+        if let session = activeSession, session.modeResolved, session.mode != .screen { return }
         if focus.isEditable {
             guard !showKeyboard else { return }
             showKeyboard = true

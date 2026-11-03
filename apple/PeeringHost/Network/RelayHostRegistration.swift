@@ -204,8 +204,11 @@ final class RelayHostRegistration: @unchecked Sendable {
     }
 
     /// A fixed sentence per kind of failure: a system error's own text can carry the relay's URL into the feed.
-    private static func statusSentence(for error: Error) -> LocalizedStringResource {
-        if case RelaySignallingError.refused = error { return "The relay refused this Mac's registration" }
+    private static func statusSentence(for failure: Error) -> LocalizedStringResource {
+        if case RelaySignallingError.refused = failure { return "The relay refused this Mac's registration" }
+        if ErrorReportFilter.isSecureConnectionFailure(failure as NSError) {
+            return "Secure connection to the relay failed; check for a VPN or proxy and the Mac's date and time"
+        }
         return "Relay unavailable; retrying"
     }
 

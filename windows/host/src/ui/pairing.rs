@@ -5,6 +5,7 @@ use eframe::egui;
 
 use super::model::{PairedListReset, PairingPanel, UiModel};
 use super::qr::modules_for;
+use super::theme;
 use crate::runtime::RuntimeCommand;
 use crate::strings;
 
@@ -12,59 +13,79 @@ const QR_SIDE: f32 = 240.0;
 const QUIET_ZONE_MODULES: usize = 4;
 
 pub fn show(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, reset_asked: &mut bool, commands: &mut Vec<RuntimeCommand>) {
-    ui.heading(strings::PAIRING_TITLE);
-    show_panel(ui, model);
-    ui.separator();
-    show_approvals(ui, model, commands);
-    ui.separator();
-    show_devices(ui, model, now_unix, commands);
-    show_reset(ui, model, reset_asked, commands);
+    theme::card(ui, |ui| {
+        theme::title(ui, strings::PAIRING_TITLE);
+        show_panel(ui, model);
+    });
+    if !model.approvals().is_empty() {
+        theme::card(ui, |ui| show_approvals(ui, model, commands));
+    }
+    theme::card(ui, |ui| {
+        show_devices(ui, model, now_unix, commands);
+        show_reset(ui, model, reset_asked, commands);
+    });
 }
 
 fn show_panel(ui: &mut egui::Ui, model: &UiModel) {
     match model.panel() {
         PairingPanel::NotHosting => {
-            ui.label(strings::NEEDS_HOSTING);
+            ui.label(theme::muted(strings::NEEDS_HOSTING));
         }
         PairingPanel::Ready { host_qr } => {
-            ui.label(strings::SCAN_TO_FIND_HOST);
-            draw_qr(ui, &host_qr);
+            ui.label(theme::muted(strings::SCAN_TO_FIND_HOST));
+            centered(ui, |ui| draw_qr(ui, &host_qr));
         }
         PairingPanel::Pairing { code, client_name, code_qr, via_relay } => {
-            ui.label(strings::pairing_with(&client_name));
-            ui.heading(code);
-            ui.label(strings::CODE_HEADING);
-            draw_qr(ui, &code_qr);
+            ui.label(theme::muted(&strings::pairing_with(&client_name)));
+            centered(ui, |ui| {
+                ui.label(egui::RichText::new(code).size(44.0).strong().monospace().color(egui::Color32::WHITE));
+            });
+            theme::hint(ui, strings::CODE_HEADING);
+            centered(ui, |ui| draw_qr(ui, &code_qr));
             if via_relay {
-                ui.label(strings::RELAY_PAIRING_NOTE);
+                theme::hint(ui, strings::RELAY_PAIRING_NOTE);
             }
         }
     }
 }
 
+fn centered(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
+    ui.vertical_centered(add_contents);
+}
+
 fn show_approvals(ui: &mut egui::Ui, model: &UiModel, commands: &mut Vec<RuntimeCommand>) {
+    theme::title(ui, strings::APPROVALS_HEADING);
     for approval in model.approvals() {
         ui.label(approval.prompt);
-        if ui.button(strings::APPROVE).clicked() {
-            commands.push(approval.approve);
-        }
-        if ui.button(strings::DECLINE).clicked() {
-            commands.push(approval.decline);
-        }
+        ui.horizontal(|ui| {
+            if theme::primary_button(ui, strings::APPROVE).clicked() {
+                commands.push(approval.approve);
+            }
+            if ui.button(strings::DECLINE).clicked() {
+                commands.push(approval.decline);
+            }
+        });
     }
 }
 
 fn show_devices(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, commands: &mut Vec<RuntimeCommand>) {
-    ui.heading(strings::DEVICES_HEADING);
+    theme::title(ui, strings::DEVICES_HEADING);
     let devices = model.devices(now_unix);
     if devices.is_empty() {
-        ui.label(strings::NO_DEVICES);
+        ui.label(theme::muted(strings::NO_DEVICES));
     }
     for device in devices {
-        ui.label(format!("{} · {}", device.name, device.last_seen));
-        if ui.button(strings::FORGET).clicked() {
-            commands.push(device.forget);
-        }
+        ui.horizontal(|ui| {
+            ui.vertical(|ui| {
+                ui.label(egui::RichText::new(device.name).color(egui::Color32::WHITE));
+                theme::hint(ui, &device.last_seen);
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button(strings::FORGET).clicked() {
+                    commands.push(device.forget);
+                }
+            });
+        });
     }
 }
 

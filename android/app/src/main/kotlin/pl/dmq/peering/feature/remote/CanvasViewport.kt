@@ -4,10 +4,10 @@ import pl.dmq.peering.wire.NormalizedPoint
 
 /**
  * Pinch zoom and pan of the canvas. The content is the canvas scaled by [zoom] from its top left corner and then moved
- * by ([panX], [panY]). Pan is clamped so the content always covers the canvas.
+ * by ([panX], [panY]). Zoomed in, pan is clamped so the content covers the canvas; zoomed out, the content is centred.
  */
 data class CanvasViewport(
-    val zoom: Double = MIN_ZOOM,
+    val zoom: Double = FIT_ZOOM,
     val panX: Double = 0.0,
     val panY: Double = 0.0,
 ) {
@@ -41,15 +41,17 @@ data class CanvasViewport(
     private fun clampedTo(zoom: Double, panX: Double, panY: Double, canvas: CanvasSize): CanvasViewport {
         val lowestX = canvas.width * (1 - zoom)
         val lowestY = canvas.height * (1 - zoom)
+        if (zoom < FIT_ZOOM) return CanvasViewport(zoom, lowestX / 2, lowestY / 2)
         return CanvasViewport(
             zoom = zoom,
-            panX = panX.coerceIn(minOf(lowestX, 0.0), 0.0),
-            panY = panY.coerceIn(minOf(lowestY, 0.0), 0.0),
+            panX = panX.coerceIn(lowestX, 0.0),
+            panY = panY.coerceIn(lowestY, 0.0),
         )
     }
 
     companion object {
-        const val MIN_ZOOM = 1.0
+        const val FIT_ZOOM = 1.0
+        const val MIN_ZOOM = 0.75
         const val MAX_ZOOM = 4.0
     }
 }

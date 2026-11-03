@@ -456,3 +456,46 @@ fn a_client_that_sends_no_platform_or_codec_list_still_pairs() {
     assert_eq!(session.state(), HandshakeState::AwaitingClientCommit);
     assert!(server_hello_of(&actions).host_platform.is_some());
 }
+
+/// A generator that failed: every value comes back empty, as `SystemRandomSource` returns it.
+struct FailedRandom {
+    fail_secret_only: bool,
+}
+
+impl crate::session::deps::Random for FailedRandom {
+    fn ephemeral_public_key(&mut self) -> Vec<u8> {
+        if self.fail_secret_only { HOST_EPHEMERAL.to_vec() } else { Vec::new() }
+    }
+
+    fn nonce(&mut self) -> Vec<u8> {
+        if self.fail_secret_only { HOST_NONCE.to_vec() } else { Vec::new() }
+    }
+
+    fn secret(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
+}
+
+fn session_with_random(random: FailedRandom) -> HostSession {
+    let clock: Arc<dyn crate::ports::clock::Clock> = fake_clock();
+    HostSession::new(
+        host_config(Some(CLIENT_KEY.to_vec())),
+        crate::session::deps::HostDeps { random: Box::new(random), pins: Arc::new(MemoryPins::default()), clock },
+    )
+}
+
+#[test]
+fn failed_generator_refuses_to_start_pairing() {
+    let mut session = session_with_random(FailedRandom { fail_secret_only: false });
+    let actions = open_with_hello(&mut session, client_hello_json(PROTOCOL_VERSION, CLIENT_ID, ""));
+    assert_eq!(find_close(&actions), Some(&CloseReason::RandomSourceFailed));
+}
+
+#[test]
+fn empty_qr_secret_closes_before_showing_a_code() {
+    let mut session = session_with_random(FailedRandom { fail_secret_only: true });
+    open_with_hello(&mut session, client_hello_json(PROTOCOL_VERSION, CLIENT_ID, ""));
+    let actions = reach_code(&mut session);
+    assert_eq!(find_close(&actions), Some(&CloseReason::RandomSourceFailed));
+    assert!(!actions.iter().any(|action| matches!(action, SessionAction::Emit(HostEvent::PairingCode { .. }))));
+}

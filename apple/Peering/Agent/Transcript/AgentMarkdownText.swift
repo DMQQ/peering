@@ -10,13 +10,13 @@ struct AgentMarkdownText: View {
             ForEach(Array(AgentMarkdown.split(text).enumerated()), id: \.offset) { _, block in
                 switch block {
                 case .paragraph(let paragraph):
-                    inline(paragraph)
+                    Self.inline(paragraph)
                         .font(.system(size: 15.5))
                         .foregroundStyle(.white.opacity(0.95))
                         .lineSpacing(3)
                         .textSelection(.enabled)
                 case .heading(let level, let heading):
-                    inline(heading)
+                    Self.inline(heading)
                         .font(.system(size: level <= 2 ? 17 : 15.5, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.top, 2)
@@ -30,7 +30,7 @@ struct AgentMarkdownText: View {
                                 Text("•")
                                     .font(.system(size: 15.5))
                                     .foregroundStyle(.white.opacity(0.5))
-                                inline(bullet)
+                                Self.inline(bullet)
                                     .font(.system(size: 15.5))
                                     .foregroundStyle(.white.opacity(0.95))
                                     .lineSpacing(3)
@@ -38,6 +38,8 @@ struct AgentMarkdownText: View {
                         }
                     }
                     .padding(.leading, 2)
+                case .table(let table):
+                    AgentMarkdownTableView(table: table)
                 }
             }
         }
@@ -46,7 +48,7 @@ struct AgentMarkdownText: View {
     }
 
     /// Raw text when markdown does not parse: a half-typed `**` mid-stream must not make the line vanish.
-    private func inline(_ string: String) -> Text {
+    static func inline(_ string: String) -> Text {
         if let attributed = try? AttributedString(
             markdown: string,
             options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)

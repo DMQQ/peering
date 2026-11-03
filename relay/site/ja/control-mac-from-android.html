@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AndroidからMacを遠隔操作する方法 · Peering</title>
+<meta name="description" content="AndroidスマホからMacの画面を見て操作。ポインタ、キーボード、ターミナルまで。アカウント不要、エンドツーエンド暗号化、自宅では無料。">
+<link rel="canonical" href="https://getpeering.app/ja/control-mac-from-android">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/control-mac-from-android">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/control-mac-from-android">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/control-mac-from-android">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/control-mac-from-android">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/control-mac-from-android">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/control-mac-from-android">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/control-mac-from-android">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/control-mac-from-android">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/control-mac-from-android">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/control-mac-from-android">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/control-mac-from-android">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://getpeering.app/ja/control-mac-from-android">
+<meta property="og:title" content="AndroidからMacを遠隔操作する方法 · Peering">
+<meta property="og:description" content="AndroidスマホでMacを遠隔操作。アカウント不要で、自宅でも外出先でも。">
+<meta property="og:image" content="https://getpeering.app/assets/og/control-mac-from-android.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AndroidからMacを遠隔操作する方法 · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AndroidからMacを遠隔操作する方法 · Peering">
+<meta name="twitter:description" content="AndroidスマホでMacを遠隔操作。アカウント不要で、自宅でも外出先でも。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/control-mac-from-android.png">
+<meta name="twitter:image:alt" content="AndroidからMacを遠隔操作する方法 · Peering">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "inLanguage": "ja",
+  "name": "Peering",
+  "url": "https://getpeering.app/ja/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android 10以降、iOS 18以降、macOS 15以降",
+  "description": "AndroidスマホからMacの画面を見て操作。ポインタ、キーボード、ターミナル、コーディングエージェントまで、エンドツーエンド暗号化でアカウント不要。自宅では無料。",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ja",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "AndroidスマホでMacを操作できますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "はい。MacとスマホにPeeringを入れ、6桁のコードで一度ペアリングすれば、スマホにMacの画面が映り、ポインタとキーボードを操作できます。自宅でも別のネットワークからでも使えます。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "アカウントやGoogleログインは必要ですか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "いいえ。Macにもスマホにもアカウントはありません。各デバイスが自分の鍵を作り、ペアリングコードを確認したあとは互いを信頼します。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Android版PeeringはGoogle Playにありますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Google Playで近日公開予定です。MacアプリとiPhoneアプリは現在ご利用いただけます。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "対応するAndroidのバージョンは？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Android 10以降のスマートフォンとタブレットです。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "外出先からでも使えますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "はい。Peeringはまずデバイス同士の直接経路を試し、つながらなければセッションを読めないリレーに切り替えます。無料プランではリレー時間が1日30分まで、Proまたは買い切りなら制限はありません。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Microsoft リモート デスクトップでAndroidからMacを操作できますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "いいえ。MicrosoftのリモートデスクトップアプリはRDPを使いますが、macOSにはRDPサーバーがありません。AndroidからMacを操作するには、Peeringのように専用のMacホストを持つアプリが必要です。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "AndroidからMacに無料でリモート接続する方法は？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Peeringは自分のネットワーク内なら時間制限なしで無料、別のネットワークからも1日30分まで無料です。Chromeリモートデスクトップも無料ですが、Googleアカウントが必要です。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Macの音をスマホで聞けますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "はい。セッションパネルでMacのサウンドをオンにしてください。"
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ja/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "AndroidからMacを操作",
+      "item": "https://getpeering.app/ja/control-mac-from-android"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "inLanguage": "ja",
+  "name": "AndroidスマホからMacを操作する方法",
+  "step": [
+    {
+      "@type": "HowToStep",
+      "position": 1,
+      "name": "MacにPeeringを入れる",
+      "text": "Mac版Peering（macOS 15以降）をダウンロードして開き、画面収録とアクセシビリティを許可します。"
+    },
+    {
+      "@type": "HowToStep",
+      "position": 2,
+      "name": "スマホにPeeringを入れる",
+      "text": "Android 10以降のスマホに、Google PlayからPeeringをインストールします。"
+    },
+    {
+      "@type": "HowToStep",
+      "position": 3,
+      "name": "一度だけペアリング",
+      "text": "同じネットワークにいる状態で「近く」からMacを選び、Macに表示された6桁を入力します。数字が一致するときだけ続けてください。"
+    },
+    {
+      "@type": "HowToStep",
+      "position": 4,
+      "name": "接続",
+      "text": "信頼済みコンピュータの一覧でMacをタップします。自宅ではネットワーク経由で、外出先ではまず直接経路を、だめならリレーを使います。"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ja/" aria-label="Peering、ホーム">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="ページ">
+      <a href="/ja/">ホーム</a>
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/download">ダウンロード</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+    <h1>AndroidスマホからMacを遠隔操作する</h1>
+    <p class="updated">Peeringの開発者が執筆。2026年11月、アプリのコードと照らし合わせて確認しました。</p>
+
+<div class="card callout">
+      <strong>ひとことで言うと。</strong> PeeringはMacアプリとAndroidアプリを6桁のコードでペアリングします。
+      そのあとはスマホにMacの画面が映り、自宅でも外出先でもそのまま操作できます。どちらにもアカウントは不要です。
+      AndroidアプリはGoogle Playで近日公開予定で、Android 10以降で動きます。
+    </div>
+
+    <h2>専用アプリがないと、なぜ面倒なのか</h2>
+    <p>
+      Apple純正の画面共有はAppleのデバイス同士でしか話せないので、Androidスマホには標準の入り口がありません。
+      よくある回避策は、Macの画面共有サーバーにVNCクライアントでつなぐ方法です。自宅のネットワークでは動きますが、
+      外からどう届かせるかは自分で解決するしかありません。もう一つは汎用のリモートサポートツールで、アカウントを求められ、
+      そもそも他人のパソコンを手伝うために作られています。Peeringの目的は一つだけ。あなたと、あなたのスマホと、あなたのMacです。
+    </p>
+
+    <h2>スマホからできること</h2>
+    <ul>
+      <li><strong>画面を見る</strong>：ハードウェアデコードのH.264またはHEVC映像で。ピンチでズーム、フィットとフィル、画質は自動、低、中、高から選べます。</li>
+      <li><strong>ポインタを動かす</strong>方法は3つ。スマホをタッチパッドにするトラックパッドモード、見えているものをそのままタップするダイレクトタッチ、小さな画面向けのジョイスティックです。閲覧のみモードもあります。</li>
+      <li><strong>入力する</strong>：Androidにないキーを足すキーボードバーで。Command、Option、Control、Escape、Tab、矢印キー、F1からF12、固定できる修飾キー、アプリごとのショートカットセットがあります。音声入力なら話した言葉がそのまま入力されます。</li>
+      <li><strong>Macの音を聞く</strong>：セッションパネルのサウンドスイッチで。</li>
+      <li><strong>テキストや画像を移す</strong>：クリップボード経由で双方向に、頼んだときだけ。</li>
+      <li><strong>見るものを選ぶ</strong>：ディスプレイ1つ、アプリ1つ、ウインドウ1つ、またはデスクトップ。</li>
+      <li><strong>ターミナルを開く</strong>：Macのファイルを閲覧、転送し、きちんとしたチャット画面でコーディングエージェントを動かせます。</li>
+      <li><strong>Mac本体の画面を暗くする</strong>：作業中に。離れるときはMacをロックできます。</li>
+    </ul>
+
+    <figure class="card doc-figure">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <img src="/assets/android/android-control-mac.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="AndroidスマホのPeeringにMacのコードエディタが映り、セッションバーにMacの名前とRELAYバッジが表示されている。">
+      <img src="/assets/android/android-keyboard.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="Android版PeeringのキーボードバーにEscape、Tab、Control、Option、Commandキーと、F1からF12の列が並んでいる。">
+      </div>
+      <figcaption>Androidスマホに映るMacの画面と、スマホのキーボードにないキーをそろえたキーボードバー。</figcaption>
+    </figure>
+
+    <h2>設定の手順</h2>
+    <p>
+      <strong>1. Macで。</strong> <a href="/ja/download">Mac版Peeringをダウンロード</a>します。
+      macOS 15（Sequoia）以降が必要で、Appleシリコン、Intelのどちらでも動きます。初回起動時に、画面を取り込むための画面収録と、
+      ポインタを動かして入力するためのアクセシビリティを求められます。どちらもAppleの権限で、どちらも必須です。
+    </p>
+    <p>
+      <strong>2. スマホで。</strong> 公開されたら<a href="https://play.google.com/store/apps/details?id=pl.dmq.peering">Google Play</a>から
+      Peeringをインストールします。Android 10以降のスマホかタブレットなら何でもかまいません。
+    </p>
+    <p>
+      <strong>3. 一度だけペアリング。</strong> 同じWi-Fiにいると、Macが「近く」に表示されます。タップするとMacに6桁が出るので、
+      スマホに入力し、一致するときだけ続けます。Macに表示されるQRコードを読み取っても、別のネットワークからMacのデバイスIDを貼り付けてもペアリングできます。
+      以後、2台はずっと互いを認識します。
+    </p>
+    <p>
+      <strong>4. 接続。</strong> Macをタップします。セッションバーには接続方法が表示されます。自宅ではLAN、
+      2台がインターネット越しに直接の経路を見つけたときはDIRECT、見つからずPeeringのリレーが運ぶときはRELAYです。
+    </p>
+
+    <h2>自宅のネットワークの外から</h2>
+    <p>
+      ポート開放もVPNも固定IPもいりません。スマホが外にあるとき、Peeringはまず2台の間に直接の経路を開こうとします。
+      それを通さないネットワークでは、リレーが接続を中継します。リレーは鍵を持っていません。映像、キー入力、クリップボードは
+      スマホとMacの間で暗号化され、リレーはそのどれも読めません。Macの近くに戻ると、リレー経由のセッションは自動的に自分のネットワークへ移ります。
+    </p>
+    <p>
+      ただしMacは起きている必要があります。ふたを閉じたまま使う方法も含め、役立つ設定は
+      <a href="/ja/keep-mac-awake-for-remote-access">外出中もMacにつながるようにする方法</a>をご覧ください。
+      同じネットワークでスリープ中のMacは、スマホからWake on LANで起こせます。
+    </p>
+
+    <h2>最初からプライベート</h2>
+    <p>
+      アカウントはありません。各デバイスが自分の鍵を作り、自分の安全な保管場所にしまいます。ペアリング後は、
+      相手を名乗るほかの何とも話しません。Androidアプリは指紋、顔、パスコードでロックでき、Macの画面がAndroidのスクリーンショットや
+      履歴のサムネイルに残らないようにします。アプリに解析も広告もありません。
+    </p>
+
+    <h2>料金</h2>
+    <p>自分のネットワーク内では無料で時間制限もなく、別のネットワークからつなぐリレー時間も1日30分まで無料です。Pro（月額$2.99）または買い切り（$24.99、一度だけのお支払い）なら1日の制限がなくなります。これは米国での価格で、Google Playでは現地通貨で表示されます。</p>
+
+    <h2>できないこと</h2>
+    <p>
+      Androidでは同時に1つのセッションだけです。2台目のコンピュータを開くと1台目は終了します。リレーにはMacが起きていることが必要です。
+      また、PeeringはLinuxマシンや他人のコンピュータには届きません。自分が所有し、ペアリングしたコンピュータのためのものです。
+      <a href="/ja/control-windows-pc-from-phone">Windowsホスト</a>もありますが、まだ初期のベータです。
+    </p>
+
+    <h2>よくある質問</h2>
+    <h3>AndroidスマホでMacを操作できますか？</h3>
+    <p>はい。MacとスマホにPeeringを入れ、6桁のコードで一度ペアリングすれば、スマホにMacの画面が映り、ポインタとキーボードを操作できます。自宅でも別のネットワークからでも使えます。</p>
+    <h3>アカウントやGoogleログインは必要ですか？</h3>
+    <p>いいえ。Macにもスマホにもアカウントはありません。各デバイスが自分の鍵を作り、ペアリングコードを確認したあとは互いを信頼します。</p>
+    <h3>Android版PeeringはGoogle Playにありますか？</h3>
+    <p>Google Playで近日公開予定です。MacアプリとiPhoneアプリは現在ご利用いただけます。</p>
+    <h3>対応するAndroidのバージョンは？</h3>
+    <p>Android 10以降のスマートフォンとタブレットです。</p>
+    <h3>外出先からでも使えますか？</h3>
+    <p>はい。Peeringはまずデバイス同士の直接経路を試し、つながらなければセッションを読めないリレーに切り替えます。無料プランではリレー時間が1日30分まで、Proまたは買い切りなら制限はありません。</p>
+    <h3>Microsoft リモート デスクトップでAndroidからMacを操作できますか？</h3>
+    <p>いいえ。MicrosoftのリモートデスクトップアプリはRDPを使いますが、macOSにはRDPサーバーがありません。AndroidからMacを操作するには、Peeringのように専用のMacホストを持つアプリが必要です。</p>
+    <h3>AndroidからMacに無料でリモート接続する方法は？</h3>
+    <p>Peeringは自分のネットワーク内なら時間制限なしで無料、別のネットワークからも1日30分まで無料です。Chromeリモートデスクトップも無料ですが、Googleアカウントが必要です。</p>
+    <h3>Macの音をスマホで聞けますか？</h3>
+    <p>はい。セッションパネルでMacのサウンドをオンにしてください。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ja/download">Mac版Peeringをダウンロード</a>
+      <a class="btn btn-quiet" href="https://play.google.com/store/apps/details?id=pl.dmq.peering">Google Play、近日公開</a>
+      <a class="btn btn-quiet" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">iPhoneアプリを入手</a>
+    </div>
+
+    <div class="related">
+      <h2>あわせて読む</h2>
+      <ul>
+      <li><a href="/ja/android-phone-as-mac-trackpad">AndroidスマホをMacのトラックパッドに</a></li>
+      <li><a href="/ja/android-tablet-remote-desktop">Androidタブレットでリモートデスクトップ</a></li>
+      <li><a href="/ja/claude-code-on-android">AndroidでClaude Code</a></li>
+      <li><a href="/ja/access-your-mac-from-anywhere">どこからでもMacにアクセス</a></li>
+      <li><a href="/ja/mac-remote-android-vs-iphone">AndroidとiPhoneのPeeringを比較</a></li>
+      <li><a href="/ja/remote-desktop-apps-compared">リモートデスクトップアプリ比較</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="ガイド、法務、サポート">
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
+      <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリ比較</a>
+      <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/best-remote-desktop-app-for-ipad">iPadに最適</a>
+      <a href="/ja/apple-remote-desktop-alternative">ARDの代替</a>
+      <a href="/ja/apple-remote-desktop-vs-screen-sharing">ARDと画面共有</a>
+      <a href="/ja/screens-vs-jump-desktop">ScreensとJump</a>
+      <a href="/ja/rustdesk-alternative-for-mac">RustDeskの代替</a>
+      <a href="/ja/control-mac-from-android">AndroidからMac</a>
+      <a href="/ja/claude-code-on-android">AndroidでClaude Code</a>
+      <a href="/ja/chrome-remote-desktop-alternative">Chromeリモートデスクトップの代替</a>
+      <a href="/ja/teamviewer-alternative-for-mac">TeamViewerの代替</a>
+      <a href="/ja/control-windows-pc-from-phone">スマホからWindows</a>
+      <a href="/ja/download">ダウンロード</a>
+      <a href="/ja/privacy">プライバシー</a>
+      <a href="/ja/terms">利用規約</a>
+      <a href="mailto:support@getpeering.app">サポート</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/control-mac-from-android" hreflang="en" lang="en">English</a>
+      <a href="/de/control-mac-from-android" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/control-mac-from-android" hreflang="es" lang="es">Español</a>
+      <a href="/fr/control-mac-from-android" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/control-mac-from-android" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/control-mac-from-android" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/control-mac-from-android" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/control-mac-from-android" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/control-mac-from-android" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/control-mac-from-android" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. AndroidとGoogle PlayはGoogle LLCの商標です。Apple、iPhone、MacはApple Inc.の商標です。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

@@ -11,7 +11,7 @@ import ScreenCaptureKit
 /// Captures the screen, encodes it, writes a playable file, and plays it back.
 ///
 /// This is the phase's exit criterion in executable form: *encoded frames land on disk and
-/// play back*. It is not a unit test of the encoder — it runs the host's real
+/// play back*. It is not a unit test of the encoder, it runs the host's real
 /// `CapturePipeline`, its real `CaptureEngine` and its real `VideoEncoder`, and then asks
 /// AVFoundation to decode what came out.
 ///
@@ -22,8 +22,8 @@ import ScreenCaptureKit
 /// - `--synthetic` and `--pipeline` need no permission at all, and between them they cover
 ///   the two halves of what the default mode does. `--synthetic` calls ``VideoEncoder``
 ///   directly, so it proves the encoder and nothing above it; `--pipeline` drives the real
-///   ``CapturePipeline`` over a generated source, so it proves the pipeline — the frame
-///   intake, the keyframe bookkeeping, the statistics, the hand-off of encoded frames —
+///   ``CapturePipeline`` over a generated source, so it proves the pipeline, the frame
+///   intake, the keyframe bookkeeping, the statistics, the hand-off of encoded frames,
 ///   and nothing below it. Neither can prove ScreenCaptureKit itself, which is exactly
 ///   what the real mode is for.
 /// - `--resources` is the one mode whose subject is this process rather than the screen: it
@@ -324,7 +324,7 @@ struct CaptureProbe {
 
         // Preflight only reports; it never asks. An app that only ever preflights can sit
         // there permanently denied and show a generic failure. `--request-access` is the one
-        // call that puts the system prompt on screen, and it blocks until it is answered —
+        // call that puts the system prompt on screen, and it blocks until it is answered,
         // which is why it is opt-in rather than automatic, and why the failure messages
         // below point at it.
         if options.requestAccess, !CGPreflightScreenCaptureAccess() {
@@ -385,7 +385,7 @@ struct CaptureProbe {
         for descriptor in descriptors {
             let size = "\(Int(descriptor.pixelSize.width))×\(Int(descriptor.pixelSize.height))"
             // The icon is printed because its absence is invisible everywhere else: `nil` is a
-            // valid, well-formed descriptor, and the client draws it as a generic symbol — so a
+            // valid, well-formed descriptor, and the client draws it as a generic symbol, so a
             // row that lost its icon and a row that was never meant to have one look identical
             // in the picker, and identical in the protocol. Only here do they differ.
             let icon = descriptor.iconPNGData.map { "\($0.count) B" } ?? "none"
@@ -400,8 +400,8 @@ struct CaptureProbe {
     /// **The half of that feature no client can check.** The phone only ever sees the pictures
     /// arrive, so a host that produced none and a host that produced twenty that were all
     /// dropped by the byte budget look the same from there: a grid of empty tiles. This walks
-    /// the whole host half in one run — the enumeration, one screenshot per source, the JPEG
-    /// under the budget, and the attach to the catalogue the client actually reads — and fails
+    /// the whole host half in one run, the enumeration, one screenshot per source, the JPEG
+    /// under the budget, and the attach to the catalogue the client actually reads, and fails
     /// if they do not line up.
     ///
     /// The second catalogue read is the point of the check rather than a convenience. A
@@ -469,7 +469,7 @@ struct CaptureProbe {
                 """)
         }
         // Named rather than counted, because an application with no picture is the ordinary
-        // case rather than a fault — see below — and the question worth answering is *which*,
+        // case rather than a fault, see below, and the question worth answering is *which*,
         // not how many.
         if !missing.isEmpty {
             log("no picture for: \(missing.joined(separator: ", "))")
@@ -668,7 +668,7 @@ struct CaptureProbe {
     /// sees it.
     ///
     /// **What this is for is the second and a half.** A rotation, or a return to an arrangement
-    /// from one of its tiles, re-asks for the same windows in different rectangles — and until the
+    /// from one of its tiles, re-asks for the same windows in different rectangles, and until the
     /// rearrangement path existed the Mac answered by stopping a ScreenCaptureKit stream per tile
     /// and starting a new one, which is a visible stop in the picture for arithmetic the client had
     /// already done.
@@ -752,7 +752,7 @@ struct CaptureProbe {
 
         try await compositor.replan(upright)
         // **At the new size, not merely one more frame.** A tick that was already in flight when
-        // the canvas changed draws the old one, and it arrives after the rearrangement — so
+        // the canvas changed draws the old one, and it arrives after the rearrangement, so
         // "something was drawn since" is satisfied by exactly the frame that proves nothing. What
         // is waited for is the first canvas that comes out the shape of the one asked for.
         try await waitForCanvas(drawn, toBe: upright.canvas)
@@ -839,7 +839,7 @@ struct CaptureProbe {
     /// into a bitmap, and every way of getting it wrong has the same result as the black
     /// rectangle it replaced: a symbol that does not exist on this macOS, a font size that rounds
     /// to nothing at tile scale, a block measured in the wrong direction, a flip that puts the
-    /// text above the top edge. None of those would ever be read as a bug in the card — the user
+    /// text above the top edge. None of those would ever be read as a bug in the card, the user
     /// would see a black tile in a mosaic and conclude the app had failed at something.
     ///
     /// So each card is drawn at three tile sizes, read back off a render, and required to have
@@ -1149,8 +1149,8 @@ struct CaptureProbe {
     /// **The only check in this probe that runs more than one capture at a time**, and the one
     /// that answers the question a client would ask first: does a canvas built out of other
     /// people's pixel buffers encode into something that plays. Everything about it is the
-    /// host's — one `SCStream` per tile, the retained copy, the CoreImage composite, the canvas
-    /// pool, the encoder — and the only thing the probe supplies is the layout.
+    /// host's, one `SCStream` per tile, the retained copy, the CoreImage composite, the canvas
+    /// pool, the encoder, and the only thing the probe supplies is the layout.
     static func runMosaic(_ options: Options) async throws {
         let resolver = ScreenCaptureSourceResolver()
         let descriptors = try await resolver.catalog().all
@@ -1304,7 +1304,7 @@ struct CaptureProbe {
     /// frames.
     ///
     /// ``runSynthetic(_:)`` proves the encoder, and it does that by calling ``VideoEncoder``
-    /// directly — which leaves the object the session layer actually drives unverified, and
+    /// directly, which leaves the object the session layer actually drives unverified, and
     /// the pipeline is where most of the rules live: the resize check, the encoder rebuild
     /// and the keyframe it owes, the statistics that combine two sets of counters, and the
     /// delivery of encoded frames to a consumer on a thread the caller does not own. This
@@ -1372,7 +1372,7 @@ struct CaptureProbe {
 
             // A synthetic source has no permission to lose and no display to be static, so
             // silence here is a bug in the pipeline or the generator rather than a TCC
-            // state — which is worth saying outright, because the same silence on the real
+            // state, which is worth saying outright, because the same silence on the real
             // path means something else entirely.
             if elapsed >= 2, writer.frameCount == 0 {
                 let statistics = pipeline.statistics
@@ -1433,7 +1433,7 @@ struct CaptureProbe {
     /// The generator's presentation times are frame indices over the frame rate, so a
     /// keyframe's position in the file is the frame it was attached to. That converts "the
     /// request went through the pipeline and came out on the next frame" from a claim into
-    /// a measurement — and a request that never reached the encoder shows up as a keyframe
+    /// a measurement, and a request that never reached the encoder shows up as a keyframe
     /// only at the two-second interval, or at the start of the file.
     static func reportKeyframe(
         summary: MovieWriter.Summary,

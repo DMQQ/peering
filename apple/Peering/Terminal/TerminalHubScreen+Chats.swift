@@ -35,6 +35,7 @@ extension TerminalHubScreen {
         let folder = (session.directory as NSString).lastPathComponent
         return Button {
             model.selectedAgentSessionID = session.id
+            ChatBoardLedger.shared.markSeen(session.id)
             path.append(.chat(session.id))
         } label: {
             SessionCard(

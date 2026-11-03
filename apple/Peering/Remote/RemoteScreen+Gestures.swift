@@ -3,35 +3,6 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-struct HeroCarry: Equatable {
-    /// **The direction decides whether anything is hidden.** Going out, the frozen snapshot is the
-    /// arrangement and the window is a piece of it: the rest of it has to be hidden while that piece
-    /// grows, or every other window grows across the screen with it. Coming back, the frozen snapshot
-    /// is the window alone — a scrim there would black out the arrangement fading in behind it.
-    let carriesOutOfArrangement: Bool
-    let frozenAnchor: NormalizedRect
-    let frozenSize: CGSize
-}
-
-struct PictureTransition {
-    let token: UUID
-    let targetSourceID: String?
-
-    var zoom: CGFloat
-    var pan: CGSize
-    let startZoom: CGFloat
-    let startPan: CGSize
-    let endZoom: CGFloat
-    let endPan: CGSize
-    let startedAt: ContinuousClock.Instant
-    var task: Task<Void, Never>?
-
-    var settled: Bool
-
-    var carry: HeroCarry?
-
-}
-
 extension RemoteScreen {
     // MARK: - Gestures
 
@@ -68,7 +39,7 @@ extension RemoteScreen {
             },
             onScroll: { translation in
                 // Pixels, which is the unit the host's wheel event is built in (`units: .pixel`),
-                // at the one scale this screen moves content by — see `ScrollNotch`. Doubling a
+                // at the one scale this screen moves content by, see `ScrollNotch`. Doubling a
                 model.send(.scroll(
                     dx: Double(translation.width) * ScrollNotch.pixelsPerPoint,
                     dy: Double(translation.height) * ScrollNotch.pixelsPerPoint
@@ -142,6 +113,9 @@ extension RemoteScreen {
                 // An open panel no longer swallows the tap: the picture stays usable under it, and the panel is closed by its handle.
                 return false
             },
+            onMultiFingerSwipe: { swipe in
+                for command in swipe.commands(spaces: model.catalog?.spaceInfo) { model.send(command) }
+            }
         )
         .ignoresSafeArea()
         .transaction { $0.disablesAnimations = true }
@@ -155,7 +129,7 @@ extension RemoteScreen {
     }
 
     /// **One ask at the end rather than a rearrangement per slot.** Moving the tile under the
-    /// finger would re-ask the Mac on every seam it crossed — six windows torn down and rebuilt,
+    /// finger would re-ask the Mac on every seam it crossed, six windows torn down and rebuilt,
     /// or re-composited, several times in a second of dragging. What the user is arranging is the
     /// order, and the order is only settled when they let go.
     func dropHeldTile() {
@@ -166,8 +140,8 @@ extension RemoteScreen {
         // feedback.** The outline being carried is drawn where the finger is; the arrangement it
         // is dropped into is the client's own, known the instant the user lets go, and drawing it
         // at once means the outline travels from the thumb into the slot it was put in and every
-        // window it displaced travels into its own. Asked of the Mac and *then* drawn — which is
-        // what this did, because the borders were drawn from the Mac's answer — the outline simply
+        // window it displaced travels into its own. Asked of the Mac and *then* drawn, which is
+        // what this did, because the borders were drawn from the Mac's answer, the outline simply
         // vanished and the arrangement under it reordered itself a moment later, with the names in
         // the old places the whole time. See ``shownMosaicLayout``.
         withAnimation(Motion.settle) {
@@ -189,8 +163,8 @@ extension RemoteScreen {
         guard layout.tiles.indices.contains(index) else { return }
 
         // **A tile whose window is not in the catalogue is a card, and a card is not a window.**
-        // The Mac draws one for every source it can no longer capture — a window closed while the
-        // arrangement was up is the ordinary way that happens — and there is nothing behind it to
+        // The Mac draws one for every source it can no longer capture, a window closed while the
+        // arrangement was up is the ordinary way that happens, and there is nothing behind it to
         // open. Tapping it used to send the ask anyway, and the Mac, whose catalogue is the
         // authority on this, refuses to capture a window that is not there: no picture ever
         // arrives, so the transition that had already run left the arrangement magnified with
@@ -234,7 +208,7 @@ extension RemoteScreen {
     /// Three seconds. A second and a fifth covered the Mac building a stream, but a window on
     /// another desktop waits for the Mac to switch there first, and a tile that misses this is
     /// dead until the arrangement is rebuilt.
-    private func watchTileOpening(_ sourceID: String) {
+    func watchTileOpening(_ sourceID: String) {
         model.tileOpeningWatch?.cancel()
         model.tileOpeningWatch = Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
@@ -247,209 +221,6 @@ extension RemoteScreen {
                 return
             }
         }
-    }
-
-    func animateBackToMosaic() {
-        model.tileOpeningWatch?.cancel()
-
-        let sourceID = model.activeSourceID
-        guard let sourceID, let layout = model.mosaicLayout,
-              let anchor = windowAnchor(in: layout, sourceID: sourceID),
-              let target = mosaicReturnTransform(sourceID: sourceID)
-        else {
-            model.returnToMosaic()
-            return
-        }
-
-        beginHeroTransition(
-            to: CaptureSource.mosaic(layout).stableID,
-            target: target,
-            carry: HeroCarry(
-                carriesOutOfArrangement: false,
-                frozenAnchor: anchor,
-                frozenSize: model.capturePixelSize ?? .zero
-            )
-        )
-
-        model.returnToMosaic()
-    }
-
-    /// **The one animation in this app that moves a picture rather than the whole live layer.** The
-    /// frozen layer's own content never changes for the life of this transition, so unlike the
-    /// mosaic's first design there is nothing here for a decoder to race: the zoom and the pan are
-    /// walked on a plain per-frame timer, same as any other view state, because nothing downstream
-    /// of them is fighting a second writer on a different clock.
-    @discardableResult
-    func beginHeroTransition(
-        to sourceID: String?,
-        target: (zoom: CGFloat, pan: CGSize),
-        carry: HeroCarry
-    ) -> Task<Void, Never> {
-        // **Nothing to animate over means no animation.** A freeze is the frame the live layer is
-        // showing at this instant, so it cannot be the wrong tile or the wrong shape — but a layer
-        // that has displayed nothing yet has nothing to give, and switching plainly is the honest
-        // answer for a picture no one has seen.
-        guard model.renderer.freezeCurrentFrame() else {
-            return Task {}
-        }
-
-        let base = pictureBaseScale
-        let start = (zoom: effectiveZoom, pan: pan)
-        let end = (zoom: base * target.zoom, pan: target.pan)
-
-        // The live layer's own resting state for whatever arrives. Safe to write immediately: it
-        // is hidden behind the frozen layer for the whole of the transition, so nothing sees it
-        // change.
-        zoom = 1
-        pan = .zero
-
-        return startTransition(to: sourceID, from: start, to: end, carry: carry)
-    }
-
-    private func beginPlainTransition(to sourceID: String?, resetZoom: Bool) {
-        // The same rule as a hero: no frozen picture, no transition. A cross-fade from an image
-        // nobody froze would put an older picture on screen for the whole of it.
-        guard model.renderer.freezeCurrentFrame() else { return }
-        let current = (zoom: effectiveZoom, pan: pan)
-        if resetZoom {
-            zoom = 1
-            pan = .zero
-        }
-        startTransition(to: sourceID, from: current, to: current, carry: nil)
-    }
-
-    @discardableResult
-    private func startTransition(
-        to sourceID: String?,
-        from start: (zoom: CGFloat, pan: CGSize),
-        to end: (zoom: CGFloat, pan: CGSize),
-        carry: HeroCarry?
-    ) -> Task<Void, Never> {
-        transition?.task?.cancel()
-
-        let startedAt = ContinuousClock().now
-        let alreadySettled = start.zoom == end.zoom && start.pan == end.pan
-        let token = UUID()
-        // Fixed rather than the default: the `PictureTransition` below and every reader of
-        // `transition?.token` after it have to agree on the same value, and generating a second
-        // one there would make ``endTransitionIfReady()``'s comparisons meaningless.
-
-        let task = Task { @MainActor in
-            guard !alreadySettled else { return }
-            let clock = ContinuousClock()
-            while true {
-                guard var current = transition, current.token == token else { return }
-                let seconds = (clock.now - startedAt) / .seconds(1)
-                let progress = Motion.settleProgress(at: seconds, response: Motion.pictureResponse)
-                if seconds >= Motion.pictureResponse * 1.6 {
-                    current.zoom = end.zoom
-                    current.pan = end.pan
-                    current.settled = true
-                    if current.carry?.carriesOutOfArrangement == false,
-                       let arrangement = model.renderer.mosaicSnapshot {
-                        model.renderer.hold(arrangement)
-                        let canvas = CGSize(
-                            width: CGFloat(arrangement.width),
-                            height: CGFloat(arrangement.height)
-                        )
-                        current.zoom = pictureScale.base(pixelSize: canvas, in: canvasSize)
-                        current.pan = .zero
-                    }
-                    transition = current
-                    endTransitionIfReady()
-                    return
-                }
-                current.zoom = start.zoom + (end.zoom - start.zoom) * progress
-                current.pan = CGSize(
-                    width: start.pan.width + (end.pan.width - start.pan.width) * progress,
-                    height: start.pan.height + (end.pan.height - start.pan.height) * progress
-                )
-                transition = current
-                try? await Task.sleep(for: .milliseconds(16))
-                guard !Task.isCancelled else { return }
-            }
-        }
-
-        transition = PictureTransition(
-            token: token,
-            targetSourceID: sourceID,
-            zoom: start.zoom, pan: start.pan,
-            startZoom: start.zoom, startPan: start.pan,
-            endZoom: end.zoom, endPan: end.pan,
-            startedAt: startedAt, task: task,
-            settled: alreadySettled,
-            carry: carry
-        )
-
-        armTransitionDeadline(token: token)
-        if alreadySettled { endTransitionIfReady() }
-        return task
-    }
-
-    /// A transition that never ends leaves the picture frozen for good: the config it is waiting
-    /// for can be lost to a network hiccup, or belong to a tile that never opens (though
-    /// ``watchTileOpening(_:)`` already answers that one specifically, faster, by putting the
-    /// arrangement back). This is the backstop for everything else — past the deadline, the live
-    /// layer is shown wherever it currently is rather than left hidden behind a stale snapshot.
-    private func armTransitionDeadline(token: UUID) {
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(3))
-            guard transition?.token == token else { return }
-            transition = nil
-        }
-    }
-
-    func endTransitionIfReady() {
-        guard let transition, transition.settled,
-              model.picture?.sourceID == transition.targetSourceID,
-              model.isReadyToPlace(of: model.capturePixelSize ?? .zero)
-        else { return }
-        self.transition = nil
-    }
-
-    /// Nothing for a picture a hero transition already targets — ``openMosaicTile(_:in:)`` and
-    /// ``animateBackToMosaic()`` have already frozen the right snapshot and are animating it; this
-    /// would only interrupt that with a second, motionless freeze of whatever is on screen at the
-    /// moment the config happens to land.
-    func reactToPictureChange(from previous: PictureIdentity, to current: PictureIdentity) {
-        switch previous.change(to: current) {
-        case .unchanged:
-            return
-        case .resized:
-            // The magnification is kept, because it is a multiple of the fit, and a lane switch
-            // has nothing to do with what the user was looking at. The offset is measured in
-            // points of a canvas whose picture has just changed shape, so left alone it can sit
-            // outside the range the new picture allows.
-            pan = clampedPan(pan)
-            guard transition?.targetSourceID != current.sourceID else {
-                endTransitionIfReady()
-                return
-            }
-            beginPlainTransition(to: current.sourceID, resetZoom: false)
-        case .replaced:
-            guard transition?.targetSourceID != current.sourceID else {
-                endTransitionIfReady()
-                return
-            }
-            beginPlainTransition(to: current.sourceID, resetZoom: true)
-        }
-    }
-
-    func cancelTransition() {
-        guard let transition else { return }
-        transition.task?.cancel()
-        self.transition = nil
-    }
-
-    /// **Called when the connection leaves `.ready`, because none of it survives the connection it
-    /// was measuring.** This view is kept across a drop on purpose — the picture stays up, and the
-    /// zoom and the open panel with it — but the transit state does not belong to the picture that
-    /// comes back.
-    func abandonPictureTransit() {
-        cancelTransition()
-        heldTile = nil
-        targetTile = nil
-        heldPoint = nil
     }
 
     var blockedRegions: [CGRect] {
@@ -467,12 +238,12 @@ extension RemoteScreen {
 
     ///
     /// The clamp used to stop exactly where the picture's edge met the screen's, which sounds
-    /// right and is not: at that limit a corner of the desktop sits in the screen's own corner —
+    /// right and is not: at that limit a corner of the desktop sits in the screen's own corner,
     /// underneath the rail, and in landscape underneath the notch as well. The corner the user is
     /// dragging towards to *look at* is the one thing they cannot see.
     /// Measured rather than calculated, and that is the whole point. Both earlier attempts worked
-    /// the number out from the rail's nominal width — once as the width itself, once as the width
-    /// plus its edge inset — and both were short by the same thing neither knew about: the rails
+    /// the number out from the rail's nominal width, once as the width itself, once as the width
+    /// plus its edge inset, and both were short by the same thing neither knew about: the rails
     /// sit *inside the safe area*, which in landscape is a wide inset on the side the sensor
     /// housing is on. On this phone the rail's inner edge is 121 points from the screen's edge,
     /// not the 62 the metrics describe, so a corner dragged towards it came to rest underneath it
@@ -511,5 +282,4 @@ extension RemoteScreen {
             pan: pan
         )
     }
-
 }

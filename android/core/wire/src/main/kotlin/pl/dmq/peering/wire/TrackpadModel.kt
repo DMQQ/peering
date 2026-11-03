@@ -97,6 +97,15 @@ class TrackpadModel(
         return actions
     }
 
+    /** Forgets every finger without a click, releasing the button if a drag held it. */
+    fun cancel(): List<PointerAction> {
+        touches.clear()
+        gestureFingers = 0
+        if (!dragging) return emptyList()
+        dragging = false
+        return listOf(PointerAction.ButtonUp(MouseButton.LEFT))
+    }
+
     fun onDirectDown(x: Double, y: Double): List<PointerAction> =
         listOf(placeCursor(x, y), PointerAction.ButtonDown(MouseButton.LEFT))
 

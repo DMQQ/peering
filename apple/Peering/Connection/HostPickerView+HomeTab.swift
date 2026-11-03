@@ -89,6 +89,13 @@ struct HomeTab: View {
                                     reduceMotion: reduceMotion
                                 )
 
+                            ChatBoardSummary()
+                                .connectEntrance(
+                                    visible: sectionsVisible,
+                                    delay: 0.07,
+                                    reduceMotion: reduceMotion
+                                )
+
                             if model.pairedHostIDs.isEmpty {
                                 firstPairingCard
                                     .connectEntrance(

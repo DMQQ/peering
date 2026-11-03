@@ -59,3 +59,26 @@ struct AgentPromptQueueTests {
         #expect(queue.prompts == ["b"])
     }
 }
+
+struct AgentPromptQueueRemovalTests {
+    @Test func removesTheMessageAtTheOffsetWhenItIsStillThere() {
+        var queue = AgentPromptQueue(prompts: ["a", "b", "c"])
+        let removed = queue.remove("b", at: 1)
+        #expect(removed)
+        #expect(queue.prompts == ["a", "c"])
+    }
+
+    @Test func aShiftedQueueRemovesTheSameTextNotTheNeighbour() {
+        var queue = AgentPromptQueue(prompts: ["b", "c"])
+        let removed = queue.remove("b", at: 1)
+        #expect(removed)
+        #expect(queue.prompts == ["c"])
+    }
+
+    @Test func aMessageAlreadySentRemovesNothing() {
+        var queue = AgentPromptQueue(prompts: ["c"])
+        let removed = queue.remove("a", at: 0)
+        #expect(removed == false)
+        #expect(queue.prompts == ["c"])
+    }
+}

@@ -1,5 +1,7 @@
 package pl.dmq.peering.widget
 
+import pl.dmq.peering.wire.PairingPayload
+import pl.dmq.peering.wire.PairingPayloadError
 import java.net.URLDecoder
 import java.net.URLEncoder
 
@@ -10,6 +12,9 @@ sealed interface WidgetLink {
 
     data class Chat(val chatId: String, val hostId: String?) : WidgetLink
 
+    /** A computer's own link, from the QR code it shows: opened when paired, else paired with. */
+    data class Device(val hostId: String) : WidgetLink
+
     /** Ends the session on screen. It comes from outside the app only, and asks first when a session is live. */
     data object Disconnect : WidgetLink
 
@@ -17,6 +22,7 @@ sealed interface WidgetLink {
     val targetHostId: String? get() = when (this) {
         is Connect -> hostId
         is Chat -> hostId
+        is Device -> hostId
         Disconnect -> null
     }
 
@@ -30,6 +36,7 @@ sealed interface WidgetLink {
         fun chat(chatId: String, hostId: String?): String = build("chat", listOf("id" to chatId, "host" to hostId))
 
         fun parse(text: String?): WidgetLink? {
+            if (text != null && text.startsWith("https://")) return deviceLink(text)
             val prefix = "$SCHEME://"
             if (text == null || !text.startsWith(prefix)) return null
             val rest = text.removePrefix(prefix)
@@ -44,6 +51,12 @@ sealed interface WidgetLink {
                 "chat" -> query["id"]?.takeIf { it.isNotEmpty() }?.let { Chat(it, query["host"]?.takeIf { host -> host.isNotEmpty() }) }
                 else -> null
             }
+        }
+
+        private fun deviceLink(text: String): Device? = try {
+            Device(PairingPayload.hostId(text))
+        } catch (refusal: PairingPayloadError) {
+            null
         }
 
         private fun build(target: String, parameters: List<Pair<String, String?>>): String {

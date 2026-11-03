@@ -22,6 +22,11 @@ final class URLCommandRouter {
         handle(command, model: model, servers: servers)
     }
 
+    /// A Mac's https link, parsed by the caller since it is not a `peering://` command.
+    func handleHostLink(hostID: String, model: SessionModel, servers: SSHModel) {
+        handle(.openHost(hostID: hostID), model: model, servers: servers)
+    }
+
     func confirm(model: SessionModel, servers: SSHModel) {
         guard let command = gate.confirm() else { return }
         perform(command, model: model, servers: servers)
@@ -49,6 +54,8 @@ final class URLCommandRouter {
             } else {
                 model.reconnectToLastHost()
             }
+        case .openHost(let hostID):
+            model.openHostLink(hostID: hostID)
         case .chat(let chatID, let hostID):
             // A chat lives on its Mac: that Mac is opened first, and the chat is asked for once its screen is up (see `InAppBanner.openRequest`).
             if let hostID { model.openFromNotification(hostID: hostID, sourceID: nil) }
@@ -75,6 +82,8 @@ final class URLCommandRouter {
     var confirmationTitle: String {
         switch confirming {
         case .endShells: return String(localized: "Close all shells?")
+        case .openHost: return String(localized: "Open this Mac?")
+        case .connect: return String(localized: "Connect to a Mac?")
         default: return String(localized: "End this session?")
         }
     }
@@ -82,7 +91,23 @@ final class URLCommandRouter {
     var confirmationMessage: String {
         switch confirming {
         case .endShells: return String(localized: "Every open shell on this phone will be closed.")
+        case .openHost, .connect: return String(localized: "A link asked Peering to connect to a Mac. Continue only if you opened it yourself.")
         default: return String(localized: "You will be disconnected from your Mac.")
+        }
+    }
+
+    var confirmationButton: String {
+        switch confirming {
+        case .openHost, .connect: return String(localized: "Connect")
+        default: return String(localized: "End")
+        }
+    }
+
+    /// Ending is destructive; connecting is not.
+    var confirmationIsDestructive: Bool {
+        switch confirming {
+        case .openHost, .connect: return false
+        default: return true
         }
     }
 }

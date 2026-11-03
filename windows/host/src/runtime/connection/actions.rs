@@ -68,11 +68,11 @@ impl Connection {
         let Ok(mut hello) = serde_json::from_slice::<ServerHello>(&frame.payload) else {
             return frame;
         };
-        let agent_installed = self.shared.lock().agent_availability.installed(self.now());
-        if agent_installed {
+        let installed_agents = self.shared.lock().agent_availability.installed_programs(self.now());
+        if !installed_agents.is_empty() {
             hello.capabilities.supports_agent_chat = Some(true);
             hello.capabilities.supports_agent_list = Some(true);
-            hello.agent_chat_agents = Some(peering_agent::manager::agent_chat_agents());
+            hello.agent_chat_agents = Some(installed_agents);
             hello.capabilities.supports_agent_model_picker = Some(true);
             hello.capabilities.supports_agent_permission_modes = Some(true);
             hello.capabilities.supports_agent_usage = Some(true);

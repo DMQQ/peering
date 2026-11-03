@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_save_to_photos">Salvar em Fotos</string>
+    <string name="preview_saved_to_photos">Salvo em Fotos</string>
+    <string name="preview_save_to_photos_failed">Não foi possível salvar em Fotos</string>
+    <string name="bg_progress_working">Trabalhando</string>
+    <string name="bg_progress_awaiting_approval">Aguardando aprovação</string>
+</resources>

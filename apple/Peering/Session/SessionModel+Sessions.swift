@@ -35,7 +35,7 @@ extension SessionModel {
 
         // Its own entry point rather than a phase change: the Mac arrived at has its own clock.
         SessionActivity.shared.followActiveSession(
-            hostName: session.shownName ?? String(localized: "the Mac"),
+            hostName: session.shownName ?? session.hostPlatform.adapt(String(localized: "the Mac")),
             startedAt: session.sessionStartedAt,
             phase: session.phase,
             reconnecting: session.isReconnecting,

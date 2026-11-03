@@ -7,6 +7,8 @@ extension MacSession {
         // The host's own name is authoritative; Bonjour is only a hint and can be minutes stale.
         hostName = hello.hostName
         hostID = hello.serverID
+        hostPlatform = HostPlatform(wireName: hello.hostPlatform)
+        HostPlatformMemory().remember(hostPlatform, forHostID: hello.serverID)
         logHello(hello)
         // Recorded once at the door rather than guessed each time. See ``PicturePause/mayAsk(hostDeclared:)``.
         hostSupportsVideoPause = PicturePause.mayAsk(hostDeclared: hello.supportsVideoPause)
@@ -33,6 +35,10 @@ extension MacSession {
         hostSupportsAgentSessionImport = hello.supportsAgentSessionImport == true
         hostSupportsAgentSessionPeek = hello.supportsAgentSessionPeek == true
         hostSupportsAgentPause = hello.supportsAgentPause == true
+        hostSupportsAgentQueue = hello.supportsAgentQueue == true
+        hostSupportsAgentAwayControls = AgentAwayControlsSupport.maySend(toHostDeclared: hello.supportsAgentAwayControls)
+        hostSupportsAgentGitHub = hello.supportsAgentGitHub == true
+        hostSupportsAgentRoutines = hello.supportsAgentRoutines == true
         hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
         UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
         // Also the name the widget and Lock Screen card show, as the only one that came from the Mac itself; a first pairing by ID knows no name until this arrives.

@@ -1,8 +1,7 @@
 //! One chat as the manager holds it: its CLI, what it has said, and what it is doing.
 
 use super::transcript::TranscriptLog;
-use super::AGENT_ID;
-use crate::claude_adapter::{ClaudeAdapter, PERMISSION_MODES};
+use crate::adapter::AgentAdapter;
 use peering_wire::agent::{
     AgentEvent, AgentPermissionMode, AgentSessionInfo, AgentSessionState, AgentStreamPayload, AgentUsage,
 };
@@ -11,10 +10,12 @@ use std::path::Path;
 
 pub struct ManagedSession {
     pub id: String,
+    pub agent_id: String,
     pub title: String,
     pub directory: String,
     pub created_at: f64,
-    pub adapter: ClaudeAdapter,
+    pub adapter: AgentAdapter,
+    pub model_choices: Option<Vec<String>>,
     pub transcript: TranscriptLog,
     pub state: AgentSessionState,
     pub pending_approvals: BTreeSet<String>,
@@ -25,9 +26,11 @@ pub struct ManagedSession {
 }
 
 impl ManagedSession {
-    pub fn new(id: String, title: String, directory: &Path, created_at: f64, adapter: ClaudeAdapter) -> Self {
+    pub fn new(id: String, agent_id: &str, title: String, directory: &Path, created_at: f64, adapter: AgentAdapter) -> Self {
         Self {
             id,
+            agent_id: agent_id.to_owned(),
+            model_choices: None,
             title,
             directory: directory.to_string_lossy().into_owned(),
             created_at,
@@ -44,15 +47,15 @@ impl ManagedSession {
     pub fn info(&self) -> AgentSessionInfo {
         AgentSessionInfo {
             id: self.id.clone(),
-            agent_id: AGENT_ID.to_owned(),
+            agent_id: self.agent_id.clone(),
             title: self.title.clone(),
             directory: self.directory.clone(),
             state: self.state,
             last_index: self.transcript.last_index(),
             model: self.model.clone(),
             permission_mode: Some(self.permission_mode),
-            permission_modes: Some(PERMISSION_MODES.to_vec()),
-            model_choices: None,
+            permission_modes: Some(self.adapter.permission_modes().to_vec()),
+            model_choices: self.model_choices.clone(),
             usage: self.usage.clone(),
             created_at: self.created_at,
         }
@@ -74,7 +77,7 @@ impl ManagedSession {
 
     fn update_state(&mut self, payload: &AgentStreamPayload) {
         match payload {
-            // The Claude stream never says a turn started, so the prompt that starts it does.
+            // Claude's stream never says a turn started, so the prompt that starts it does.
             AgentStreamPayload::UserPrompt { .. } => self.state = AgentSessionState::Working,
             AgentStreamPayload::ApprovalRequested { approval_id, .. } => {
                 self.pending_approvals.insert(approval_id.clone());

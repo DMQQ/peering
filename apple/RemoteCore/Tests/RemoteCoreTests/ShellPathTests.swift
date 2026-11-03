@@ -7,7 +7,7 @@ import Testing
 struct ShellPathTests {
     @Test("an ordinary path is quoted and nothing else happens to it")
     func plain() {
-        #expect(ShellPath.quoted("/Users/dmq/Documents") == "'/Users/dmq/Documents'")
+        #expect(ShellPath.quoted("/Users/alex/Documents") == "'/Users/alex/Documents'")
     }
 
     /// A space splits an unquoted path into two arguments and the shell runs a different command without an error.
@@ -64,8 +64,8 @@ struct RunCommandTests {
     @Test("steps into the folder and names the file")
     func ordinary() {
         #expect(
-            ShellPath.runCommand(for: "/Users/dmq/bin/deploy.sh")
-                == "cd -- '/Users/dmq/bin' && '/Users/dmq/bin/deploy.sh'"
+            ShellPath.runCommand(for: "/Users/alex/bin/deploy.sh")
+                == "cd -- '/Users/alex/bin' && '/Users/alex/bin/deploy.sh'"
         )
     }
 
@@ -199,35 +199,35 @@ struct ChildPathTests {
 struct PathContainsTests {
     @Test("a path is inside its own folder")
     func directChild() {
-        #expect(pathContains("/Users/dmq/notes.txt", "/Users/dmq"))
+        #expect(pathContains("/Users/alex/notes.txt", "/Users/alex"))
     }
 
     @Test("and deeper down")
     func deeper() {
-        #expect(pathContains("/Users/dmq/Documents/tax/2026.txt", "/Users/dmq"))
+        #expect(pathContains("/Users/alex/Documents/tax/2026.txt", "/Users/alex"))
     }
 
     @Test("a folder is inside itself")
     func itself() {
-        #expect(pathContains("/Users/dmq", "/Users/dmq"))
+        #expect(pathContains("/Users/alex", "/Users/alex"))
     }
 
-    /// `/Users/dmqx` starts with `/Users/dmq` but is another account; only a component comparison gets this right.
+    /// `/Users/alexx` starts with `/Users/alex` but is another account; only a component comparison gets this right.
     @Test("a sibling whose name starts the same is not inside")
     func siblingPrefix() {
-        #expect(pathContains("/Users/dmqx", "/Users/dmq") == false)
-        #expect(pathContains("/Users/dmq-backup/notes", "/Users/dmq") == false)
+        #expect(pathContains("/Users/alexx", "/Users/alex") == false)
+        #expect(pathContains("/Users/alex-backup/notes", "/Users/alex") == false)
     }
 
     @Test("something outside is not inside")
     func outside() {
-        #expect(pathContains("/etc/hosts", "/Users/dmq") == false)
-        #expect(pathContains("/Users", "/Users/dmq") == false)
+        #expect(pathContains("/etc/hosts", "/Users/alex") == false)
+        #expect(pathContains("/Users", "/Users/alex") == false)
     }
 
     @Test("the root contains everything")
     func rootContainsAll() {
-        #expect(pathContains("/Users/dmq", "/"))
+        #expect(pathContains("/Users/alex", "/"))
         #expect(pathContains("/", "/"))
         #expect(pathContains("/etc", "/"))
     }
@@ -235,7 +235,7 @@ struct PathContainsTests {
     /// A trailing slash is the same folder; a different string would answer "no", the unsafe direction.
     @Test("a trailing slash changes nothing")
     func trailingSlash() {
-        #expect(pathContains("/Users/dmq/notes.txt", "/Users/dmq/"))
-        #expect(pathContains("/Users/dmq/", "/Users/dmq"))
+        #expect(pathContains("/Users/alex/notes.txt", "/Users/alex/"))
+        #expect(pathContains("/Users/alex/", "/Users/alex"))
     }
 }

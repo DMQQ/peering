@@ -11,7 +11,8 @@ use peering_core::ports::input::TransformSnapshot;
 use peering_core::ports::system::SystemActions;
 use peering_core::session::dispatch::SourceControl;
 use peering_wire::framing::{Frame, MessageKind};
-use peering_wire::source::{CaptureCatalog, CaptureSource};
+use peering_wire::source::{thumbnail_json, CaptureCatalog, CaptureSource};
+use std::collections::HashSet;
 
 use super::outbound::FrameSender;
 use super::shared::{HostState, SessionSlot};
@@ -124,10 +125,30 @@ impl HostState {
         self.catalogue_due(session)
     }
 
-    fn refresh_catalogue(&mut self) {
+    /// Returns the sources the catalogue now lists, which are the ones to photograph.
+    fn refresh_catalogue(&mut self) -> Vec<CaptureSource> {
         let displays = self.video.capture().displays();
         let windows = self.video.capture().windows();
+        let sources = self.take_pictures(&displays, &windows);
         self.catalogue.update_with_windows(&displays, &windows);
+        sources
+    }
+
+    /// Files the pictures a finished round took and drops those of sources that are gone.
+    fn take_pictures(&mut self, displays: &[DisplayInfo], windows: &[WindowInfo]) -> Vec<CaptureSource> {
+        let sources: Vec<CaptureSource> = displays
+            .iter()
+            .map(|display| CaptureSource::Display { id: display.id })
+            .chain(windows.iter().map(|window| CaptureSource::Window { id: window.id }))
+            .collect();
+        let live: HashSet<String> = sources.iter().map(CaptureSource::stable_id).collect();
+        self.catalogue.keep_pictures_of(&live);
+        for (id, image) in self.pictures.take_landed() {
+            if live.contains(&id) {
+                self.catalogue.set_picture(&id, thumbnail_json(image.width, image.height, &image.jpeg));
+            }
+        }
+        sources
     }
 
     fn catalogue_due(&mut self, session: u64) -> Vec<Frame> {
@@ -144,7 +165,8 @@ impl HostState {
         }
         self.catalog_checked_at = Some(now);
         let mut outgoing = Vec::new();
-        self.refresh_catalogue();
+        let sources = self.refresh_catalogue();
+        self.pictures.start_if_due(now, sources);
         let ids: Vec<u64> = self.sessions.keys().copied().collect();
         for session in ids {
             for frame in self.catalogue_due(session) {

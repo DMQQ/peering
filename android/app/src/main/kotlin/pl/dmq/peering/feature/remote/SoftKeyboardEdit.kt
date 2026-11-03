@@ -1,22 +1,17 @@
 package pl.dmq.peering.feature.remote
 
-/** What one edit of the soft keyboard's hidden field means to the Mac. */
-sealed class SoftKeyboardEdit {
-    data class Typed(val text: String) : SoftKeyboardEdit()
+import pl.dmq.peering.feature.sessionmode.TypedDiff
 
-    data object Deleted : SoftKeyboardEdit()
+/** Reads the soft keyboard's hidden field, which is reset to [SENTINEL] after every committed edit. */
+object SoftKeyboardEdit {
+    /**
+     * Keeps the field from sitting empty, so a delete still changes it. A zero-width space, not a plain one: a plain
+     * space could not be told apart from a typed space, and Gboard turns two spaces into ". ".
+     */
+    const val SENTINEL = "​"
 
-    data object None : SoftKeyboardEdit()
-
-    companion object {
-        /** The field never sits empty, so a delete shows up as a change instead of nothing at all. */
-        const val SENTINEL = " "
-
-        /** Reads the field's new text. The field holds [SENTINEL] between edits, so text before it is not typed twice. */
-        fun of(newText: String): SoftKeyboardEdit = when {
-            newText.isEmpty() -> Deleted
-            newText == SENTINEL -> None
-            else -> newText.replace(SENTINEL, "").let { if (it.isEmpty()) None else Typed(it) }
-        }
+    /** What changed between the field as last shown and as the keyboard left it, the sentinel counting as a character. */
+    fun between(shown: String, next: String): TypedDiff = TypedDiff.of(shown, next).let { diff ->
+        TypedDiff(diff.appended.replace(SENTINEL, ""), diff.deleted)
     }
 }

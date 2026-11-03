@@ -17,21 +17,14 @@ internal fun StatusRows(ui: StatusUi, actions: StatusActions) {
         PillRow(
             stringResource(R.string.remote_row_computer),
             AppIcons.computer,
-            listOf(
-                PillChipSpec(stringResource(R.string.remote_chip_lock), AppIcons.encrypted, actions.onLock),
-                PillChipSpec(
-                    stringResource(if (ui.darkened) R.string.remote_chip_restore else R.string.remote_chip_darken),
-                    if (ui.darkened) SessionIcons.bright else SessionIcons.dim,
-                    actions.onToggleDark,
-                ),
-                PillChipSpec(stringResource(R.string.remote_chip_screenshot), AppIcons.camera, actions.onScreenshot),
-            ),
+            computerChips(ui, actions),
         )
         PillRow(
             stringResource(R.string.remote_row_session),
             AppIcons.reconnect,
             buildList {
                 add(PillChipSpec(stringResource(R.string.remote_chip_connect), AppIcons.devices, actions.onStepAway))
+                add(PillChipSpec(stringResource(R.string.remote_chip_mode), SessionIcons.hand, actions.onChangeMode))
                 terminalChip(ui, actions)?.let(::add)
             },
         )
@@ -54,6 +47,21 @@ private fun viewChips(ui: StatusUi, actions: StatusActions): List<PillChipSpec> 
     )
     ui.zoomPercent?.let { add(PillChipSpec(stringResource(R.string.remote_zoom_percent, it), null, actions.onResetZoom)) }
     add(PillChipSpec(stringResource(R.string.remote_chip_immersive), SessionIcons.immersive, actions.onImmersive))
+}
+
+@Composable
+private fun computerChips(ui: StatusUi, actions: StatusActions): List<PillChipSpec> = buildList {
+    if (ui.screenControls) {
+        add(PillChipSpec(stringResource(R.string.remote_chip_lock), AppIcons.encrypted, actions.onLock))
+        add(
+            PillChipSpec(
+                stringResource(if (ui.darkened) R.string.remote_chip_restore else R.string.remote_chip_darken),
+                if (ui.darkened) SessionIcons.bright else SessionIcons.dim,
+                actions.onToggleDark,
+            ),
+        )
+    }
+    add(PillChipSpec(stringResource(R.string.remote_chip_screenshot), AppIcons.camera, actions.onScreenshot))
 }
 
 /** The Terminal chip opens the hub panel. */

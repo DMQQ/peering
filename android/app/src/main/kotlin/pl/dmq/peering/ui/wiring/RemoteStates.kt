@@ -42,6 +42,7 @@ internal fun remoteUiState(
             virtualDisplays = ready?.capabilities?.contains(HostCapability.VirtualDisplayManagement) == true,
             desktops = ready?.capabilities?.contains(HostCapability.MacControls) == true,
         ),
+        screenControls = ready?.capabilities?.contains(HostCapability.ScreenControls) == true,
         supportsMosaic = ready?.capabilities?.contains(HostCapability.Mosaic) == true,
         mosaic = mosaic,
         rememberedMosaic = session.rememberedMosaic,

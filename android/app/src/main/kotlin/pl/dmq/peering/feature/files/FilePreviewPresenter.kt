@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import pl.dmq.peering.session.files.FileBrowserState
 import pl.dmq.peering.session.files.FilePath
 import pl.dmq.peering.session.files.FilePreview
@@ -20,11 +21,14 @@ import pl.dmq.peering.wire.RemoteFileKind
  *
  * Download asks for a destination first ([destinationRequest]); the screen opens the system picker and reports the
  * document back through [destinationChosen], and only then does the download start. Share does the same through
- * [shareRequest].
+ * [shareRequest]. Save to Photos runs on [galleryScope], which outlives the screen, so turning the phone mid write
+ * neither drops the save nor starts it again.
  */
 class FilePreviewPresenter(
     private val port: FileBrowsingPort,
     scope: CoroutineScope,
+    private val gallery: GalleryWriter,
+    private val galleryScope: CoroutineScope = scope,
 ) {
     private val pendingPath = MutableStateFlow<String?>(null)
     private val destinationPath = MutableStateFlow<String?>(null)
@@ -67,11 +71,33 @@ class FilePreviewPresenter(
 
     fun share() {
         val preview = port.state.value.preview ?: return
-        if (!preview.isComplete || preview.isTruncated || preview.failure != null) return
+        if (!isWhole(preview)) return
         pendingShare.value = ShareRequest(FilePath.name(preview.path), preview.contents, MimeTypes.of(preview.path))
     }
 
     fun shareHandled() = pendingShare.update { null }
+
+    /** A picture the preview already holds whole is written from memory; anything else downloads into the gallery. */
+    fun saveToPhotos() {
+        val save = gallerySave() ?: return
+        galleryScope.launch {
+            when (save) {
+                is GallerySave.FromPreview -> gallery.report(gallery.write(save.target, save.bytes))
+                is GallerySave.Download -> {
+                    val uri = gallery.reserve(save.target) ?: return@launch gallery.report(false)
+                    destinationPath.value = save.path
+                    port.download(save.path, uri)
+                }
+            }
+        }
+    }
+
+    private fun gallerySave(): GallerySave? {
+        val preview = port.state.value.preview ?: return null
+        val target = GalleryTarget.of(preview.path) ?: return null
+        val whole = isWhole(preview) && preview.contents.isNotEmpty()
+        return if (whole && !target.isVideo) GallerySave.FromPreview(target, preview.contents) else GallerySave.Download(target, preview.path)
+    }
 
     fun cancelDownload() = port.cancelDownload()
 
@@ -85,9 +111,12 @@ class FilePreviewPresenter(
             content = content,
             download = download(browser.transfer, preview.path, destinationFailed),
             wraps = wrap?.takeIf { it.first == preview.path }?.second ?: wrapsByDefault(preview.path),
-            canShare = preview.isComplete && !preview.isTruncated && preview.failure == null,
+            canShare = isWhole(preview),
+            canSaveToPhotos = GalleryTarget.of(preview.path) != null,
         )
     }
+
+    private fun isWhole(preview: FilePreview): Boolean = preview.isComplete && !preview.isTruncated && preview.failure == null
 
     private fun content(preview: FilePreview): PreviewContent {
         preview.failure?.let { return PreviewContent.Failed(it) }

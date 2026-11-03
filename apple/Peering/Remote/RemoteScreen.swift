@@ -9,6 +9,8 @@ let joystickRadius: CGFloat = 50
 
 struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.verticalSizeClass) var verticalSizeClass
 
     @State var streamLooksPaused = false
     @State var dictation = VoiceDictation()
@@ -60,6 +62,8 @@ struct RemoteScreen: View {
     /// before sending the chord.
     @State var confirmsQuitApplication = false
     @State var route: [RemoteRoute] = []
+    @State var showsModePicker = false
+    @State var watching: ChatWatch?
 
     var showsTerminals: Bool {
         get { !route.isEmpty }
@@ -86,48 +90,6 @@ struct RemoteScreen: View {
         case settings
     }
 
-    func presentLandscapeHint() {
-        // The landscape half of this guard is load-bearing for the flag: nothing is marked when a
-        // session comes up sideways, so a phone whose first sessions are all landscape is still owed
-        // the hint and gets it the first time one comes up in portrait.
-        guard !deviceIsLandscape, !hasSeenLandscapeHint else { return }
-        hasSeenLandscapeHint = true
-
-        withAnimation(Motion.settle) { showsLandscapeHint = true }
-
-        landscapeHintTask?.cancel()
-        landscapeHintTask = Task {
-            try? await Task.sleep(for: .seconds(3))
-            guard !Task.isCancelled else { return }
-            dismissLandscapeHint()
-        }
-    }
-
-    func dismissLandscapeHint() {
-        landscapeHintTask?.cancel()
-        landscapeHintTask = nil
-        withAnimation(Motion.settle) { showsLandscapeHint = false }
-    }
-
-    /// An app cannot read Rotation Lock, so the error handler is the only way to tell a locked phone
-    /// from a working one. The card stops fading while the request is out, so the button cannot
-    /// dismiss the thing it sits on.
-    func rotateToLandscape() {
-        landscapeHintTask?.cancel()
-        landscapeHintTask = nil
-
-        guard let scene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene }).first
-        else { return }
-
-        scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in
-            // The handler is not guaranteed to be on the main actor, and it writes view state.
-            Task { @MainActor in
-                withAnimation(Motion.settle) { rotationRefused = true }
-            }
-        }
-    }
-
     private var dueScreenTours: [Tour] {
         guard model.phase == .ready, !showsLandscapeHint, !hasSeenTourScreen else { return [] }
         return [.screen]
@@ -136,7 +98,7 @@ struct RemoteScreen: View {
     var deviceIsLandscape: Bool { DeviceScene.isLandscape }
 
     var body: some View {
-        NavigationStack(path: $route) {
+        NavigationStack(path: pushedRoute) {
             screen
                 .analyticsScreen(.session)
                 .toolbar(.hidden, for: .navigationBar)
@@ -161,6 +123,10 @@ struct RemoteScreen: View {
         .onChange(of: InAppBanner.shared.openRequest, initial: true) { _, _ in
             openFromBanner()
         }
+        .overlay { hubSplit }
+        .overlay { backToChat }
+        .animation(Motion.settle, value: watching)
+        .environment(\.watchOnMac, { watchOnMac(from: $0) })
     }
 
     private var screen: some View {
@@ -188,9 +154,12 @@ struct RemoteScreen: View {
                 clientCursor
                 carryingScrim
                 gestures
+                // Above the gesture surface, which otherwise takes every tap meant for the window's buttons.
+                windowControls
                 remoteNoticeLayer
                 mosaicDismissButtons
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
+                modeLayers
 
                 if case .confirming(let code) = model.phase {
                     PairingPrompt(code: code, hostName: model.shownHostName ?? String(localized: "this Mac"))
@@ -198,7 +167,7 @@ struct RemoteScreen: View {
 
                 // **`isBeingPutBack`, not `isResumingAfterDrop`.** The narrower flag needs
                 // `hasBeenReady`, which is carried from the session object a warm reconnect replaces
-                // — but a cold launch has no such object, so `hasBeenReady` starts false and stays
+                // but a cold launch has no such object, so `hasBeenReady` starts false and stays
                 // false for the whole of that resume. This overlay then showed on top of the header
                 // pill's own "Reconnecting…", the two disagreeing about whether a resume was under
                 // way. `isBeingPutBack` is the same question ``ContentView``'s connecting card
@@ -250,7 +219,16 @@ struct RemoteScreen: View {
                 abandonPictureTransit()
                 return
             }
+            resolveSessionMode()
             presentLandscapeHint()
+        }
+        .onChange(of: model.activeSessionID) { _, _ in
+            endWatchIfMacChanged()
+            resolveSessionMode()
+        }
+        .onChange(of: route) { _, route in
+            leaveWorkspaceIfClosed(route)
+            endWatchIfHubOpened(route)
         }
         .onChange(of: interactionMode, initial: true) { _, mode in
             model.setObserveOnly(mode == .observe)
@@ -342,180 +320,18 @@ struct RemoteScreen: View {
             if phase == .ready { askForSourcePictures() }
         }
         .confirmationDialog(
-            "Quit the active Mac app?",
+            model.hostPlatform == .mac ? "Quit the active Mac app?" : "Close the active app?",
             isPresented: $confirmsQuitApplication,
             titleVisibility: .visible
         ) {
-            Button("Send ⌘Q", role: .destructive) {
-                sendKey(keyCode: 12, modifiers: [.command])
+            Button(model.hostPlatform == .mac ? "Send ⌘Q" : "Send Alt+F4", role: .destructive) {
+                quitActiveApplication()
             }
         } message: {
-            Text("The Mac may ask you to save open documents first.")
+            Text(model.hostPlatform == .mac ? "The Mac may ask you to save open documents first." : "The app may ask you to save open documents first.")
         }
         .onChange(of: model.frameArrived) { _, _ in endTransitionIfReady() }
     }
 
     // MARK: - Keyboard input bar
-
-    /// With the keyboard up, the dock and both rails are behind it, so nothing else on this screen can
-    /// be pressed. Esc is the only way out of a Mac menu or a completion list and no iOS keyboard has
-    /// one; Tab is how a Mac moves focus and completes. See ``ModifierBar``.
-    private var keyboardKeyRow: some View {
-        HStack(spacing: 8) {
-            compactCapButton(icon: "keyboard.chevron.compact.down", large: true) { model.showKeyboard = false }
-                .accessibilityLabel("Hide keyboard")
-            ModifierBar()
-            HStack(spacing: 6) {
-                compactKeyButton(icon: "escape", keyCode: 53)
-                    .accessibilityLabel("Escape")
-                compactKeyButton(icon: "arrow.right.to.line", keyCode: 48)
-                    .accessibilityLabel("Tab")
-            }
-            Spacer(minLength: 8)
-            // Landscape leaves about 90pt between the system keyboard and the top of the screen, which a third row does not fit in.
-            if deviceIsLandscape { arrowStrip(withReturn: false) }
-            compactCapButton(icon: "return", filled: true, large: true) { model.pressReturn() }
-                .accessibilityLabel("Enter")
-        }
-    }
-
-    var keyboardInputBar: some View {
-        VStack(spacing: 8) {
-            if !dictation.isListeningUI { shortcutsHandle.padding(.top, -10).padding(.bottom, -6) }
-            keyboardInputRow
-            if !dictation.isListeningUI {
-                // Sized by the drag, so the bar grows and shrinks under the finger; the rows keep their natural height and are clipped.
-                VStack(spacing: 8) {
-                    keyboardKeyRow
-                    if !deviceIsLandscape { arrowStrip(withReturn: false) }
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { if $0 > 0 { keyRowsHeight = $0 } }
-                .frame(height: keyRowsHeight > 0 ? keyRowsHeight * shortcutsProgress : (shortcutsProgress == 0 ? 0 : nil), alignment: .top)
-                .clipped()
-                .opacity(shortcutsProgress)
-                .blur(radius: (1 - shortcutsProgress) * 6)
-                .allowsHitTesting(shortcutsProgress > 0.9)
-                .padding(.top, -8 * (1 - shortcutsProgress))
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, deviceIsLandscape ? 8 : 12)
-        .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
-        .padding(.horizontal, ChromeMetrics.edgeInset)
-        .padding(.top, deviceIsLandscape ? 4 : ChromeMetrics.edgeInset)
-        .offset(y: shortcutsExpanded ? 0 : max(0, shortcutsDrag * 0.5))
-    }
-
-    private var keyboardInputRow: some View {
-        ZStack {
-            HStack(spacing: 8) {
-                if shortcutsCollapsed {
-                    compactCapButton(icon: "keyboard.chevron.compact.down") { model.showKeyboard = false }
-                        .accessibilityLabel("Hide keyboard")
-                }
-                dictationButton
-                keyboardField
-                if shortcutsCollapsed {
-                    compactCapButton(icon: "return", filled: true) { model.pressReturn() }
-                        .accessibilityLabel("Enter")
-                }
-            }
-            .opacity(dictation.isActive ? 0 : 1)
-            .allowsHitTesting(!dictation.isActive)
-            switch dictation.state {
-            case .listening, .finishing, .stopped:
-                DictationOverlay(dictation: dictation, finish: { dictation.finish() }, cancel: { dictation.cancel() })
-            case .denied, .unavailable:
-                DictationNotice(denied: dictation.state == .denied) { dictation.dismissMessage() }
-            case .idle:
-                EmptyView()
-            }
-        }
-        .animation(Motion.settle, value: dictation.state)
-    }
-
-    /// A handle on the bar's top edge: tap it, or drag it up or down, to show or fold the shortcut keys.
-    private var shortcutsHandle: some View {
-        Capsule()
-            .fill(Color.white.opacity(0.32))
-            .frame(width: 38, height: 5)
-            .frame(maxWidth: .infinity)
-            .frame(height: 18)
-            .contentShape(Rectangle())
-            .onTapGesture { toggleShortcuts() }
-            .gesture(
-                DragGesture(minimumDistance: 4, coordinateSpace: .global)
-                    .onChanged { drag in
-                        // No animation: the layout must be exactly where the finger is.
-                        var transaction = Transaction()
-                        transaction.disablesAnimations = true
-                        withTransaction(transaction) { shortcutsDrag = drag.translation.height }
-                    }
-                    .onEnded { drag in
-                        let wasExpanded = shortcutsExpanded
-                        // Settles toward where the throw was heading, past a third of the way or a quick flick.
-                        let projected = shortcutsProgress - (drag.predictedEndTranslation.height - drag.translation.height) / max(keyRowsHeight, 1) * 0.4
-                        withAnimation(Motion.settle) {
-                            shortcutsExpanded = projected > 0.5
-                            shortcutsDrag = 0
-                            if !wasExpanded, !shortcutsExpanded, drag.translation.height > 70 { model.showKeyboard = false }
-                        }
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    }
-            )
-            .accessibilityElement()
-            .accessibilityLabel(shortcutsCollapsed ? String(localized: "Show shortcut keys", table: "Dictation") : String(localized: "Hide shortcut keys", table: "Dictation"))
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { toggleShortcuts() }
-    }
-
-    private func toggleShortcuts() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation(Motion.settle) { shortcutsExpanded.toggle() }
-    }
-
-    private var dictationButton: some View {
-        Button {
-            dictation.start { [model] spoken in model.insertDictation(spoken) }
-        } label: {
-            Image(systemName: "mic.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .glassSurface(in: Circle(), interactive: true)
-                .contentShape(Circle())
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
-        .accessibilityLabel(String(localized: "Dictate", table: "Dictation"))
-    }
-
-    private var keyboardField: some View {
-        // **The field itself, and it is a real one.** It holds the sentence, so iOS gives it a caret
-        // that can be moved and reports every edit as a range plus a replacement, which is what
-        // makes correcting the middle of a line work.
-        //
-        // No height of its own, deliberately: the wrapper answers with the height the sentence
-        // needs, so the field grows a line at a time and this bar rises with it.
-        KeyboardTypingCapture(
-            model: model,
-            isLarge: shortcutsCollapsed,
-            isFocused: Binding(
-                get: { model.showKeyboard },
-                set: { model.showKeyboard = $0 }
-            )
-        )
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(
-            ColorPalette.backdrop.opacity(0.55),
-            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-        }
-    }
-
 }

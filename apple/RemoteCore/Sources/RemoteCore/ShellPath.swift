@@ -6,7 +6,7 @@ public func childPath(_ name: String, of directory: String?) -> String {
     return directory == "/" ? "/" + name : directory + "/" + name
 }
 
-/// Whether `path` is `other` or inside it; the guard rail on a Mac delete (`/Users` would delete every account, which a check on `/` and home misses). Compared by component, not prefix: `/Users/dmqx` is not inside `/Users/dmq`. Trailing slashes are ignored; paths here come from absolute listings.
+/// Whether `path` is `other` or inside it; the guard rail on a Mac delete (`/Users` would delete every account, which a check on `/` and home misses). Compared by component, not prefix: `/Users/alexx` is not inside `/Users/alex`. Trailing slashes are ignored; paths here come from absolute listings.
 public func pathContains(_ path: String, _ other: String) -> Bool {
     func components(_ value: String) -> [String] {
         value.split(separator: "/", omittingEmptySubsequences: true).map(String.init)

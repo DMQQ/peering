@@ -20,9 +20,9 @@ struct FolderMemoryTests {
     @Test("The folder comes back for the Mac that was browsed")
     func remembersPerMac() {
         let memory = memory()
-        memory.remember("/Users/dmq/Projects", for: "Studio")
+        memory.remember("/Users/alex/Projects", for: "Studio")
         memory.remember("/Volumes/Backup", for: "Laptop")
-        #expect(memory.folder(for: "Studio") == "/Users/dmq/Projects")
+        #expect(memory.folder(for: "Studio") == "/Users/alex/Projects")
         #expect(memory.folder(for: "Laptop") == "/Volumes/Backup")
     }
 

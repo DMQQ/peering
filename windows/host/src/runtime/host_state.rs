@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use peering_agent::availability::{AgentAvailability, BinaryLocator};
 use peering_agent::browse::AgentBrowser;
-use peering_agent::manager::{ClientAgents, AGENT_ID};
+use peering_agent::adapter::AGENTS;
+use peering_agent::manager::ClientAgents;
 use peering_agent::push::AgentPushPlanner;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
@@ -28,6 +29,7 @@ use super::focus_pump::FocusPipeline;
 use super::agent_browse::DiskFolders;
 use super::control::RelayStatus;
 use super::file_writer::FileWriter;
+use super::thumbnails::SourcePictures;
 use super::notifications::WaitingNotifications;
 use super::pins::SecretPins;
 use super::problem_source::ProblemSource;
@@ -109,7 +111,7 @@ impl HostState {
             update: None,
             update_source: extras.releases.clone(),
             running_version: extras.version,
-            agents: ClientAgents::new(StdLauncher::default),
+            agents: ClientAgents::new(StdLauncher::default).with_codex_home(super::agent::codex_home()),
             agent_availability: agent_availability(agent_binaries, now),
             agent_pushes: AgentPushPlanner::default(),
             terminals,
@@ -117,6 +119,7 @@ impl HostState {
             sessions: HashMap::new(),
             next_session: 0,
             catalog_checked_at: None,
+            pictures: SourcePictures::new(extras.thumbnails.clone()),
             notices: NoticeTracker::default(),
             notice_checked_at: None,
             refusal: None,
@@ -126,6 +129,8 @@ impl HostState {
             pointer: PointerTracker::default(),
             audio: AudioPipeline::new(extras.audio),
             focus: FocusPipeline::new(extras.focus),
+            privacy: super::privacy::PrivacyControl::new(extras.curtain),
+            git_writes: super::agent_git::GitWrites::default(),
             settings: HostSettings::default_for(host_name),
             settings_saver: Arc::new(|_| Ok(())),
             hook_broker: None,
@@ -139,7 +144,8 @@ impl HostState {
 
 /// The first look for the agent CLI happens at startup, so the first hello does not wait for a search through `PATH`.
 fn agent_availability(locator: Box<dyn BinaryLocator>, now: f64) -> AgentAvailability {
-    let mut availability = AgentAvailability::new(locator, AGENT_ID);
+    let programs: Vec<&'static str> = AGENTS.iter().map(|(id, _)| *id).collect();
+    let mut availability = AgentAvailability::new(locator, &programs);
     availability.check(now);
     availability
 }

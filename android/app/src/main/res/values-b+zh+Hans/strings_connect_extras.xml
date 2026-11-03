@@ -14,4 +14,8 @@
     <string name="link_end_title">结束此会话？</string>
     <string name="link_end_message">Peering 之外的一个链接请求断开你与电脑的连接。</string>
     <string name="link_end_confirm">结束会话</string>
+    <string name="link_open_title">打开此链接？</string>
+    <string name="link_open_message">来自 Peering 之外的链接请求连接到你的一台电脑。仅当是你自己打开的时才继续。</string>
+    <string name="link_pair_message">来自 Peering 之外的链接请求与一台电脑配对。仅当是你自己打开的时才继续。</string>
+    <string name="link_open_confirm">继续</string>
 </resources>

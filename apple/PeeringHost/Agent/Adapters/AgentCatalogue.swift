@@ -12,6 +12,8 @@ enum AgentCatalogue {
         Entry(id: ClaudeCodeAdapter.command, name: "Claude Code") { ClaudeCodeAdapter(directory: $0, resume: $1) },
         Entry(id: CodexAdapter.command, name: "Codex") { CodexAdapter(directory: $0, resume: $1) },
         Entry(id: OpenCodeAdapter.command, name: "OpenCode") { OpenCodeAdapter(directory: $0, resume: $1) },
+        Entry(id: GeminiAdapter.command, name: GeminiAdapter.displayName) { GeminiAdapter(directory: $0, resume: $1) },
+        Entry(id: CursorAdapter.command, name: CursorAdapter.displayName) { CursorAdapter(directory: $0, resume: $1) },
     ]
 
     static func entry(for id: String) -> Entry? {

@@ -27,6 +27,9 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// Whether this client reads ``AgentEvent/usageChanged(sessionID:usage:)``.
     public var supportsAgentUsage: Bool?
 
+    /// Whether this client reads ``AgentEvent/queueChanged(sessionID:prompts:)``. Optional and additive: `nil` reads as no, and such a client queues its own messages.
+    public var supportsAgentQueue: Bool?
+
     /// Honoured only for a client the Mac already trusts.
     public var resumeSource: CaptureSource?
 
@@ -62,6 +65,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsAgentChat: Bool? = nil,
         supportsAgentPermissionModes: Bool? = nil,
         supportsAgentUsage: Bool? = nil,
+        supportsAgentQueue: Bool? = nil,
         resumeSource: CaptureSource? = nil,
         lostPairing: Bool? = nil,
         takesOver: Bool? = nil,
@@ -85,6 +89,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.supportsAgentChat = supportsAgentChat
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.supportsAgentUsage = supportsAgentUsage
+        self.supportsAgentQueue = supportsAgentQueue
         self.resumeSource = resumeSource
     }
 }

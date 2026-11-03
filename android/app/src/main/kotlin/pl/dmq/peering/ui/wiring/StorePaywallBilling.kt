@@ -49,7 +49,6 @@ internal class StorePaywallBilling(
 
     private fun planOffer(productID: String): PlanOffer? = when (productID) {
         PlayProducts.PRO_MONTHLY -> PlanOffer.MONTHLY
-        PlayProducts.PRO_YEARLY -> PlanOffer.YEARLY
         PlayProducts.PRO_LIFETIME -> PlanOffer.LIFETIME
         else -> null
     }

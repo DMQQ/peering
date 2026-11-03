@@ -15,6 +15,8 @@ import pl.dmq.peering.feature.scan.CameraQrSource
 import pl.dmq.peering.feature.scan.QrScannerRoute
 import pl.dmq.peering.feature.scan.ScanOutcome
 import pl.dmq.peering.feature.scan.hostIdScanOutcome
+import androidx.compose.ui.unit.dp
+import pl.dmq.peering.ui.kit.ReadableWidth
 import pl.dmq.peering.ui.nav.SessionScreens
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
@@ -38,34 +40,42 @@ internal fun ConnectStageContent(
             onCode = { text -> scanned(flow.scanning, text, wiring.qrSource, presenting) },
             onClose = { flow.scanning = null },
         )
-        ConnectStage.Onboarding -> OnboardingRoute(
-            store = wiring.firstRun,
-            billing = remember(wiring) { StorePaywallBilling(wiring.billing) { context.findActivity() } },
-            onFinished = { flow.onboarding = false },
-        )
+        ConnectStage.Onboarding -> ReadableWidth {
+            OnboardingRoute(
+                store = wiring.firstRun,
+                billing = remember(wiring) { StorePaywallBilling(wiring.billing) { context.findActivity() } },
+                onFinished = { flow.onboarding = false },
+            )
+        }
         ConnectStage.Pairing -> presenting?.let { current ->
-            PairingCodeRoute(
-                presenter = current,
-                onFinished = { finishPairing(wiring, flow, current, session) },
-                onScanRequested = { flow.scanning = ScanPurpose.ConfirmCode },
+            ReadableWidth {
+                PairingCodeRoute(
+                    presenter = current,
+                    onFinished = { finishPairing(wiring, flow, current, session) },
+                    onScanRequested = { flow.scanning = ScanPurpose.ConfirmCode },
+                    hostName = flow.pairingHostName,
+                )
+            }
+        }
+        ConnectStage.Session -> session?.let { current -> SessionStage(wiring, flow, current) }
+        ConnectStage.FirstConnection -> ReadableWidth {
+            FirstConnectionRoute(
+                state = connectState,
+                actions = rememberConnectActions(connect) { flow.scanning = ScanPurpose.FindMac },
+                pairing = presenting,
+                onSkip = { flow.firstConnectionDismissed = true },
+                onPairingFinished = { finishPairing(wiring, flow, presenting, session) },
+                onScanCodeRequested = { flow.scanning = ScanPurpose.ConfirmCode },
                 hostName = flow.pairingHostName,
             )
         }
-        ConnectStage.Session -> session?.let { current -> SessionStage(wiring, flow, current) }
-        ConnectStage.FirstConnection -> FirstConnectionRoute(
-            state = connectState,
-            actions = rememberConnectActions(connect) { flow.scanning = ScanPurpose.FindMac },
-            pairing = presenting,
-            onSkip = { flow.firstConnectionDismissed = true },
-            onPairingFinished = { finishPairing(wiring, flow, presenting, session) },
-            onScanCodeRequested = { flow.scanning = ScanPurpose.ConfirmCode },
-            hostName = flow.pairingHostName,
-        )
-        ConnectStage.Hosts -> ConnectRoute(
-            presenter = connect,
-            protection = rememberAppProtection(),
-            onScanRequested = { flow.scanning = ScanPurpose.FindMac },
-        )
+        ConnectStage.Hosts -> ReadableWidth(max = 640.dp) {
+            ConnectRoute(
+                presenter = connect,
+                protection = rememberAppProtection(),
+                onScanRequested = { flow.scanning = ScanPurpose.FindMac },
+            )
+        }
     }
 }
 
@@ -79,6 +89,8 @@ private fun SessionStage(wiring: FeatureWiring, flow: ConnectFlow, current: Acti
         macros = wiring.macros,
         billing = wiring.billing,
         relayAllowance = wiring.relayAllowance,
+        modeMemory = wiring.sessionModes,
+        favouritesStore = wiring.applicationFavourites,
         onClose = { flow.showingSession = false },
         onDisconnect = {
             flow.showingSession = false

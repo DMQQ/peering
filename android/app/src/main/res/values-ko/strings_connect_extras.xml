@@ -14,4 +14,8 @@
     <string name="link_end_title">이 세션을 종료할까요?</string>
     <string name="link_end_message">Peering 밖의 링크가 컴퓨터와의 연결을 끊도록 요청했습니다.</string>
     <string name="link_end_confirm">세션 종료</string>
+    <string name="link_open_title">이 링크를 열까요?</string>
+    <string name="link_open_message">Peering 외부의 링크가 내 컴퓨터에 연결하려고 합니다. 직접 연 경우에만 계속하세요.</string>
+    <string name="link_pair_message">Peering 외부의 링크가 컴퓨터와 페어링하려고 합니다. 직접 연 경우에만 계속하세요.</string>
+    <string name="link_open_confirm">계속</string>
 </resources>

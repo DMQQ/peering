@@ -20,6 +20,17 @@ internal class PictureWatch(private val clock: Clock, private val lane: LanVideo
     private var automaticNudges = 0
     private var automaticRestarts = 0
     private var waitingSince = clock.monotonicSeconds()
+    private var pausedOnPurpose = false
+
+    /** A picture paused on purpose is not missing, so the watch stands down and starts its clock over on the resume. */
+    fun notePaused(paused: Boolean) {
+        if (pausedOnPurpose && !paused) {
+            automaticNudges = 0
+            automaticRestarts = 0
+            waitingSince = clock.monotonicSeconds()
+        }
+        pausedOnPurpose = paused
+    }
 
     fun noteSeen() {
         seen = true
@@ -34,7 +45,7 @@ internal class PictureWatch(private val clock: Clock, private val lane: LanVideo
      * worse than a reconnect. A refused lane key is the lane's own failure and never gets here.
      */
     fun takeEscalation(): PictureEscalation {
-        if (seen || lane?.failure != null) return PictureEscalation.NONE
+        if (seen || pausedOnPurpose || lane?.failure != null) return PictureEscalation.NONE
         val waited = clock.monotonicSeconds() - waitingSince
         if (waited >= GIVE_UP_SECONDS) {
             return if (automaticRestarts == 0) PictureEscalation.REOPEN else PictureEscalation.RECONNECT

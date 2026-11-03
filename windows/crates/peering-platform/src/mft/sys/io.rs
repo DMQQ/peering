@@ -39,6 +39,9 @@ pub(in crate::mft) fn set_timing(sample: &IMFSample, hundred_nanoseconds: i64, d
 
 /// Feeds one sample and returns every output the encoder has ready. A full input queue is drained and retried once.
 pub(in crate::mft) fn submit_and_drain(session: &Session, sample: &IMFSample) -> WinResult<Vec<EncodedBytes>> {
+    if let Some(events) = &session.events {
+        return super::events::submit_and_collect(session, events, sample);
+    }
     let mut outputs = Vec::new();
     // SAFETY: the sample is live; ProcessInput takes its own reference to it.
     match unsafe { session.transform.ProcessInput(0, sample, 0) } {
@@ -54,7 +57,7 @@ pub(in crate::mft) fn submit_and_drain(session: &Session, sample: &IMFSample) ->
     Ok(outputs)
 }
 
-fn drain(session: &Session, outputs: &mut Vec<EncodedBytes>) -> WinResult<()> {
+pub(super) fn drain(session: &Session, outputs: &mut Vec<EncodedBytes>) -> WinResult<()> {
     loop {
         let mut buffers = [output_buffer(session)?];
         let mut status = 0u32;
@@ -75,7 +78,7 @@ fn drain(session: &Session, outputs: &mut Vec<EncodedBytes>) -> WinResult<()> {
     }
 }
 
-fn output_buffer(session: &Session) -> WinResult<MFT_OUTPUT_DATA_BUFFER> {
+pub(super) fn output_buffer(session: &Session) -> WinResult<MFT_OUTPUT_DATA_BUFFER> {
     let sample = if provides_samples(session) { None } else { Some(allocate_output_sample(session.output_info.cbSize)?) };
     Ok(MFT_OUTPUT_DATA_BUFFER {
         dwStreamID: 0,
@@ -101,7 +104,7 @@ fn allocate_output_sample(size: u32) -> WinResult<IMFSample> {
 }
 
 /// Takes ownership of the sample the MFT handed back, and releases the unused event collection.
-fn take_sample(mut buffer: MFT_OUTPUT_DATA_BUFFER) -> Option<IMFSample> {
+pub(super) fn take_sample(mut buffer: MFT_OUTPUT_DATA_BUFFER) -> Option<IMFSample> {
     // SAFETY: the MFT is finished with the buffer, so this takes the reference it returned and nothing else reads it.
     let sample = unsafe { ManuallyDrop::take(&mut buffer.pSample) };
     // SAFETY: pEvents is never read again, so releasing it once here is the only release.
@@ -109,7 +112,7 @@ fn take_sample(mut buffer: MFT_OUTPUT_DATA_BUFFER) -> Option<IMFSample> {
     sample
 }
 
-fn read_sample(sample: &IMFSample) -> WinResult<EncodedBytes> {
+pub(super) fn read_sample(sample: &IMFSample) -> WinResult<EncodedBytes> {
     // SAFETY: the bytes are read between Lock and Unlock, while the buffer keeps them alive.
     unsafe {
         let hundred_nanoseconds = sample.GetSampleTime()?;
@@ -124,7 +127,7 @@ fn read_sample(sample: &IMFSample) -> WinResult<EncodedBytes> {
 }
 
 /// The MFT offers its new output type through the available-type list; accepting the first offer is the renegotiation.
-fn renegotiate_output(session: &Session) -> WinResult<()> {
+pub(super) fn renegotiate_output(session: &Session) -> WinResult<()> {
     // SAFETY: stream 0 exists, and the type it returns is a live interface we pass straight back.
     unsafe {
         let available = session.transform.GetOutputAvailableType(0, 0)?;

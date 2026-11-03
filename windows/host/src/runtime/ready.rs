@@ -6,10 +6,12 @@ use peering_wire::agent::AgentRequest;
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::handshake::ClientStatePayload;
+use peering_wire::preview::{PreviewProxyCommand, MAX_REQUEST_FRAME_BYTES};
 
 use super::agent_browse;
+use super::agent_git::{self, GitJob};
 use super::hooks;
-use super::refusal::{notice_for, preview_refusal, source_unavailable, Refusal};
+use super::refusal::{notice_for, source_unavailable, Refusal};
 use super::connection::{Connection, Flow};
 use super::video::CoordinatorControl;
 
@@ -40,12 +42,7 @@ impl Connection {
             ReadyOutcome::Unhandled(MessageKind::VideoTransport) => self.answer_video_transport(frame),
             ReadyOutcome::Unhandled(MessageKind::ClientState) => self.client_state(frame),
             ReadyOutcome::Unhandled(MessageKind::VideoChunk) => self.clipboard_chunk(frame),
-            ReadyOutcome::Unhandled(MessageKind::PreviewRequest) => {
-                if let Some(refusal) = preview_refusal(&frame.payload) {
-                    self.send(refusal);
-                }
-                Flow::Open
-            }
+            ReadyOutcome::Unhandled(MessageKind::PreviewRequest) => self.preview_request(frame),
             // Read and set aside: the host never declares supportsLiveActivityPush, and a stray token is not an error.
             ReadyOutcome::Unhandled(_) => Flow::Open,
         }
@@ -131,10 +128,31 @@ impl Connection {
             return Flow::Open;
         }
         let client_id = self.session.client_id().to_owned();
+        if let Some((session_id, job)) = GitJob::of(&request) {
+            let (directory, writes) = {
+                let state = self.shared.lock();
+                (state.agents.directory_of(&client_id, &session_id), state.git_writes.clone())
+            };
+            agent_git::answer(session_id, job, directory, &writes, self.outbound.clone());
+            return Flow::Open;
+        }
         let events = self.shared.lock().agents.handle(&client_id, request);
         for event in events {
             self.send_event(&event);
         }
+        Flow::Open
+    }
+
+    /// An oversized or unreadable request ends the session, as it does on the Mac.
+    fn preview_request(&mut self, frame: &Frame) -> Flow {
+        if frame.payload.len() > MAX_REQUEST_FRAME_BYTES {
+            return Flow::Closed;
+        }
+        let Ok(command) = serde_json::from_slice::<PreviewProxyCommand>(&frame.payload) else {
+            return Flow::Closed;
+        };
+        let listening_port = self.shared.lock().settings.port;
+        self.previews.handle(command, listening_port, &self.outbound);
         Flow::Open
     }
 }

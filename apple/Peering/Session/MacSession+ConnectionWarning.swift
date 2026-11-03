@@ -9,7 +9,7 @@ extension MacSession {
             symbol: "wifi.exclamationmark",
             title: String(localized: "Your connection is very bad"),
             summary: String(localized: "Ping is \(Int(milliseconds)) ms"),
-            body: String(localized: "The picture and your input will lag until the connection to your Mac improves."),
+            body: hostPlatform.adapt(String(localized: "The picture and your input will lag until the connection to your Mac improves.")),
             needsYou: false,
             target: nil
         ))

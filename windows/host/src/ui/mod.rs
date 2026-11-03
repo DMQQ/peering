@@ -9,9 +9,13 @@ pub mod settings;
 #[cfg(windows)]
 mod app;
 #[cfg(windows)]
+mod icon;
+#[cfg(windows)]
 mod pairing;
 #[cfg(windows)]
 mod settings_view;
+#[cfg(windows)]
+mod theme;
 #[cfg(windows)]
 mod tray;
 

@@ -9,11 +9,16 @@ use crate::session::actions::{CloseReason, HostEvent, SessionAction};
 use crate::session::deps::PairedDevice;
 use crate::session::state::HandshakeState;
 
+const NONCE_BYTES: usize = 32;
+
 impl HostSession {
     /// The host commits before it sees the client's reveal, so the client cannot choose its digits after the fact.
     pub(super) fn begin_pairing(&mut self, out: &mut Vec<SessionAction>) -> Result<(), CloseReason> {
         let ephemeral_public_key = self.deps.random.ephemeral_public_key();
         let nonce = self.deps.random.nonce();
+        if ephemeral_public_key.is_empty() || nonce.len() != NONCE_BYTES {
+            return Err(CloseReason::RandomSourceFailed);
+        }
         let commitment = sas::commitment(&ephemeral_public_key, &nonce);
         send_json(out, MessageKind::PairCommit, &PairingCommit { commitment: commitment.to_vec() });
         self.exchange = Some(Exchange { ephemeral_public_key, nonce, remote_commitment: None });
@@ -55,6 +60,9 @@ impl HostSession {
             server_identity_public_key: self.config.identity_public_key.clone(),
         };
         let secret = self.deps.random.secret();
+        if secret.len() != sas::MIN_SECRET_BYTES {
+            return Err(CloseReason::RandomSourceFailed);
+        }
         out.push(SessionAction::Emit(HostEvent::PairingCode {
             code: transcript.code(),
             secret: secret.clone(),

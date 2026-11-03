@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::*;
 
@@ -6,17 +6,27 @@ const PROFILE: &str = "C:\\Users\\me";
 const APP_DATA: &str = "C:\\Users\\me\\AppData\\Roaming";
 
 /// Windows file names are case-insensitive, so the fake is too.
-struct Files(BTreeSet<String>);
+struct Files(BTreeSet<String>, BTreeMap<String, String>);
 
 impl Files {
     fn with(paths: &[&str]) -> Self {
-        Self(paths.iter().map(|path| path.to_lowercase()).collect())
+        Self(paths.iter().map(|path| path.to_lowercase()).collect(), BTreeMap::new())
+    }
+
+    fn holding(mut self, path: &str, text: &str) -> Self {
+        self.0.insert(path.to_lowercase());
+        self.1.insert(path.to_lowercase(), text.to_owned());
+        self
     }
 }
 
 impl Exists for Files {
     fn exists(&self, path: &str) -> bool {
         self.0.contains(&path.to_lowercase())
+    }
+
+    fn read_text(&self, path: &str) -> Option<String> {
+        self.1.get(&path.to_lowercase()).cloned()
     }
 }
 
@@ -109,24 +119,58 @@ fn a_file_without_a_pathext_extension_is_not_a_binary() {
     assert_eq!(find_binary("claude", &search("C:\\a", None), &files), None);
 }
 
+const NPM_SHIM: &str = "@ECHO off\r\nIF EXIST \"%dp0%\\node.exe\" (\r\n  SET \"_prog=%dp0%\\node.exe\"\r\n) ELSE (\r\n  SET \"_prog=node\"\r\n)\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & \"%_prog%\"  \"%dp0%\\node_modules\\@openai\\codex\\bin\\codex.js\" %*\r\n";
+const SCRIPT: &str = "C:\\npm\\node_modules\\@openai\\codex\\bin\\codex.js";
+
+fn shim() -> Resolved {
+    Resolved { path: "C:\\npm\\codex.cmd".to_owned(), needs_cmd_wrapper: true }
+}
+
+fn words(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| (*value).to_owned()).collect()
+}
+
 #[test]
-fn a_cmd_shim_is_launched_through_cmd_with_its_arguments_after_the_path() {
-    let shim = Resolved {
-        path: "C:\\npm\\codex.cmd".to_owned(),
-        needs_cmd_wrapper: true,
-    };
-    let (program, args) = launch_command(&shim, &["--model".to_owned(), "o3".to_owned()]);
-    assert_eq!(program, "cmd.exe");
-    assert_eq!(args, ["/c", "C:\\npm\\codex.cmd", "--model", "o3"]);
+fn an_npm_shim_is_replaced_by_node_running_its_script() {
+    let files = Files::with(&[SCRIPT, "C:\\node\\node.exe"]).holding("C:\\npm\\codex.cmd", NPM_SHIM);
+    let launched = launch_command(&shim(), &words(&["a & calc", "%PATH%"]), &search("C:\\node", None), &files);
+    assert_eq!(
+        launched,
+        Ok(("C:\\node\\node.EXE".to_owned(), words(&[SCRIPT, "a & calc", "%PATH%"])))
+    );
+}
+
+#[test]
+fn the_node_beside_the_shim_is_preferred() {
+    let files = Files::with(&[SCRIPT, "C:\\npm\\node.exe", "C:\\node\\node.exe"]).holding("C:\\npm\\codex.cmd", NPM_SHIM);
+    let (program, _) = launch_command(&shim(), &[], &search("C:\\node", None), &files).expect("launches");
+    assert_eq!(program, "C:\\npm\\node.exe");
+}
+
+#[test]
+fn the_shim_script_is_read_from_the_quoted_path_after_the_program() {
+    assert_eq!(npm_shim_script(NPM_SHIM, "C:\\npm"), Some(SCRIPT.to_owned()));
+    assert_eq!(npm_shim_script("@\"%~dp0\\real.exe\" %*", "C:\\npm"), None);
+    assert_eq!(npm_shim_script("\"%_prog%\" \"%dp0%\\%X%\" %*", "C:\\npm"), None);
+}
+
+#[test]
+fn an_unreadable_shim_goes_through_cmd_with_its_arguments_after_the_path() {
+    let launched = launch_command(&shim(), &words(&["--model", "o3"]), &search("C:\\a", None), &Files::with(&[]));
+    assert_eq!(launched, Ok(("cmd.exe".to_owned(), words(&["/c", "C:\\npm\\codex.cmd", "--model", "o3"]))));
+}
+
+#[test]
+fn cmd_is_refused_any_argument_it_would_parse() {
+    for argument in ["\" & calc & \"", "%USERPROFILE%", "a\nb", "x|y", "(a)", "^", "!v!"] {
+        let launched = launch_command(&shim(), &words(&["-m", argument]), &search("C:\\a", None), &Files::with(&[]));
+        assert_eq!(launched, Err(UnsafeArgument), "{argument:?}");
+    }
 }
 
 #[test]
 fn an_executable_is_launched_directly() {
-    let exe = Resolved {
-        path: "C:\\bin\\claude.exe".to_owned(),
-        needs_cmd_wrapper: false,
-    };
-    let (program, args) = launch_command(&exe, &["--resume".to_owned()]);
-    assert_eq!(program, "C:\\bin\\claude.exe");
-    assert_eq!(args, ["--resume"]);
+    let exe = Resolved { path: "C:\\bin\\claude.exe".to_owned(), needs_cmd_wrapper: false };
+    let launched = launch_command(&exe, &words(&["--resume", "a & b"]), &search("C:\\a", None), &Files::with(&[]));
+    assert_eq!(launched, Ok(("C:\\bin\\claude.exe".to_owned(), words(&["--resume", "a & b"]))));
 }

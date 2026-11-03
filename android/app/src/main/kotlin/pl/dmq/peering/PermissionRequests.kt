@@ -27,3 +27,8 @@ class PermissionRequests {
         const val LAST_CODE = 0x2FFF
     }
 }
+
+/** An activity that forwards its permission answers to [permissionRequests], so a screen inside it can ask. */
+interface PermissionHost {
+    val permissionRequests: PermissionRequests
+}

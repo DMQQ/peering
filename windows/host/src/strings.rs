@@ -41,13 +41,24 @@ pub const OPEN_DOWNLOAD: &str = "Open the download page";
 pub const OPEN_LOGS: &str = "Open the log folder";
 pub const OPEN_LOGS_HINT: &str = "What the host did and what went wrong is written to files there, the last few megabytes of it.";
 pub const FIX_FIREWALL: &str = "Fix firewall";
-pub const FIREWALL_HINT: &str = "Windows asks once for permission to let phones reach this PC. This works on networks Windows calls Private: if this one is Public, switch it to Private in Windows settings.";
+pub const FIREWALL_HINT: &str = "Windows asks once for permission to let phones on your network reach this PC. Phones on other networks, such as a VPN or a guest Wi-Fi, still go through the relay.";
+pub const FIREWALL_PROMPT_TITLE: &str = "Phones can't reach this PC yet";
+pub const FIREWALL_PROMPT_BODY: &str = "Windows is blocking connections from your phone. Allow Peering through the firewall once and nearby phones will find this PC. Windows will ask you to approve it.";
+pub const FIREWALL_PROMPT_BUTTON: &str = "Allow phones to connect";
 pub const FIREWALL_REQUESTED: &str = "Approve the Windows prompt to add the firewall rule.";
 pub const FIREWALL_APPLIED: &str = "The firewall rule is in place.";
 pub const FRAME_RATE_HEADING: &str = "Frame rate";
 pub const FRAME_RATE_NOTE: &str = "A phone can still ask for its own frame rate.";
 
-pub const PRIVACY_MODE_UNAVAILABLE: &str = "Privacy mode is not available on this PC.";
+pub const PRIVACY_MODE_FAILED: &str = "Privacy Mode could not darken this PC's displays.";
+
+pub fn privacy_mode_uncovered(count: usize) -> String {
+    if count == 1 {
+        "One of this PC's displays is still visible: Privacy Mode could not cover it.".to_owned()
+    } else {
+        format!("{count} of this PC's displays are still visible: Privacy Mode could not cover them.")
+    }
+}
 pub const DESKTOPS_UNAVAILABLE: &str = "This PC cannot switch desktops from the phone.";
 pub const WINDOW_ACTIONS_UNAVAILABLE: &str = "This PC cannot close or move windows from the phone yet.";
 pub const LAUNCH_UNAVAILABLE: &str = "This PC cannot open apps from the phone yet.";

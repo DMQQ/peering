@@ -1,9 +1,8 @@
 package pl.dmq.peering.feature.paywall
 
-/** The ways to pay for unlimited relay time: the two subscription periods, and the one-time lifetime purchase. */
+/** The ways to pay for unlimited relay time: the monthly subscription and the one-time lifetime purchase. */
 enum class PlanOffer {
     MONTHLY,
-    YEARLY,
     LIFETIME,
 }
 

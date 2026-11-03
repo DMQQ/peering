@@ -9,7 +9,7 @@ import RemoteCore
 ///
 /// This exists so phases 1–3 are provable without any iOS UI. It deliberately uses the
 /// same `RemoteCore` types the real client will, so a handshake that works here is a
-/// handshake that works there — the only thing it stubs out is the user tapping "the
+/// handshake that works there, the only thing it stubs out is the user tapping "the
 /// digits match", which `--accept` supplies.
 @main
 struct Probe {
@@ -35,7 +35,7 @@ struct Probe {
         log("client identity \(options.clientID) as “\(options.clientName)”")
 
         // Discovery runs first when asked for, and can be the whole job. Browsing is
-        // otherwise never exercised — a direct connection to 127.0.0.1 proves the listener
+        // otherwise never exercised, a direct connection to 127.0.0.1 proves the listener
         // works and says nothing at all about whether the service advertises, whether the
         // TXT record arrives intact, or whether the client's Info.plist will let it browse
         // at all. Those are exactly the failures that are silent on iOS.
@@ -137,7 +137,7 @@ struct Probe {
         )
         channel.send(Frame(kind: .clientHello, payload: try MessageCodec.encode(hello)))
 
-        // 3. The host's reply. The host name here is authoritative — Bonjour is only a
+        // 3. The host's reply. The host name here is authoritative, Bonjour is only a
         //    hint about where to find it.
         let serverHelloFrame = try await channel.next()
         guard serverHelloFrame.kind == .serverHello else {
@@ -353,13 +353,13 @@ struct Probe {
     /// A GUI target would be the obvious check, but it is the wrong instrument: it only
     /// answers the question when focus happens to be right, and every earlier attempt to
     /// verify modifiers this way was confounded by whichever window was in front. The
-    /// session's own modifier state is the actual quantity of interest — if a chord fails to
+    /// session's own modifier state is the actual quantity of interest, if a chord fails to
     /// release, it shows up here regardless of what has focus.
     static func reportFlags(_ label: String) {
         let state = CGEventSource.flagsState(.combinedSessionState)
         let held = describe(state)
         // The raw value is printed next to the names on purpose. This machine's flag state
-        // carries bit 29 set at all times, including with nothing held — outside the named
+        // carries bit 29 set at all times, including with nothing held, outside the named
         // modifier masks, but inside `maskDeviceIndependentFlagsMask`. Reporting only the
         // four names made that bit invisible here while it was still visible to every caller
         // comparing raw values, which is a gap between what this prints and what it means.
@@ -383,7 +383,7 @@ struct Probe {
     /// The modifier bits a stuck chord would leave behind.
     ///
     /// Everything outside this mask is deliberately excluded from the hold-and-drop check.
-    /// Comparing whole raw values compares state this probe never touched — the always-set
+    /// Comparing whole raw values compares state this probe never touched, the always-set
     /// bit 29 above is enough on its own to make an unfixed and a fixed host look identical,
     /// so the check would fail against both and mean nothing either way.
     static let modifierMask: CGEventFlags = [
@@ -394,7 +394,7 @@ struct Probe {
     /// that the host cleans up after a client that dies mid-chord.
     ///
     /// **A clean shutdown cannot test this, which is why it needs its own mode.** Quitting
-    /// properly sends the key-up, and the key-up is what releases the modifier — so a probe
+    /// properly sends the key-up, and the key-up is what releases the modifier, so a probe
     /// that exits normally would read "no modifiers held" whether or not the host does
     /// anything at teardown, and would pass against the unfixed host too. Reproducing the
     /// accident means sending a lone key-down and then cancelling the socket with nothing
@@ -423,7 +423,7 @@ struct Probe {
         log("dropped the control connection with keycode \(code) still down")
 
         // Long enough for the host to see the close, tear the session down and post the
-        // release; short enough that it cannot be something else — nothing else on this
+        // release; short enough that it cannot be something else, nothing else on this
         // machine is going to release a modifier in the next second.
         try? await Task.sleep(for: .seconds(1))
         reportFlags("after the drop (want none)")
@@ -446,7 +446,7 @@ struct Probe {
     ///
     /// It needs its own test because the stuck state is worse than a stuck modifier and a
     /// great deal harder to recognise. A Mac left holding the left button does not look
-    /// broken — it looks like the next physical click "did not register", because that click
+    /// broken, it looks like the next physical click "did not register", because that click
     /// was consumed as the *end* of a drag the user never started. Nothing on screen says a
     /// button is down, so the symptom gets attributed to whatever was clicked.
     ///
@@ -492,7 +492,7 @@ struct Probe {
     /// Opens a connection that declares the video role and reports whether the host keeps it.
     ///
     /// **This tests a security property, not a feature.** A video connection carries no
-    /// handshake of its own — no hello, no pairing, not even a client ID — so the host has
+    /// handshake of its own, no hello, no pairing, not even a client ID, so the host has
     /// nothing to authorize it with except the client key on its TLS certificate. And the
     /// host's TLS verify block accepts *any* self-signed chain by design, because
     /// authenticity here comes from pairing rather than a CA. So the rule under test is:
@@ -548,7 +548,7 @@ struct Probe {
     /// (`EncodedFrame.nalUnitHeaderLength` in `PeeringHost/Capture/VideoEncoder.swift`), and
     /// its default is 4. Four is what every H.264 format description VideoToolbox produces
     /// reports, and it is what the wire carries, so 4 is assumed here. A host that emitted
-    /// some other width could not say so in the current protocol — this constant is the
+    /// some other width could not say so in the current protocol, this constant is the
     /// place that would have to change.
     static let assumedNALUHeaderLength = 4
 
@@ -556,12 +556,12 @@ struct Probe {
     ///
     /// This is the check that matters most for a payload nobody is decoding yet: length
     /// prefixes are what the decoder consumes, so a payload that does not tile exactly is a
-    /// picture that fails to decode — or, worse, one that decodes into garbage because a
+    /// picture that fails to decode, or, worse, one that decodes into garbage because a
     /// prefix was read out of the middle of another NALU. Naming the byte offset here is far
     /// closer to the cause than the decoder's eventual complaint.
     ///
     /// Offsets are counted from `data.startIndex`, never from zero. `EncodedVideoFrame`
-    /// copies its body out of the frame decoder's buffer, so its `Data` starts at 0 today —
+    /// copies its body out of the frame decoder's buffer, so its `Data` starts at 0 today,
     /// but `EncodedVideoFrame.init(decoding:)` is itself written around a non-zero-based
     /// slice, and that assumption has already caused one bug in this codebase.
     static func avccNALUCount(_ data: Data, lengthSize: Int) throws -> Int {
@@ -611,14 +611,14 @@ struct Probe {
     /// window.
     ///
     /// **The value of this mode is the distinction it draws.** Every failure below is a
-    /// different break in the chain — a host that authorized but never captured, a capture
+    /// different break in the chain, a host that authorized but never captured, a capture
     /// that never fed the encoder, an encoder emitting frames a decoder cannot start from,
-    /// a protocol mismatch in the fixed header — and all of them look identical from the
+    /// a protocol mismatch in the fixed header, and all of them look identical from the
     /// outside: a client showing nothing. Each is reported for what it is, so the next step
     /// is decided by the message rather than by guessing.
     /// Checks that a live stream survived the capture source being replaced underneath it.
     ///
-    /// Three things have to hold, and they fail in different ways — which is why they are
+    /// Three things have to hold, and they fail in different ways, which is why they are
     /// three checks rather than one:
     ///
     /// 1. **The switch was actually sent.** A receive window shorter than `--switch-after`
@@ -632,7 +632,7 @@ struct Probe {
     ///    that yields a new config and then nothing is a black screen for the rest of the
     ///    session.
     ///
-    /// The keyframe half of the rule is checked by the receiver itself — `ingestConfig`
+    /// The keyframe half of the rule is checked by the receiver itself, `ingestConfig`
     /// arms `expectedKeyframe`, so a config not followed by a keyframe fails the run
     /// wherever it happens. That is deliberately not duplicated here.
     static func checkSourceSwitches(
@@ -668,13 +668,13 @@ struct Probe {
                 """)
         }
 
-        // One per switch that changes the surface — not one per switch.
+        // One per switch that changes the surface, not one per switch.
         //
         // A switch that moves to a differently-sized surface owes the client a fresh
         // description, because the decoder's format description no longer matches the
         // picture. A switch between two sources that composite to the *same* size owes
         // nothing: the dimensions are unchanged, VideoToolbox produces byte-identical
-        // parameter sets for them, and the client's decoder stays valid — so re-sending a
+        // parameter sets for them, and the client's decoder stays valid, so re-sending a
         // description it already has only makes it flush a working decoder for nothing.
         //
         // Asking for one-per-switch therefore reports a correct host as broken, which is
@@ -725,7 +725,7 @@ struct Probe {
     static func expectedConfigUpdates(for targets: [CaptureSource], from initialSize: CGSize?) -> Int {
         // Without a catalogue there is no declared size for anything, so the conservative
         // reading is that every switch should have been announced. That can report a correct
-        // host as broken, but the alternative — assuming nothing changed — would pass a host
+        // host as broken, but the alternative, assuming nothing changed, would pass a host
         // that announced nothing at all, which is the failure this check exists for.
         guard let catalog = lastCatalog else { return targets.count }
 
@@ -744,7 +744,7 @@ struct Probe {
     /// The kind is required rather than inferred, because the number alone does not say
     /// which space it is in: `18` is a plausible display ID, window ID and pid all at once,
     /// and guessing would send the host off to capture something entirely different from
-    /// what was asked for — with a successful-looking switch to show for it.
+    /// what was asked for, with a successful-looking switch to show for it.
     static func parseSource(_ text: String) throws -> CaptureSource {
         let parts = text.split(separator: ":", maxSplits: 1)
         guard parts.count == 2, let value = UInt32(parts[1]) else {
@@ -765,7 +765,7 @@ struct Probe {
         }
     }
 
-    /// A capture source in words. The raw cases are meaningless in a log — a display is a
+    /// A capture source in words. The raw cases are meaningless in a log, a display is a
     /// number and a pid is worse.
     static func describe(_ source: CaptureSource) -> String {
         switch source {
@@ -800,7 +800,7 @@ struct Probe {
 
         // Stand the channel's watchdog down: it fires `--timeout` seconds after connect, and
         // a receive window longer than that would otherwise be cut short by "timed out
-        // waiting for a frame" — a message this mode must never print when the real
+        // waiting for a frame", a message this mode must never print when the real
         // situation is simply that the window has not finished. The window is the clock here.
         video.clearTimeout()
 
@@ -814,7 +814,7 @@ struct Probe {
         let reader = Task.detached { await receiver.drain(video) }
 
         // The window is enforced by closing the connection, not by a timeout inside `next()`
-        // — a read that is already parked has no other way out, and a probe that hangs
+        // a read that is already parked has no other way out, and a probe that hangs
         // instead of reporting is the one failure it cannot recover from. Polling also means
         // a host that drops the connection is reported in milliseconds rather than after the
         // whole window has run out.
@@ -961,11 +961,11 @@ struct Probe {
         }
     }
 
-    /// Why an empty window is empty — as far as this side of the connection can tell.
+    /// Why an empty window is empty, as far as this side of the connection can tell.
     ///
     /// The distinction is available and worth drawing, because the two cases send the reader
     /// to different places. The host sends a config the moment a video client attaches, and
-    /// it only attaches once capture has produced a format description — so a config that
+    /// it only attaches once capture has produced a format description, so a config that
     /// never arrived says the capture path never got that far, while a config that did
     /// arrive says capture was running and the encoder still produced nothing.
     static func noFramesMessage(
@@ -1072,7 +1072,7 @@ struct Probe {
         //
         // The catalogue is pushed unsolicited a few milliseconds after the session opens and
         // is not guaranteed to beat the pong, so a run that never reads the control channel
-        // again — and a receive window is exactly that — can miss it entirely and fall back
+        // again, and a receive window is exactly that, can miss it entirely and fall back
         // to guessing. Asking for it here, while the control channel is still the thing being
         // read, is what keeps the check below meaning what it says.
         if !options.switchTargets.isEmpty, lastCatalog == nil {
@@ -1103,8 +1103,8 @@ struct Probe {
     /// → command router → injector → `CGEvent` → the real cursor. The probe runs on the
     /// host's own machine, so it can read the result directly instead of assuming it.
     ///
-    /// Expected positions are computed here from `CGDisplayBounds` — independently of the
-    /// host's own transform — so a shared arithmetic mistake cannot make both agree.
+    /// Expected positions are computed here from `CGDisplayBounds`, independently of the
+    /// host's own transform, so a shared arithmetic mistake cannot make both agree.
     ///
     /// They are *display* coordinates, though, and the host maps input through whatever it is
     /// capturing. Those are the same thing only while the display is what is being captured,
@@ -1112,7 +1112,7 @@ struct Probe {
     /// after that client leaves, and this probe opens no video connection, so it never
     /// triggers the default-source reset that a video client would. Run it after a
     /// source-switch test and the host is still mapping through the window that test ended
-    /// on while the arithmetic below is still the display's — a large, exactly reproducible
+    /// on while the arithmetic below is still the display's, a large, exactly reproducible
     /// offset that reads as a broken mapping and is not one.
     ///
     /// So a failed first pass is not the result, it is the cue to put the host back on the
@@ -1157,7 +1157,7 @@ struct Probe {
     /// Sends each target, reads the cursor back, and reports every one of them.
     ///
     /// Reports rather than throws, so that a caller which is going to retry gets the
-    /// measurements from the failed pass too — the first pass's numbers are what name the
+    /// measurements from the failed pass too, the first pass's numbers are what name the
     /// wrong rectangle when the second pass fails as well.
     ///
     /// Normalized (0,0) is the top-left of the captured content, so the expected global point
@@ -1206,7 +1206,7 @@ struct Probe {
     /// taken, and the second pass would then fail for a reason that is entirely about timing.
     ///
     /// The observable is the middle of the display, which is the one target that can be
-    /// polled without knowing which mapping is in force — it is a point either way. This
+    /// polled without knowing which mapping is in force, it is a point either way. This
     /// reports nothing on success and throws only when the wait runs out, because the caller
     /// re-measures and reports what it finds; a switch that worked and a mapping that is
     /// still wrong are told apart by those measurements, not here.
@@ -1299,8 +1299,8 @@ struct Probe {
     /// Reads a file the way the browser reads one, and reports what came back.
     ///
     /// **The one part of the file browser nothing else here can reach.** A preview is not a
-    /// command and not a frame kind — it is a request and a stream of answers on the control
-    /// channel — so the rest of this probe can prove the connection works and say nothing at all
+    /// command and not a frame kind, it is a request and a stream of answers on the control
+    /// channel, so the rest of this probe can prove the connection works and say nothing at all
     /// about whether a picture arrives as a picture or as a screenful of replacement characters.
     ///
     /// A terminal first, because the host answers a read only for a session this client owns. The
@@ -1330,8 +1330,8 @@ struct Probe {
             throw ProbeError(message: "no terminal was created, so there is nothing to read through")
         }
         // Handed back on the way out, including on the way out of a failure. A host keeps a shell
-        // alive across disconnects on purpose — so a phone that reconnects finds its terminal
-        // where it left it — which means a probe that leaks one leaks it for good: a handful of
+        // alive across disconnects on purpose, so a phone that reconnects finds its terminal
+        // where it left it, which means a probe that leaks one leaks it for good: a handful of
         // runs and every later one fails on the host's per-client session limit instead of
         // testing anything.
         let release = try MessageCodec.encode(TerminalRequest.close(sessionID: sessionID))
@@ -1558,8 +1558,8 @@ struct Probe {
         let deadline = started.addingTimeInterval(300)
 
         // A real client pings once a second in the background, and the host ends a session that
-        // goes quiet on it. This check waits on minutes-long work — a login shell resolving a
-        // binary, a CLI starting, a model thinking — so the ping has to keep flowing while this
+        // goes quiet on it. This check waits on minutes-long work, a login shell resolving a
+        // binary, a CLI starting, a model thinking, so the ping has to keep flowing while this
         // side is not otherwise sending anything.
         let pinger = Task { [channel] in
             while !Task.isCancelled {
@@ -1680,7 +1680,7 @@ struct Probe {
     }
 
     /// Sends a ping and waits for the pong, which proves the host has processed everything
-    /// sent before it — the two share one connection and one handler, so they are ordered.
+    /// sent before it, the two share one connection and one handler, so they are ordered.
     /// Without this the cursor would be read before the move had been handled, and the test
     /// would fail intermittently for reasons that have nothing to do with injection.
     static func settle(_ channel: FrameChannel) async throws {
@@ -1695,7 +1695,7 @@ struct Probe {
     /// **Skipping is the point.** The control connection carries more than request/response:
     /// the host pushes the capture catalogue on it whenever a client connects and whenever an
     /// application launches or quits. A reader that insists the very next frame is the pong
-    /// therefore fails on whichever connection happens to follow one — reported as a protocol
+    /// therefore fails on whichever connection happens to follow one, reported as a protocol
     /// error, when what it actually found is a frame it was not expecting to be interested
     /// in. A real client reads the channel as a stream and dispatches on kind;
     /// `RemoteCore.ClientSession` does exactly that, and this is the shape a probe should
@@ -1718,7 +1718,7 @@ struct Probe {
     /// Held rather than merely logged because the push is *unsolicited* and does not wait for
     /// anything: the host sends one when a client finishes connecting, which lands somewhere
     /// in the middle of the handshake's own reads. Whichever read happens to consume it, the
-    /// value is kept here so the explicit check below can report it either way — and so the
+    /// value is kept here so the explicit check below can report it either way, and so the
     /// count distinguishes "the host pushed one and we saw it" from "we never looked".
     ///
     /// Statics for the same reason as ``options_clientID``: one connection per process.
@@ -1727,7 +1727,7 @@ struct Probe {
 
     /// Records anything the read loop was not itself waiting for.
     ///
-    /// The control channel is multiplexed — a catalogue push interleaves with pongs — so a
+    /// The control channel is multiplexed, a catalogue push interleaves with pongs, so a
     /// read loop has to skip frames it did not ask for. Skipping them *silently* is what
     /// makes this necessary: the catalogue is a whole feature (the client's source picker is
     /// only as good as what the host sent it), and a probe that dropped it without a word
@@ -1748,7 +1748,7 @@ struct Probe {
             //
             // **Every line carries the source and the pixel size, and both earn their place.**
             // The source, because `--switch-to` takes `kind:id` and an id that is not on screen
-            // can only be learned by guessing — or by going to `ps`, which is what this run
+            // can only be learned by guessing, or by going to `ps`, which is what this run
             // needed for the pid it switched to, and which a window id cannot be looked up in
             // at all. The size, because a capture switch whose new surface matches the old one
             // produces no videoConfig update by design, and without the sizes printed there is
@@ -1769,7 +1769,7 @@ struct Probe {
     /// Fails unless the host pushed a capture catalogue.
     ///
     /// Reported from the stored value when the handshake's own reads already swallowed the
-    /// push, and read for it when they have not — so this is correct whichever read won the
+    /// push, and read for it when they have not, so this is correct whichever read won the
     /// race, rather than depending on timing that differs between a paired and a first-time
     /// connection. The bound is in frames rather than seconds for the same reason: on a
     /// first-time connection the push happens after pairing, and on a paired one it can land
@@ -1825,7 +1825,7 @@ struct Probe {
 
     /// How long the host gets to switch capture source and start mapping for it. A switch
     /// rebuilds the `SCStream` and forces a keyframe, which the host's own log puts at a few
-    /// hundred milliseconds — generous enough to survive a loaded machine, short enough that
+    /// hundred milliseconds, generous enough to survive a loaded machine, short enough that
     /// a host which never switches is still reported rather than waited on.
     static let displayAdoptionTimeout: TimeInterval = 8
 
@@ -1843,7 +1843,7 @@ struct Probe {
     static func verifyPin(_ pinned: Data?, _ presented: Data) throws {
         guard let pinned else {
             // The probe takes its pin as an argument rather than persisting one, so this
-            // says only that no check happened — not that pairing is what comes next.
+            // says only that no check happened, not that pairing is what comes next.
             // Whether the host already trusts us is the host's call, in `serverHello`.
             log("no pinned server key supplied — not checking what the host presented")
             return
@@ -2152,7 +2152,7 @@ final class HostCollector: @unchecked Sendable {
 /// back across the boundary.
 ///
 /// Validation happens as each frame lands rather than in a pass afterwards, because every
-/// failure here is about *order* — a frame before its config, a delta before a keyframe — and
+/// failure here is about *order*, a frame before its config, a delta before a keyframe, and
 /// naming which one happened is the whole point of the mode.
 final class VideoReceiver: @unchecked Sendable {
     struct Snapshot: Sendable {
@@ -2203,7 +2203,7 @@ final class VideoReceiver: @unchecked Sendable {
     ///
     /// Never throws: a failure here is a result to be reported, not an exception to unwind,
     /// and the loop has to survive long enough to keep counting frames after a suspicious
-    /// one — the summary is more useful with the whole window in it.
+    /// one, the summary is more useful with the whole window in it.
     func drain(_ channel: FrameChannel) async {
         defer { lock.withLock { drained = true } }
         while !hasFinished {

@@ -3,6 +3,7 @@
 
 use peering_core::video::intent::VideoIntent;
 use peering_core::video::lane::lowest_ceiling_kbps;
+use peering_wire::fallback::HostAnswer;
 use peering_wire::framing::Frame;
 use peering_wire::handshake::VideoTransportRequest;
 
@@ -42,8 +43,12 @@ impl Connection {
         let now = self.now();
         let mut guard = self.shared.lock();
         if let Some(slot) = guard.sessions.get_mut(&self.session_id) {
-            slot.lane.handle_transport_request(&request, now);
+            let answer = slot.lane.handle_transport_request(&request, now);
             guard.refresh_bitrate_ceiling();
+            // The decoder on the new lane has no description and no picture, and a still screen encodes nothing on its own.
+            if answer == HostAnswer::Serve {
+                guard.video.request(VideoIntent::Resync);
+            }
         }
         Flow::Open
     }

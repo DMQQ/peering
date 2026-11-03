@@ -13,7 +13,7 @@ use tokio::task::spawn_local;
 
 use super::connection::{Connection, Flow};
 use super::outbound::FrameSender;
-use super::refusal::{notice_for_text, Refusal};
+use super::refusal::{notice_for_text, privacy_notice, Refusal};
 use crate::strings;
 
 const READ_DEADLINE: Duration = Duration::from_secs(3);
@@ -27,12 +27,26 @@ impl Connection {
     pub(super) fn host_command(&mut self, command: RemoteCommand) {
         match command {
             RemoteCommand::RequestClipboard {} => self.answer_clipboard_request(),
+            RemoteCommand::RefreshSourceThumbnails {} => self.shared.lock().pictures.refresh(),
+            RemoteCommand::WatchSourceThumbnails { watching } => self.shared.lock().pictures.watch(self.session_id, watching),
+            RemoteCommand::SetPrivacyMode { enabled } => self.set_privacy_mode(enabled),
             RemoteCommand::PushClipboard { text } => self.write_clipboard(ClipboardContent::Text(text)),
             RemoteCommand::PushClipboardImage { png } if png.len() <= MAX_IMAGE_BYTES => {
                 self.write_clipboard(ClipboardContent::Image(png));
             }
             _ => {}
         }
+    }
+
+    fn set_privacy_mode(&mut self, enabled: bool) {
+        let running = self.shared.lock().privacy.request(enabled);
+        let shared = self.shared.clone();
+        let profile = self.profile.clone();
+        spawn_local(async move {
+            if let Some(notice) = running.await.ok().and_then(privacy_notice) {
+                shared.lock().refusal = Some(Refusal::until(notice, profile.clock.now_seconds()));
+            }
+        });
     }
 
     /// A chunk of a message too large for one frame. Only a command can arrive this way, and it is run once whole.

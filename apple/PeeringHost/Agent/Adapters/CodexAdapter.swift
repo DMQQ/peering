@@ -7,12 +7,12 @@ final class CodexAdapter: PerTurnAdapter, @unchecked Sendable {
     private var stream: AgentCodexStream
     private var logPath: URL?
 
-    override class var command: String { "codex" }
-    override class var displayName: String { "Codex" }
+    static let command = "codex"
+    static let displayName = "Codex"
 
-    override init(directory: URL, resume: AgentResume?) {
+    init(directory: URL, resume: AgentResume?) {
         stream = AgentCodexStream(directory: directory.path, cliSessionID: resume?.cliSessionID)
-        super.init(directory: directory, resume: resume)
+        super.init(command: Self.command, displayName: Self.displayName, directory: directory, resume: resume)
     }
 
     override func arguments(for text: String) -> [String] {
@@ -25,9 +25,9 @@ final class CodexAdapter: PerTurnAdapter, @unchecked Sendable {
         if stream.cliSessionID != nil { arguments += ["-c", "sandbox_mode=\"\(sandbox)\""] }
         arguments += ["exec"]
         if let thread = stream.cliSessionID {
-            arguments += ["resume", "--skip-git-repo-check", "--json", thread, text]
+            arguments += ["resume", "--skip-git-repo-check", "--json", "--", thread, text]
         } else {
-            arguments += ["--json", "--sandbox", sandbox, "--skip-git-repo-check", "--cd", directory.path, text]
+            arguments += ["--json", "--sandbox", sandbox, "--skip-git-repo-check", "--cd", directory.path, "--", text]
         }
         return arguments
     }

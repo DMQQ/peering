@@ -9,13 +9,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.FolderRecents
 import pl.dmq.peering.feature.agents.HubGuidePresenter
 import pl.dmq.peering.feature.files.FolderPickerPresenter
 import pl.dmq.peering.feature.remote.HubTab
 import pl.dmq.peering.feature.remote.ReportHubPage
+import pl.dmq.peering.feature.remote.belowHubSwitcher
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.ui.kit.DepthTransition
+import pl.dmq.peering.ui.kit.TwoPane
+import pl.dmq.peering.ui.kit.rememberWidthClass
+import pl.dmq.peering.ui.theme.EmptyState
 
 /**
  * The Terminals tab: the list of shells, and a tapped shell pushed over it with a back arrow. System back leaves the
@@ -37,6 +43,7 @@ fun TerminalPage(
     val presenter = remember(sessions, folders, recents) {
         TerminalListPresenter(sessions, preferences.agentHistory, { name.value }, canChooseFolder = folders != null, recents = recents)
     }
+    val twoPane = rememberWidthClass().twoPane
     val inShell by presenter.inShell.collectAsState()
     val choosingFolder by presenter.choosingFolder.collectAsState()
     val state by sessions.state.collectAsState()
@@ -51,7 +58,10 @@ fun TerminalPage(
     ReportHubPage(HubTab.TERMINALS, atRoot = !inShell && !choosingFolder)
     BackHandler(enabled = inShell, onBack = presenter::back)
     val page = if (inShell) TerminalPageStep.SHELL else if (choosingFolder) TerminalPageStep.FOLDER else TerminalPageStep.LIST
-    DepthTransition(state = page, depth = { it.depth }, modifier = modifier, label = "terminalPage") { step ->
+    val list: @Composable () -> Unit = {
+        TerminalListScreen(sessions, presenter, preferences.agentHistory, guide, listState, connected, onFiles)
+    }
+    val detail: @Composable (TerminalPageStep) -> Unit = { step ->
         if (step == TerminalPageStep.FOLDER && folders != null) {
             TerminalFolderPage(folders, recents, onChoose = presenter::startIn, onBack = presenter::cancelFolder)
         } else if (step == TerminalPageStep.SHELL) {
@@ -60,11 +70,23 @@ fun TerminalPage(
                 preferences = preferences,
                 connected = connected,
                 onBack = presenter::back,
+                hosted = twoPane,
                 canCreate = false,
                 onEnded = presenter::back,
             )
-        } else {
-            TerminalListScreen(sessions, presenter, preferences.agentHistory, guide, listState, connected, onFiles)
+        }
+    }
+    if (twoPane) {
+        TwoPane(
+            list = list,
+            detail = if (page == TerminalPageStep.LIST) null else ({ detail(page) }),
+            empty = { EmptyState(icon = null, title = stringResource(R.string.terminal_pane_empty_title), body = stringResource(R.string.terminal_pane_empty_body), mascot = true) },
+            modifier = modifier,
+            detailModifier = Modifier.belowHubSwitcher(),
+        )
+    } else {
+        DepthTransition(state = page, depth = { it.depth }, modifier = modifier, label = "terminalPage") { step ->
+            if (step == TerminalPageStep.LIST) list() else detail(step)
         }
     }
 }

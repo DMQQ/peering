@@ -43,7 +43,7 @@ extension MacSession {
 
     /// **A rename moves a file, and the browser may be *in* the thing that moved.** Renaming is
     /// asked for from a row, and a row is always a child of the folder on screen, so this side
-    /// cannot rename the folder it is looking at — but the browse path is remembered per shell
+    /// cannot rename the folder it is looking at, but the browse path is remembered per shell
     /// rather than per view, and a second look after the fact is four lines against a browser that
     /// spends the rest of the session asking about a path that no longer exists.
     /// **A delete takes the folder and everything filed under it.** The pruned cache is not the

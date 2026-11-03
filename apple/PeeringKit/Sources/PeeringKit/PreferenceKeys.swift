@@ -20,6 +20,8 @@ public enum PreferenceKeys {
     /// Whether the Mac's audio is played on the phone, or dropped.
     public static let hostAudioMuted = "Peering.hostAudioMuted"
     public static let liveActivities = "Peering.liveActivities"
+    /// "Notify me only for decisions": the Mac pushes approvals and questions, not finished turns. Told to each Mac on connect.
+    public static let agentDecisionsOnly = "Peering.agentDecisionsOnly"
     public static let keyboardMode = "Peering.keyboardMode"
     /// Settings is unreachable while connected, so this is a preference and never a command; see ``SessionModel/applyInitialQuality()``.
     public static let streamQuality = "Peering.streamQuality"
@@ -31,6 +33,8 @@ public enum PreferenceKeys {
     public static let lowRelayOfferWindow = "Peering.lowRelayOfferWindow"
     /// Persisted so observe mode's no-input promise survives a relaunch.
     public static let interactionMode = "Peering.interactionMode"
+    /// On: the mode picker shows on every connect instead of opening the mode last chosen for that Mac.
+    public static let asksSessionModeOnConnect = "Peering.asksSessionModeOnConnect"
     public static let scalesToFill = "Peering.scalesToFill"
     /// Whether the keyboard bar shows its shortcut keys. Off by default: most typing needs only the field, which is then larger.
     public static let keyboardShortcutsExpanded = "Peering.keyboardShortcutsExpanded"

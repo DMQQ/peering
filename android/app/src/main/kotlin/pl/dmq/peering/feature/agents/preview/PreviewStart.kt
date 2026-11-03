@@ -1,6 +1,6 @@
 package pl.dmq.peering.feature.agents.preview
 
-import androidx.compose.foundation.border
+import pl.dmq.peering.ui.kit.tonalCard
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -81,7 +81,7 @@ private fun Servers(ui: PreviewUi, onOpenPort: (Int) -> Unit, onLookAgain: () ->
         }
         if (ui.detectedPorts.isNotEmpty()) {
             val shape = peeringShapes.small
-            Column(Modifier.fillMaxWidth().border(1.dp, PeeringColors.hairline, shape)) {
+            Column(Modifier.fillMaxWidth().tonalCard(shape)) {
                 ui.detectedPorts.forEachIndexed { index, port ->
                     if (index > 0) HorizontalDivider(color = PeeringColors.hairline)
                     ServerRow(port) { onOpenPort(port) }

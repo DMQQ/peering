@@ -22,10 +22,13 @@ public enum AgentNotificationText {
         lastReply: String?,
         editedFiles: Int = 0,
         duration: TimeInterval? = nil,
+        recap: String? = nil,
         words: AgentNotificationWords = .english
     ) -> (title: String, body: String) {
         let outcome: AgentNotificationWords.Outcome = ok ? .finished : (stopped ? .stopped : .failed)
-        let detail = AgentTurnDigest.detail(editedFiles: editedFiles, duration: duration, words: words)
+        let detail = recap.map { recap in
+            AgentTurnDigest.detail(editedFiles: 0, duration: duration, words: words).map { "\(recap) · \($0)" } ?? recap
+        } ?? AgentTurnDigest.detail(editedFiles: editedFiles, duration: duration, words: words)
         let headline: String
         if let lastReply, !lastReply.isEmpty {
             let firstLine = lastReply.split(separator: "\n").first.map(String.init) ?? lastReply

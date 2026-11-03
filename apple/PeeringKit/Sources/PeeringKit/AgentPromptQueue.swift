@@ -18,6 +18,10 @@ public struct AgentPromptQueue: Equatable {
 
     public init() {}
 
+    public init(prompts: [String]) {
+        self.prompts = prompts
+    }
+
     /// Behind a turn in flight, or behind messages already waiting: order is the order typed.
     public mutating func submit(_ text: String, sessionState: AgentSessionState?) -> Submission {
         if sessionState == .working || sessionState == .awaitingApproval || !prompts.isEmpty {
@@ -30,6 +34,18 @@ public struct AgentPromptQueue: Equatable {
     public mutating func remove(at offset: Int) {
         guard prompts.indices.contains(offset) else { return }
         prompts.remove(at: offset)
+    }
+
+    /// Removes the message the sender saw at `offset`. The queue may have moved since (a turn ended and released the first), so a different message there means the sender's view is stale and the same text is looked for instead.
+    @discardableResult
+    public mutating func remove(_ text: String, at offset: Int) -> Bool {
+        if prompts.indices.contains(offset), prompts[offset] == text {
+            prompts.remove(at: offset)
+            return true
+        }
+        guard let moved = prompts.firstIndex(of: text) else { return false }
+        prompts.remove(at: moved)
+        return true
     }
 
     /// A chat that failed or ended will never answer, so what waited for it is not sent into the next one.

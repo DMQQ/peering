@@ -12,13 +12,36 @@ struct AgentComposer: View {
     let send: () -> Void
     var attach: ((AttachSource) -> Void)?
     let stop: () -> Void
+    let dictation: VoiceDictation
+    /// Gets what was heard once listening ends.
+    let dictated: (String) -> Void
 
     /// While a turn runs, typing turns Stop into a send that queues.
     private var showsStop: Bool { isWorking && !canSend }
 
     var body: some View {
+        ZStack {
+            row
+                .opacity(dictation.isActive ? 0 : 1)
+                .allowsHitTesting(!dictation.isActive)
+            switch dictation.state {
+            case .listening, .finishing, .stopped:
+                DictationOverlay(dictation: dictation, finish: { dictation.finish() }, cancel: { dictation.cancel() }, buttonSize: InputBar.height)
+            case .denied, .unavailable:
+                DictationNotice(denied: dictation.state == .denied) { dictation.dismissMessage() }
+            case .idle:
+                EmptyView()
+            }
+        }
+        .animation(Motion.settle, value: dictation.state)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
+    private var row: some View {
         let shape = RoundedRectangle(cornerRadius: InputBar.height / 2, style: .continuous)
-        HStack(alignment: .bottom, spacing: 8) {
+        return HStack(alignment: .bottom, spacing: 8) {
             InputCapsule(alignment: .bottom) {
                 if let attach {
                     Menu {
@@ -43,6 +66,18 @@ struct AgentComposer: View {
                     .lineLimit(1...6)
                     .focused($isFocused)
                     .padding(.vertical, 12)
+
+                Button {
+                    dictation.start(onFinish: dictated)
+                } label: {
+                    Image(systemName: "mic.fill")
+                        .symbolEffect(.bounce, value: dictation.isActive)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .frame(width: 28, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(String(localized: "Dictate", table: "Dictation"))
             }
             .overlay {
                 shape.strokeBorder(.white.opacity(isFocused ? 0.3 : 0), lineWidth: 1)
@@ -61,8 +96,5 @@ struct AgentComposer: View {
                 showsStop ? stop() : send()
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
     }
 }

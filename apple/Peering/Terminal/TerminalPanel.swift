@@ -24,6 +24,8 @@ struct TerminalPanel: View {
     @Binding var route: [RemoteRoute]
     /// Nil for the hub itself. A page is built by a panel of its own, because its closures read the environment, which only a view in the hierarchy has.
     var step: TerminalFlowStep?
+    /// The hub as the list beside a detail pane: a row replaces the pane's page instead of stacking over it.
+    var picksForPane = false
 
     var path: [TerminalFlowStep] {
         get {
@@ -35,7 +37,9 @@ struct TerminalPanel: View {
     }
 
     private var pathBinding: Binding<[TerminalFlowStep]> {
-        Binding(get: { path }, set: { path = $0 })
+        Binding(get: { path }, set: { proposed in
+            path = picksForPane ? SidebarSelection.detailPath(current: path, proposed: proposed) : proposed
+        })
     }
 
     /// One page per depth, so the swipe back is one level up. A folder already in the stack is returned to rather than stacked again, and the home folder counts: the first page names it as nil, and a ".." from its child names it by path.
@@ -115,6 +119,8 @@ struct TerminalPanel: View {
             TerminalScreen(terminalID: id)
         case .chat(let id):
             AgentChatScreen(sessionID: id)
+                // What arrived while the chat was open has been read.
+                .onDisappear { ChatBoardLedger.shared.markSeen(id) }
         case .folder(let agent, let directory):
             AgentFolderPicker(
                 title: agent.name,

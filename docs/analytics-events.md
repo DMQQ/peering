@@ -63,6 +63,12 @@ A dial failed or a session dropped.
 
 Plus the shared properties.
 
+### `session_mode_chosen`
+Once per session, when it opens in a mode. `mode` (`screen`, `workspace`, `remote`), `source` (`picker` when the person chose, `remembered` when the Mac opened in the mode last chosen for it).
+
+### `session_mode_changed`
+The person switched mode during a session. `from` and `to`, each `screen`, `workspace` or `remote`.
+
 ### `session_ended`
 Once per session that reached ready, when it ends for good: the user ends it, the Mac stops, the reconnect ladder gives up, iOS ends it, the relay allowance runs out or the retry cap stops it.
 

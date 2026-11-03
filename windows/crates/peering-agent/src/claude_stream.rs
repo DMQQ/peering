@@ -1,9 +1,9 @@
 //! Claude Code's `stream-json` output, read one line at a time into the agent events the phone shows.
 
-mod json;
+pub(crate) mod json;
 mod lines;
 mod shapes;
-mod text;
+pub(crate) mod text;
 mod turn;
 
 #[cfg(test)]

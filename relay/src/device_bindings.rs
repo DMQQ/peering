@@ -264,6 +264,12 @@ impl DeviceBindings {
     /// no proof at all. See the module comment for why a proved registration always wins, and why
     /// that is not the same as trusting it: the phone's pin is what decides whether the device
     /// behind this ID is the one it paired with.
+    /// Whether `proof` is a different key from the one `device_id` is bound to.
+    pub fn would_rebind(&self, device_id: &str, proof: Option<&str>) -> bool {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        matches!((inner.get(device_id), proof), (Some(bound), Some(present)) if bound != present)
+    }
+
     pub fn check_and_bind(&self, device_id: &str, proof: Option<&str>) -> Binding {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
 

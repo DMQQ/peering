@@ -80,6 +80,8 @@ class SettingsPresenter(
     fun setAllowsRelay(allows: Boolean) = change { it.copy(allowsRelay = allows) }
 
     fun setPlaysComputerSound(plays: Boolean) = change { it.copy(playsComputerSound = plays) }
+    fun setAsksHowToUse(asks: Boolean) = change { it.copy(asksHowToUse = asks) }
+
     fun setKeepsSessionInBackground(keeps: Boolean) = change { it.copy(keepsSessionInBackground = keeps) }
 
     fun setNotifies(notifies: Boolean) = change { it.copy(notifies = notifies) }

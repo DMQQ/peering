@@ -330,7 +330,8 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
   listed only if it is visible, not minimised or cloaked, titled, a top-level or taskbar window, not the host's own, and the system
   accepts it for Windows.Graphics.Capture. `setCaptureSource` with a window starts it, input is mapped into the window's frame, and a
   window that closes returns the picture to the primary display. `applications` and `installedApplications` are empty, `iconPNGData`
-  and `thumbnail` are absent, and `supportsMosaic` and `supportsSourceThumbnails` are not set.
+  is absent, and `supportsMosaic` is not set. `supportsSourceThumbnails` is set: a window or display gets a `thumbnail` (240 px across, JPEG, at most
+  32 KiB) once a phone has sent `refreshSourceThumbnails`, or `watchSourceThumbnails(true)` (then again every 3 s until it sends false).
 * Windows pushes: a chat approval (`approvalRequested`) is pushed through the relay to a phone that registered a token, even while
   it is connected, and a finished turn only when the phone is not in the foreground, with the Mac's words in English and the
   categories `peering.agent.approval.tool|open|yesno` and `peering.agent.finished`. `notifyActivity` is not sent.

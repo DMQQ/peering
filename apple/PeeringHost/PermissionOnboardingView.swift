@@ -5,6 +5,10 @@ import SwiftUI
 struct PermissionOnboardingView: View {
     @Environment(HostModel.self) private var model
 
+    // The system prompt has its own Settings button, so only a later press opens Settings.
+    @State private var askedAccessibility = false
+    @State private var askedScreenRecording = false
+
     private var permissions: Permissions { model.permissions }
 
     var body: some View {
@@ -25,8 +29,12 @@ struct PermissionOnboardingView: View {
                             symbol: "cursorarrow.click.2",
                             granted: permissions.accessibilityGranted,
                             allow: {
-                                permissions.requestAccessibility()
-                                permissions.openAccessibilitySettings()
+                                if askedAccessibility {
+                                    permissions.openAccessibilitySettings()
+                                } else {
+                                    askedAccessibility = true
+                                    permissions.requestAccessibility()
+                                }
                             },
                         )
 
@@ -38,12 +46,11 @@ struct PermissionOnboardingView: View {
                             symbol: "rectangle.dashed.badge.record",
                             granted: permissions.screenRecordingGranted,
                             allow: {
-                                permissions.requestScreenRecording()
-                                Task { @MainActor in
-                                    // Give ScreenCaptureKit a moment to register Peering before
-                                    // revealing its row in System Settings.
-                                    try? await Task.sleep(for: .milliseconds(350))
+                                if askedScreenRecording {
                                     permissions.openScreenRecordingSettings()
+                                } else {
+                                    askedScreenRecording = true
+                                    permissions.requestScreenRecording()
                                 }
                             },
                         )

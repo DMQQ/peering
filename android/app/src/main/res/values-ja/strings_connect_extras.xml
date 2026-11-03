@@ -14,4 +14,8 @@
     <string name="link_end_title">このセッションを終了しますか？</string>
     <string name="link_end_message">Peering外のリンクから、コンピュータとの接続を切断するよう求められました。</string>
     <string name="link_end_confirm">セッションを終了</string>
+    <string name="link_open_title">このリンクを開きますか？</string>
+    <string name="link_open_message">Peering の外部のリンクが、あなたのコンピュータへの接続を求めています。自分で開いた場合のみ続けてください。</string>
+    <string name="link_pair_message">Peering の外部のリンクが、コンピュータとのペアリングを求めています。自分で開いた場合のみ続けてください。</string>
+    <string name="link_open_confirm">続ける</string>
 </resources>

@@ -6,12 +6,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import pl.dmq.peering.feature.settings.DevicePrefs
 import pl.dmq.peering.session.controller.SessionPhase
+import pl.dmq.peering.session.notices.AgentProgress
 import pl.dmq.peering.session.notices.BackgroundNotices
 import pl.dmq.peering.session.notices.KeepAlivePolicy
 import pl.dmq.peering.session.notices.KeepAliveStatus
 import pl.dmq.peering.session.notices.NoticeAction
 import pl.dmq.peering.session.notices.NoticeInputs
 import pl.dmq.peering.session.notices.NoticeSources
+import pl.dmq.peering.session.notices.ProgressAction
 
 /** The foreground service, as far as the coordinator needs it. */
 internal interface KeepAliveHost {
@@ -23,7 +25,7 @@ internal interface KeepAliveHost {
 
 /**
  * Joins the session, the settings and whether the app is on screen into the two things the background story does: keep
- * the process alive behind the ongoing notification, and post or retract the notices the planner decides on.
+ * the process alive behind the ongoing notification, and post or retract the notices and agent progress the planners decide on.
  */
 internal class BackgroundCoordinator(
     private val live: Flow<LiveSession?>,
@@ -34,12 +36,14 @@ internal class BackgroundCoordinator(
     private val onSessionStarted: (notificationsEnabled: Boolean) -> Unit,
 ) {
     private val notices = BackgroundNotices()
+    private val progress = AgentProgress()
     private var running: Triple<KeepAliveStatus, String?, String?>? = null
     private var hostName: String? = null
     private var hadSession = false
     private var refused = false
 
     fun start(scope: CoroutineScope) {
+        sink.endAllProgress()
         scope.launch {
             combine(live, prefs, away) { session, prefs, away -> Triple(session, prefs, away) }
                 .collect { (session, prefs, away) -> apply(session, prefs, away) }
@@ -54,6 +58,12 @@ internal class BackgroundCoordinator(
             when (action) {
                 is NoticeAction.Post -> sink.post(action.notice)
                 is NoticeAction.Retract -> sink.retract(action.keys)
+            }
+        }
+        for (action in progress.plan(inputs)) {
+            when (action) {
+                is ProgressAction.Show -> sink.showProgress(action.notice)
+                is ProgressAction.End -> sink.endProgress(action.chatID)
             }
         }
     }

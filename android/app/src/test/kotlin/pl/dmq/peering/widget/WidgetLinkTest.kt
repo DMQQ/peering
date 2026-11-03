@@ -47,4 +47,16 @@ class WidgetLinkTest {
         assertNull(WidgetLink.parse("peering://connect?id=%zz"))
         assertNull(WidgetLink.parse("peering://chat?id=%"))
     }
+
+    @Test
+    fun `a computer's QR code link names that computer`() {
+        val id = "0F8A3C3E-7C55-4B7E-9E0B-2B1C3D4E5F60"
+        assertEquals(WidgetLink.Device(id), WidgetLink.parse("https://getpeering.app/mac?id=${id.lowercase()}"))
+    }
+
+    @Test
+    fun `another page on the site is not a computer link`() {
+        assertEquals(null, WidgetLink.parse("https://getpeering.app/privacy"))
+        assertEquals(null, WidgetLink.parse("https://getpeering.app/mac?id=nope"))
+    }
 }

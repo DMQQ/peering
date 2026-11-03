@@ -2,17 +2,21 @@
 //! 0.31 and tray-icon APIs and has not been run on Windows. The window starts hidden; the tray is the entry point, and
 //! closing the window hides it again rather than quitting.
 
+use std::cell::Cell;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use eframe::egui;
+use peering_platform::single_instance::Guard;
 
 use std::path::PathBuf;
 
+use super::icon;
 use super::jobs::Jobs;
 use super::model::{job_command, settings_command, MenuAction, MenuModel, UiModel};
 use super::pairing;
 use super::settings::{SettingsChoice, SettingsJob, SettingsState};
 use super::settings_view;
+use super::theme;
 use super::tray::Tray;
 use crate::autostart;
 use crate::firewall;
@@ -20,43 +24,63 @@ use crate::runtime::{HostHandle, RuntimeCommand};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
-pub fn run(handle: HostHandle) -> Result<(), eframe::Error> {
+pub fn run(handle: HostHandle, instance: Guard) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_visible(false).with_inner_size([420.0, 620.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_visible(false)
+            .with_inner_size([480.0, 760.0])
+            .with_min_inner_size([380.0, 480.0])
+            .with_icon(egui::IconData { rgba: icon::RGBA.to_vec(), width: icon::SIDE, height: icon::SIDE }),
         ..Default::default()
     };
     eframe::run_native(
         crate::strings::TOOLTIP,
         options,
-        Box::new(move |_creation| {
+        Box::new(move |creation| {
+            theme::apply(&creation.egui_ctx);
             let model = MenuModel::new(handle.snapshot());
             let tray = Tray::new(&model.entries())?;
             // `reg` can take seconds, so the box starts unticked and a worker reads the Run entry.
             let jobs = Jobs::default();
             let _unread = jobs.spawn("read-autostart", || SettingsJob::AutostartRead(autostart::is_enabled()));
-            Ok(Box::new(HostApp { handle, tray, window_open: false, reset_asked: false, settings: SettingsState::new(false), jobs }))
+            let port = handle.snapshot().port;
+            let _checked = jobs.spawn("check-firewall", move || {
+                let in_place = program_path().is_ok_and(|path| firewall::rule_in_place(&path, port));
+                SettingsJob::FirewallChecked { in_place }
+            });
+            Ok(Box::new(HostApp { instance, handle, tray, reset_asked: false, settings: SettingsState::new(false), jobs, quitting: Cell::new(false) }))
         }),
     )
 }
 
 struct HostApp {
+    /// Held for the life of the app: dropping it frees the name for the next launch, and it carries "show yourself" requests from launches that were turned away.
+    instance: Guard,
     handle: HostHandle,
     tray: Tray,
-    window_open: bool,
     /// The person pressed Reset paired devices and is looking at the warning.
     reset_asked: bool,
     settings: SettingsState,
     jobs: Jobs<SettingsJob>,
+    /// Quit was chosen, so the close request that follows is the real one and must not be turned into a hide.
+    quitting: Cell<bool>,
 }
 
 impl eframe::App for HostApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if ctx.input(|input| input.viewport().close_requested()) {
+        if !self.quitting.get() && ctx.input(|input| input.viewport().close_requested()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.hide_window(ctx);
         }
+        if self.instance.take_show_request() {
+            self.show_window(ctx);
+        }
         let snapshot = self.handle.snapshot();
         for finished in self.jobs.collect() {
+            // The window starts hidden behind the tray, and a person who never opens it would never see the prompt.
+            if matches!(finished, SettingsJob::FirewallChecked { in_place: false }) {
+                self.show_window(ctx);
+            }
             if let Some(command) = job_command(&finished) {
                 self.send(ctx, command);
             }
@@ -67,11 +91,18 @@ impl eframe::App for HostApp {
         while let Some(action) = self.tray.poll() {
             self.choose(ctx, &menu, action);
         }
-        if self.window_open {
-            self.draw_window(ctx, UiModel::new(snapshot));
-        }
+        // Drawn every frame: the window can be on screen before the tray ever asks for it, and an undrawn one is blank.
+        self.draw_window(ctx, UiModel::new(snapshot), &menu.status_line());
         ctx.request_repaint_after(POLL_INTERVAL);
     }
+}
+
+fn header(ui: &mut egui::Ui, status: &str, needs_attention: bool) {
+    ui.label(egui::RichText::new(crate::strings::TOOLTIP).size(26.0).strong().color(egui::Color32::WHITE));
+    ui.horizontal(|ui| {
+        theme::status_dot(ui, if needs_attention { theme::DANGER } else { theme::SUCCESS });
+        ui.label(theme::muted(status));
+    });
 }
 
 /// Hands a folder or a web address to Explorer, which opens it in the right program. Explorer reports a failure through an exit
@@ -89,7 +120,7 @@ fn program_path() -> std::io::Result<PathBuf> {
 impl HostApp {
     fn choose(&mut self, ctx: &egui::Context, menu: &MenuModel, action: MenuAction) {
         match action {
-            MenuAction::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            MenuAction::Quit => self.quit(ctx),
             MenuAction::ShowPairingCode | MenuAction::ShowDevices | MenuAction::OpenSettings => self.show_window(ctx),
             MenuAction::ToggleHosting => {
                 if let Some(command) = menu.command_for(action) {
@@ -99,30 +130,39 @@ impl HostApp {
         }
     }
 
+    fn quit(&self, ctx: &egui::Context) {
+        self.quitting.set(true);
+        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+    }
+
     fn show_window(&mut self, ctx: &egui::Context) {
-        self.window_open = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
         ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
     }
 
     fn hide_window(&mut self, ctx: &egui::Context) {
-        self.window_open = false;
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
     }
 
-    fn draw_window(&mut self, ctx: &egui::Context, model: UiModel) {
+    fn draw_window(&mut self, ctx: &egui::Context, model: UiModel, status: &str) {
         let mut commands = Vec::new();
         let mut choices = Vec::new();
         let now_unix = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs());
         let panel = model.settings(&self.settings);
         let port = model.port();
-        egui::CentralPanel::default().show(ctx, |ui| {
-            for problem in model.problems() {
-                ui.colored_label(egui::Color32::from_rgb(200, 60, 40), problem);
-            }
-            pairing::show(ui, &model, now_unix, &mut self.reset_asked, &mut commands);
-            ui.separator();
-            settings_view::show(ui, &panel, &mut choices);
+        let page = egui::Frame::new().fill(theme::BACKDROP).inner_margin(egui::Margin::same(20));
+        egui::CentralPanel::default().frame(page).show(ctx, |ui| {
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                header(ui, status, !model.problems().is_empty());
+                settings_view::firewall_prompt(ui, &panel, &mut choices);
+                for problem in model.problems() {
+                    theme::card(ui, |ui| {
+                        ui.label(egui::RichText::new(problem).color(theme::DANGER));
+                    });
+                }
+                pairing::show(ui, &model, now_unix, &mut self.reset_asked, &mut commands);
+                settings_view::show(ui, &panel, &mut choices);
+            });
         });
         for command in commands {
             self.send(ctx, command);
@@ -179,7 +219,13 @@ impl HostApp {
             return;
         }
         let started = self.jobs.spawn("firewall", move || match program_path() {
-            Ok(path) => SettingsJob::Firewall(firewall::request_rule_elevated(&path, port)),
+            Ok(path) => {
+                let result = firewall::request_rule_elevated(&path, port);
+                if result.failure_reason().is_none() {
+                    firewall::record_rule_applied(&path, port);
+                }
+                SettingsJob::Firewall(result)
+            }
             Err(error) => SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())),
         });
         if let Err(error) = started {
@@ -190,7 +236,7 @@ impl HostApp {
     fn send(&self, ctx: &egui::Context, command: RuntimeCommand) {
         // The runtime has stopped, so nothing can answer the request: the application closes instead.
         if !self.handle.send(command) {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            self.quit(ctx);
         }
     }
 }

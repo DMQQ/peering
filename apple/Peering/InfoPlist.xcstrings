@@ -287,6 +287,71 @@
         }
       }
     },
+    "NSPhotoLibraryAddUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering speichert Fotos und Videos, die du von deinem Mac lädst, in deiner Fotomediathek."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering guarda en tu fototeca las fotos y los vídeos que descargas de tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering enregistre dans votre photothèque les photos et vidéos que vous téléchargez depuis votre Mac."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering salva nella tua libreria foto le foto e i video che scarichi dal tuo Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peeringは、Macからダウンロードした写真やビデオを写真ライブラリに保存します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering은 Mac에서 다운로드한 사진과 비디오를 사진 보관함에 저장합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Peering salva na sua fototeca as fotos e os vídeos que você baixa do seu Mac."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering сохраняет в медиатеку фото и видео, которые вы загружаете с вашего Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering 会将你从 Mac 下载的照片和视频存储到你的照片图库。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering saves photos and videos you download from your Mac to your photo library."
+          }
+        }
+      }
+    },
     "NSSpeechRecognitionUsageDescription": {
       "extractionState": "manual",
       "localizations": {

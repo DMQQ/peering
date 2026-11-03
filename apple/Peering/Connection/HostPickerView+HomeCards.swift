@@ -12,6 +12,16 @@ extension HomeTab {
     }
 
     var failurePresentation: FailurePresentation {
+        let presentation = unadaptedFailurePresentation
+        let platform = model.hostPlatform
+        return FailurePresentation(
+            title: platform.adapt(presentation.title),
+            message: platform.adapt(presentation.message),
+            isRelayFailure: presentation.isRelayFailure
+        )
+    }
+
+    private var unadaptedFailurePresentation: FailurePresentation {
         let detail = model.failureMessage ?? String(localized: "The connection could not be completed.")
         if model.failureCause == .anotherDeviceConnected {
             return FailurePresentation(title: String(localized: "This Mac is in use"), message: detail, isRelayFailure: false)

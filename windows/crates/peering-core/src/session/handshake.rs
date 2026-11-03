@@ -194,6 +194,7 @@ impl HostSession {
             capabilities: ServerCapabilities {
                 supports_video_pause: Some(true),
                 supports_client_state: Some(true),
+                supports_source_thumbnails: Some(true),
                 ..ServerCapabilities::default()
             },
             agent_chat_agents: None,

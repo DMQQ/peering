@@ -11,7 +11,7 @@ extension OnboardingView {
     /// heading it does not have to answer for go into the height the other five are held to.
     ///
     /// This is what makes the device one device. Every page holds its words to the tallest block any
-    /// page has, and the tallest block is a fact about the whole tour — which the pager will not
+    /// page has, and the tallest block is a fact about the whole tour, which the pager will not
     /// tell you, because a page style `TabView` builds the page you are on and its neighbours and
     /// no further. Measuring the pages as they are visited is measuring them one at a time: the
     /// number grows every time the tour turns and the device shrinks with it, which looks exactly
@@ -230,7 +230,7 @@ extension OnboardingView {
             NotificationBanner()
 
         case .plans:
-            // Never drawn — the last page takes the device away — but the switch has to answer.
+            // Never drawn, the last page takes the device away, but the switch has to answer.
             Color.black
         }
     }

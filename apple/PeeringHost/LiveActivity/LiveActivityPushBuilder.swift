@@ -62,7 +62,7 @@ enum LiveActivityPushBuilder {
                 symbol: top?.symbol ?? "sparkles",
                 folder: "",
                 state: chatState(top?.state ?? .finished),
-                activity: nil,
+                activity: top?.state == .finished ? top?.recap : nil,
                 planDone: 0,
                 planTotal: 0,
                 planStepNumber: nil,

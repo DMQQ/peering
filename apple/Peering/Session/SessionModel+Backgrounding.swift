@@ -90,7 +90,7 @@ extension SessionModel {
            let hostID = session.hostID,
            reachability(ofHost: hostID).isReachable {
             SessionActivity.shared.showReconnecting(
-                hostName: session.hostName ?? String(localized: "the Mac"),
+                hostName: session.hostName ?? session.hostPlatform.adapt(String(localized: "the Mac")),
                 startedAt: session.sessionStartedAt,
                 path: MacSession.activityPath(session.connectionPath)
             )

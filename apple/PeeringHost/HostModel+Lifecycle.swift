@@ -126,6 +126,7 @@ extension HostModel {
             UserDefaults.standard.removeObject(forKey: Self.clientNamesKey)
             // And the tokens: a token lets this Mac reach a phone with no session, so an unpaired device would keep being told about terminals. See PushTokenStore.
             PushTokenStore.shared.forgetAll()
+            AgentAlertPreferences.shared.forgetAll()
             relayRegistration?.dropAllPending()
             record("All paired clients removed")
         } else {
@@ -162,6 +163,7 @@ extension HostModel {
         // The token goes with the pin, or a phone no longer trusted could still be reached with no session up.
         if let token = PushTokenStore.shared.token(for: clientID) { relayRegistration?.dropPending(token: token) }
         PushTokenStore.shared.forget(clientID: clientID)
+        AgentAlertPreferences.shared.forget(clientID: clientID)
         record("Forgot \(name)")
     }
 

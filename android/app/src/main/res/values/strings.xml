@@ -449,8 +449,6 @@
     <string name="quality_save_failed">The choice could not be saved on this phone.</string>
     <string name="paywall_offer_monthly">Monthly</string>
     <string name="paywall_offer_monthly_detail">Unlimited relay, renewed every month</string>
-    <string name="paywall_offer_yearly">Yearly</string>
-    <string name="paywall_offer_yearly_detail">Unlimited relay, renewed every year</string>
     <string name="paywall_unavailable_not_supported">Google Play Billing is not available on this phone, so relay time cannot be bought here.</string>
     <string name="paywall_unavailable_unreachable">Google Play could not be reached. Check the connection and try again.</string>
     <string name="paywall_unavailable_not_configured">The relay plans are not set up in Google Play for this app yet.</string>
@@ -522,7 +520,6 @@
     <string name="tour_plan_free_detail">%1$d minutes a day away from your own network</string>
     <string name="tour_plan_best_value">Best value</string>
     <string name="tour_plan_per_month">per month</string>
-    <string name="tour_plan_per_year">per year</string>
     <string name="tour_plan_one_time">one time</string>
     <string name="tour_plans_loading">Loading plans…</string>
     <string name="tour_plans_unreachable">Google Play could not be reached. You can choose a plan later in Settings.</string>

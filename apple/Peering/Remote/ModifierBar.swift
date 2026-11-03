@@ -9,16 +9,27 @@ struct ModifierBar: View {
     var large = false
 
     /// Left-hand virtual keycodes: the protocol collapses left and right into one bit, so the Mac cannot observe which side is pressed.
-    private static let keys: [(title: String, bit: Modifiers, code: UInt16)] = [
+    private static let macKeys: [(title: String, bit: Modifiers, code: UInt16)] = [
         ("⌘", .command, 55),
         ("⇧", .shift, 56),
         ("⌥", .option, 58),
         ("⌃", .control, 59),
     ]
 
+    /// A Windows host reads Command as Ctrl and Option as Alt, and Control is the same key as Ctrl, so it has no button of its own.
+    private static let windowsKeys: [(title: String, bit: Modifiers, code: UInt16)] = [
+        ("Ctrl", .command, 55),
+        ("Shift", .shift, 56),
+        ("Alt", .option, 58),
+    ]
+
+    private var keys: [(title: String, bit: Modifiers, code: UInt16)] {
+        model.hostPlatform == .windows ? Self.windowsKeys : Self.macKeys
+    }
+
     var body: some View {
         HStack(spacing: large ? 8 : 6) {
-            ForEach(Self.keys, id: \.title) { key in
+            ForEach(keys, id: \.title) { key in
                 let isOn = model.latchedModifiers.contains(key.bit)
                 Button {
                     model.toggleModifier(key.bit, keyCode: key.code)

@@ -89,15 +89,15 @@ impl VideoLane {
         Ok(Frame::new(MessageKind::VideoKey, serde_json::to_vec(&grant)?))
     }
 
-    /// Answers a client's request to move video. Moving to the control lane is declined while nothing has been
-    /// produced recently, because a still screen and a blocked path look the same from here.
+    /// Answers a client's request to move video. Moving to the control lane is declined only while nothing has been
+    /// produced: once a frame exists the caller resyncs, and the coordinator encodes the last capture again.
     pub fn handle_transport_request(&mut self, request: &VideoTransportRequest, now: f64) -> HostAnswer {
         match request.transport {
             VideoTransportKind::Primary => {
                 self.transport = VideoTransportKind::Primary;
                 HostAnswer::Serve
             }
-            VideoTransportKind::Control => match HostFallbackGate.decide(now, self.last_frame_at) {
+            VideoTransportKind::Control => match HostFallbackGate.decide(now, self.last_frame_at, self.last_frame_at.is_some()) {
                 HostAnswer::Serve => {
                     self.transport = VideoTransportKind::Control;
                     HostAnswer::Serve

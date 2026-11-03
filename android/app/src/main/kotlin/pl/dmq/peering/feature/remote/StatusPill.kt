@@ -60,6 +60,8 @@ data class StatusUi(
     /** The number of tiles while a mosaic is on screen, else null. */
     val mosaicWindows: Int?,
     val darkened: Boolean,
+    /** Whether the host can lock and darken; one that cannot gets neither chip. */
+    val screenControls: Boolean,
     val fills: Boolean,
     val zoomPercent: Int?,
     val hubTabs: List<HubTab>,
@@ -75,6 +77,7 @@ class StatusActions(
     val onImmersive: () -> Unit,
     val onStepAway: () -> Unit,
     val onOpenHub: () -> Unit,
+    val onChangeMode: () -> Unit,
     val onQuit: () -> Unit,
 )
 

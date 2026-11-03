@@ -364,7 +364,7 @@ fn live_pro_year() -> PlayPurchase {
 async fn a_live_purchase_is_verified_as_pro() {
     let verifier = PlayVerifier::new(PACKAGE.into(), FakePlayApi::answering(live_pro_year()));
     let mut cache = PlayReceiptCache::default();
-    let verdict = verifier.verdict(&mut cache, YEAR, "tok", None, EXPIRY - 1).await;
+    let verdict = verifier.verdict(&mut cache, YEAR, "tok", Some("616263"), EXPIRY - 1).await;
     assert_eq!(verdict, PlayVerdict::Active(Plan::Pro));
 }
 
@@ -429,10 +429,10 @@ fn flaky(failure: fn() -> BoxError) -> (PlayVerifier, Arc<std::sync::atomic::Ato
 #[tokio::test]
 async fn a_google_outage_serves_the_last_good_verdict_to_a_new_session() {
     let (verifier, healthy) = flaky(|| "status 503".into());
-    let first = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY - 1).await;
+    let first = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", Some("616263"), EXPIRY - 1).await;
     assert_eq!(first, PlayVerdict::Active(Plan::Pro));
     healthy.store(false, Ordering::SeqCst);
-    let second = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY - 1).await;
+    let second = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", Some("616263"), EXPIRY - 1).await;
     assert_eq!(second, PlayVerdict::Active(Plan::Pro));
 }
 
@@ -469,4 +469,17 @@ fn only_a_final_4xx_counts_as_google_saying_no() {
     for status in [408, 429, 500, 503] {
         assert!(!is_final_refusal(status), "{status}");
     }
+}
+
+#[test]
+fn a_device_bound_purchase_presented_without_a_proof_is_a_wrong_device() {
+    let mut bound = purchase(PurchaseState::Active, Some(2_000), false);
+    bound.obfuscated_account_id = Some(ABC_DIGEST.to_owned());
+    assert_eq!(verdict(&bound, YEAR, None, 1_000), PlayVerdict::Rejected(PlayRejection::WrongDevice));
+}
+
+#[test]
+fn a_purchase_bound_to_no_device_still_buys_its_plan_without_a_proof() {
+    let unbound = purchase(PurchaseState::Active, Some(2_000), false);
+    assert_eq!(verdict(&unbound, YEAR, None, 1_000), PlayVerdict::Active(Plan::Pro));
 }

@@ -16,6 +16,7 @@ import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.ErrorPayload
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.MessageKind
+import pl.dmq.peering.wire.SetVideoEnabled
 import pl.dmq.peering.wire.WireJson
 
 class ReconnectSessionTest {
@@ -43,6 +44,47 @@ class ReconnectSessionTest {
         assertTrue(rig.controller.state.value.phase is SessionPhase.Ready)
         val resumed = mac.connections[1].phoneFrames.clientHellos().single()
         assertEquals(CaptureSource.Display(7).toJson(), resumed.resumeSource)
+    }
+
+    @Test
+    fun aPicturePausedBeforeAReconnectIsPausedAgainOnTheNewLink() = runTest {
+        val mac = ScriptedMac(declare = { it.copy(supportsVideoPause = true) })
+        val rig = lanRig(mac)
+        rig.controller.connect()
+        settle()
+        rig.controller.setPictureEnabled(false)
+        mac.answersPings = false
+
+        advanceTimeBy(3_300)
+        runCurrent()
+        mac.answersPings = true
+        advanceTimeBy(500)
+        runCurrent()
+
+        assertEquals(2, mac.connections.size)
+        assertEquals(listOf(SetVideoEnabled(false)), mac.connections[1].phoneFrames.commands().filterIsInstance<SetVideoEnabled>())
+        assertEquals(PictureState.Paused, rig.controller.state.value.picture)
+    }
+
+    @Test
+    fun aPauseAskedForBetweenLinksIsSentOnceOnTheNextLink() = runTest {
+        val mac = ScriptedMac(declare = { it.copy(supportsVideoPause = true) })
+        val rig = lanRig(mac)
+        rig.controller.connect()
+        settle()
+        mac.answersPings = false
+        advanceTimeBy(3_300)
+        runCurrent()
+        assertEquals(SessionPhase.Reconnecting(1), rig.controller.state.value.phase)
+
+        rig.controller.setPictureEnabled(false)
+        mac.answersPings = true
+        advanceTimeBy(500)
+        runCurrent()
+
+        assertEquals(2, mac.connections.size)
+        assertEquals(listOf(SetVideoEnabled(false)), mac.connections[1].phoneFrames.commands().filterIsInstance<SetVideoEnabled>())
+        assertEquals(PictureState.Paused, rig.controller.state.value.picture)
     }
 
     @Test

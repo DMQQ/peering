@@ -40,6 +40,10 @@ extension SettingsTab {
 
             Controls.divider
 
+            Controls.toggle(String(localized: "Ask how to use a Mac on connect"), systemImage: "square.grid.2x2", isOn: $asksSessionModeOnConnect)
+
+            Controls.divider
+
             // Answers are two words each, a layout constraint: a menu picker wraps rather than truncating, and "Fit whole screen" took two lines and pushed the chevron aside.
             Controls.picker(
                 String(localized: "Picture"),

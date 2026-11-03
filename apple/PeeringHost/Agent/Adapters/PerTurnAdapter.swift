@@ -26,18 +26,23 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
     private var pendingPrompts: [String] = []
     private var turnProcess: AgentProcess?
     private var turnFinished = false
+    /// Held until the process ends and usage is reported: the manager checks the spending cap on the finish.
+    private var heldFinish: AgentStreamEvent.Payload?
     private var interrupted = false
     private var loggedFirstLine = false
     private var stderrTail: [String] = []
 
-    class var command: String { fatalError("subclasses name their CLI") }
-    class var displayName: String { fatalError("subclasses name their CLI") }
+    /// The CLI's executable name, which is also the agent's id.
+    let command: String
+    let displayName: String
 
-    init(directory: URL, resume: AgentResume?) {
+    init(command: String, displayName: String, directory: URL, resume: AgentResume?) {
+        self.command = command
+        self.displayName = displayName
         self.directory = directory
         model = resume?.model
         permissionMode = resume?.permissionMode ?? .acceptEdits
-        queue = DispatchQueue(label: "pl.dmq.peering.host.agent.\(Self.command)")
+        queue = DispatchQueue(label: "pl.dmq.peering.host.agent.\(self.command)")
     }
 
     // MARK: - For subclasses
@@ -54,8 +59,8 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
     // MARK: - AgentAdapter
 
     func start() throws {
-        let name = Self.displayName
-        guard let binary = AgentEnvironment.shared.binary(named: Self.command) else {
+        let name = self.displayName
+        guard let binary = AgentEnvironment.shared.binary(named: self.command) else {
             throw AgentLaunchFailure(
                 message: "\(name) is not installed on this Mac, or its command is not on the login shell's PATH."
             )
@@ -66,7 +71,7 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
             self.pendingPrompts = []
             return prompts
         }
-        agentLog.notice("\(Self.command, privacy: .public) session ready · \(binary, privacy: .public) · \(waiting.count) prompt(s) waiting")
+        agentLog.notice("\(self.command, privacy: .public) session ready · \(binary, privacy: .public) · \(waiting.count) prompt(s) waiting")
         for text in waiting {
             prompt(text)
         }
@@ -75,7 +80,7 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
     func prompt(_ text: String) {
         queue.async { [weak self] in
             guard let self else { return }
-            let command = Self.command
+            let command = self.command
             guard let binary = self.binary else {
                 self.pendingPrompts.append(text)
                 agentLog.notice("\(command, privacy: .public) prompt held: the session has not resolved its binary yet")
@@ -90,6 +95,7 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
             let process = AgentProcess()
             self.stderrTail = []
             self.turnFinished = false
+            self.heldFinish = nil
             self.interrupted = false
             self.loggedFirstLine = false
             process.onLine = { [weak self] line in
@@ -123,7 +129,7 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
             } catch {
                 Analytics.failed(error, in: .agent)
                 agentLog.error("\(command, privacy: .public) could not start: \(String(describing: error), privacy: .public)")
-                self.onEvent?(.failure(message: "\(Self.displayName) could not be started."))
+                self.onEvent?(.failure(message: "\(self.displayName) could not be started."))
                 self.onEvent?(.turnFinished(summary: AgentTurnSummary(ok: false)))
             }
         }
@@ -168,10 +174,14 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
     private func consume(_ line: String) {
         if !loggedFirstLine {
             loggedFirstLine = true
-            agentLog.notice("\(Self.command, privacy: .public) first line: \(line.prefix(140), privacy: .public)")
+            agentLog.notice("\(self.command, privacy: .public) first line: \(line.prefix(140), privacy: .public)")
         }
         for payload in receive(line: line) {
-            if case .turnFinished = payload { turnFinished = true }
+            if case .turnFinished = payload {
+                turnFinished = true
+                heldFinish = payload
+                continue
+            }
             onEvent?(payload)
         }
     }
@@ -183,13 +193,17 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
             if !pendingPrompts.isEmpty, binary != nil { prompt(pendingPrompts.removeFirst()) }
         }
         turnProcessEnded()
-        agentLog.notice("\(Self.command, privacy: .public) turn process ended · status \(status) · finished \(self.turnFinished) · stderr \(self.stderrTail.count) line(s)")
+        if let finish = heldFinish {
+            heldFinish = nil
+            onEvent?(finish)
+        }
+        agentLog.notice("\(self.command, privacy: .public) turn process ended · status \(status) · finished \(self.turnFinished) · stderr \(self.stderrTail.count) line(s)")
         guard !turnFinished else { return }
         if interrupted {
             onEvent?(.turnFinished(summary: AgentTurnSummary(ok: false, stopped: true)))
         } else {
             let tail = stderrTail.joined(separator: "\n")
-            let message = "\(Self.displayName) exited with status \(status) before finishing the turn."
+            let message = "\(self.displayName) exited with status \(status) before finishing the turn."
             onEvent?(.notice(text: tail.isEmpty ? message : "\(message)\n\(tail)"))
             onEvent?(.turnFinished(summary: AgentTurnSummary(ok: false)))
         }

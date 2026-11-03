@@ -108,6 +108,11 @@ impl<T: Queued> OutboundQueue<T> {
         self.items.len()
     }
 
+    /// The weight of everything waiting.
+    pub fn bytes(&self) -> usize {
+        self.bytes
+    }
+
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }

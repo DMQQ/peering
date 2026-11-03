@@ -11,6 +11,8 @@ struct ActivityCard: View {
     /// Nil until there is something to time; the system advances the clock from it.
     var startedAt: Date?
     var action: ActivityCardAction?
+    /// Set where the state is the point (an agent chat): the status line gets this glyph and the tone's colour, and the tile is tinted with it, so the states differ by more than a dot.
+    var statusSymbol: String?
 
     var work: [SessionActivityAttributes.ContentState.Work] = []
     var plan: ActivityCardPlan?
@@ -101,7 +103,7 @@ struct ActivityCard: View {
 
     private var sessionRow: some View {
         HStack(spacing: 12) {
-            ActivityTile(symbol: symbol, tone: tone)
+            ActivityTile(symbol: symbol, tone: tone, isTinted: statusSymbol != nil)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
@@ -124,10 +126,17 @@ struct ActivityCard: View {
                 }
 
                 HStack(spacing: 8) {
-                    Text(status)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        if let statusSymbol {
+                            Image(systemName: statusSymbol)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(tone.tint)
+                        }
+                        Text(status)
+                            .font(.subheadline)
+                            .foregroundStyle(statusSymbol == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(tone.tint))
+                            .lineLimit(1)
+                    }
 
                     // Without this the End capsule sits right after the status word: an `HStack` leaves the rest of the line empty.
                     Spacer(minLength: 8)
@@ -151,12 +160,15 @@ enum ActivityTone {
     case live
     case pending
     case lost
+    /// A turn that ended well: the app's one accent blue, so it reads apart from the green of work in progress.
+    case finished
 
     var tint: Color {
         switch self {
         case .live: return .green
         case .pending: return Color(red: 0.97, green: 0.75, blue: 0.35)
         case .lost: return Color(red: 0.98, green: 0.45, blue: 0.40)
+        case .finished: return Color(red: 0.40, green: 0.65, blue: 1.0)
         }
     }
 }
@@ -172,15 +184,16 @@ struct ActivityCardAction {
 private struct ActivityTile: View {
     let symbol: String
     let tone: ActivityTone
+    let isTinted: Bool
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             Image(systemName: symbol)
                 .font(.system(size: ActivityCard.tileGlyph, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(isTinted ? tone.tint : .white)
                 .frame(width: ActivityCard.tile, height: ActivityCard.tile)
                 .background(
-                    .white.opacity(0.12),
+                    isTinted ? tone.tint.opacity(0.2) : .white.opacity(0.12),
                     in: RoundedRectangle(cornerRadius: ActivityCard.tileCorner, style: .continuous)
                 )
 

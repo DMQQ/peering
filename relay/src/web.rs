@@ -196,6 +196,10 @@ fn request_line(head: &str) -> Option<(&str, &str, &str)> {
     if parts.next().is_some() || method.is_empty() || target.is_empty() {
         return None;
     }
+    // A raw CR or other control byte in the target would be echoed into a Location header.
+    if !target.bytes().all(|byte| byte.is_ascii_graphic()) {
+        return None;
+    }
 
     Some((method, target, version))
 }
@@ -284,6 +288,13 @@ impl Body {
 }
 
 impl Response {
+    /// Permanent, so search engines fold `/download.html` into the `/download` the canonical tags name.
+    fn redirect(location: &str) -> Self {
+        let mut response = Self::text(301, "Moved.");
+        response.extra.push(format!("Location: {location}"));
+        response
+    }
+
     fn text(status: u16, message: &str) -> Self {
         Self {
             status,
@@ -296,10 +307,38 @@ impl Response {
     }
 }
 
+/// The site's own 404 page when it has one, still with a 404 status so it is never indexed as content.
+async fn not_found(root: &Path) -> Response {
+    let Ok(page) = tokio::fs::read(root.join("404.html")).await else {
+        return Response::text(404, "Not found.");
+    };
+    Response {
+        status: 404,
+        reason: reason_for(404),
+        content_type: "text/html; charset=utf-8",
+        cache_control: "no-cache",
+        extra: Vec::new(),
+        body: Body::Bytes(page),
+    }
+}
+
+/// Where an `.html` or `index.html` path lives under the extensionless URL the canonicals use, or None when it already does.
+fn clean_location(path: &str) -> Option<String> {
+    if path.contains("..") || path.starts_with("//") {
+        return None;
+    }
+    if let Some(folder) = path.strip_suffix("/index.html") {
+        return Some(if folder.is_empty() { "/".to_string() } else { folder.to_string() });
+    }
+    let page = path.strip_suffix(".html")?;
+    (page.len() > 1 && page != "/404").then(|| page.to_string())
+}
+
 fn reason_for(status: u16) -> &'static str {
     match status {
         200 => "OK",
         206 => "Partial Content",
+        301 => "Moved Permanently",
         304 => "Not Modified",
         503 => "Service Unavailable",
         400 => "Bad Request",
@@ -358,15 +397,19 @@ async fn respond(head: &str, root: &Path, health: &Health) -> Response {
         );
     }
 
+    if let Some(clean) = clean_location(path) {
+        return Response::redirect(&clean);
+    }
+
     let Some(file) = resolve(root, path) else {
-        return Response::text(404, "Not found.");
+        return not_found(root).await;
     };
 
     let metadata = match tokio::fs::metadata(&file).await {
         Ok(metadata) if metadata.is_file() => metadata,
         // Directories are included here on purpose: there are no listings to serve, so a path that
         // happens to name one is the same answer as a path that names nothing.
-        _ => return Response::text(404, "Not found."),
+        _ => return not_found(root).await,
     };
 
     let modified = metadata.modified().unwrap_or(UNIX_EPOCH);
@@ -511,7 +554,8 @@ async fn write_response(
     // anything to relax it for. See the note in `styles.css`.
     head.push_str(
         "Content-Security-Policy: default-src 'self'; img-src 'self'; style-src 'self'; \
-         script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; \
+         script-src 'self' https://static.cloudflareinsights.com; \
+         connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none'; \
          frame-ancestors 'none'; object-src 'none'\r\n",
     );
     head.push_str("X-Content-Type-Options: nosniff\r\n");
@@ -775,6 +819,23 @@ mod tests {
     }
 
     #[test]
+    fn sends_html_paths_to_their_clean_url() {
+        assert_eq!(clean_location("/download.html").as_deref(), Some("/download"));
+        assert_eq!(clean_location("/index.html").as_deref(), Some("/"));
+        assert_eq!(clean_location("/de/index.html").as_deref(), Some("/de"));
+        assert_eq!(clean_location("/de/download.html").as_deref(), Some("/de/download"));
+    }
+
+    #[test]
+    fn leaves_clean_and_other_paths_alone() {
+        assert_eq!(clean_location("/download"), None);
+        assert_eq!(clean_location("/"), None);
+        assert_eq!(clean_location("/assets/og.jpg"), None);
+        assert_eq!(clean_location("/updates/appcast.xml"), None);
+        assert_eq!(clean_location("//evil.example/x.html"), None);
+    }
+
+    #[test]
     fn resolves_plain_paths() {
         let root = Path::new("/srv/site");
         assert_eq!(resolve(root, "/").unwrap(), root.join("index.html"));
@@ -860,6 +921,13 @@ mod tests {
         assert_eq!(request_line("HEAD /a HTTP/1.0\r\n"), Some(("HEAD", "/a", "HTTP/1.0")));
         assert!(request_line("GET / HTTP/1.1 extra\r\n").is_none());
         assert!(request_line("garbage").is_none());
+    }
+
+    #[test]
+    fn a_control_byte_in_the_target_is_a_malformed_request() {
+        assert!(request_line("GET /a\rLocation:x.html HTTP/1.1\r\n").is_none());
+        assert!(request_line("GET /a\u{7f}.html HTTP/1.1\r\n").is_none());
+        assert!(request_line("GET /caf\u{e9}.html HTTP/1.1\r\n").is_none());
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 use peering_core::settings::ALLOWED_FRAME_RATES;
 
-use super::settings::{firewall_note, SettingsChoice, SettingsJob, SettingsState};
+use super::settings::{firewall_note, FirewallOutcome, SettingsChoice, SettingsJob, SettingsState};
 use crate::runtime::{HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
 use crate::strings;
 
@@ -189,6 +189,8 @@ impl UiModel {
             autostart_note: state.autostart_note().map(str::to_owned),
             frame_rates: frame_rate_choices(self.snapshot.frame_rate),
             firewall_note: firewall_note(state.firewall()),
+            firewall_needed: state.firewall_needed(),
+            firewall_running: *state.firewall() == FirewallOutcome::Requested,
         }
     }
 }
@@ -205,6 +207,9 @@ pub struct SettingsPanel {
     pub autostart_note: Option<String>,
     pub frame_rates: Vec<FrameRateChoice>,
     pub firewall_note: Option<String>,
+    /// Shown as a large prompt at the top of the window until the rules are in place.
+    pub firewall_needed: bool,
+    pub firewall_running: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -238,7 +243,7 @@ pub fn job_command(job: &SettingsJob) -> Option<RuntimeCommand> {
         SettingsJob::AutostartRead(enabled) | SettingsJob::AutostartWritten { wanted: enabled, result: Ok(()) } => {
             Some(RuntimeCommand::NoteStartAtLogin(*enabled))
         }
-        SettingsJob::AutostartWritten { result: Err(_), .. } | SettingsJob::Firewall(_) => None,
+        SettingsJob::AutostartWritten { result: Err(_), .. } | SettingsJob::Firewall(_) | SettingsJob::FirewallChecked { .. } => None,
     }
 }
 

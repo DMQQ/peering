@@ -162,8 +162,9 @@ async fn dispatch(
             Some(session::request_peer_address(registry, &video_token))
         }
         ClientMessage::HostPresence { host_id } => Some(session::host_presence(hosts, host_id).await),
-        ClientMessage::NotifyDevice { device_token, title, body, source, category, session_id, approval_id, options } => {
-            let notice = notify::DeviceNotice { device_token, title, body, source, category, session_id, approval_id, options };
+        ClientMessage::NotifyDevice { device_token, title, body, source, category, session_id, approval_id, options, questions } => {
+            let notice =
+                notify::DeviceNotice { device_token, title, body, source, category, session_id, approval_id, options, questions };
             notify::notify_device(notice, settings, state)
         }
         ClientMessage::NotifyActivity(push) => notify::notify_activity_from_host(push, self_tx, settings, state),

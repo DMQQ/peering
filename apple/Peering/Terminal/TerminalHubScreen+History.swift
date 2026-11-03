@@ -9,14 +9,13 @@ extension TerminalHubScreen {
         return (model.resumableSessions ?? []).filter(\.mayBeOpenElsewhere)
     }
 
-    /// Agents launched from here and conversations found on the Mac, newest first: both are a way back into something already done.
+    /// Conversations found on the Mac and chats stopped here, newest first. Nothing is remembered on the phone, so the list never shows entries the Mac is about to replace.
     private var historyEntries: [HistoryCard.Entry] {
-        let launched = history.map { (date: $0.date, entry: historyEntry($0)) }
         let onMac = (model.hostSupportsAgentSessionImport ? model.resumableSessions ?? [] : [])
             .filter { !$0.mayBeOpenElsewhere }
             .map { (date: $0.modifiedAt, entry: macEntry($0)) }
         let paused = model.agentCards.filter(\.isPaused).map { (date: $0.pausedAt, entry: pausedEntry($0)) }
-        return (launched + onMac + paused)
+        return (onMac + paused)
             .sorted { $0.date > $1.date }
             .prefix(SessionModel.terminalHistoryLimit)
             .map(\.entry)
@@ -40,18 +39,7 @@ extension TerminalHubScreen {
         let entries = all.filter { $0.matches(agentHistoryQuery) }
         if !all.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Controls.sectionLabel(String(localized: "History"), systemImage: "clock.arrow.circlepath")
-                    Spacer(minLength: 8)
-                    if !history.isEmpty {
-                        Button("Clear") {
-                            AgentHistory.clear()
-                            history = []
-                        }
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    }
-                }
+                Controls.sectionLabel(String(localized: "History"), systemImage: "clock.arrow.circlepath")
                 HistorySearchField(text: $agentHistoryQuery)
                 if entries.isEmpty { HistoryNoMatches() } else { HistoryCard(entries: entries) }
             }
@@ -106,37 +94,6 @@ extension TerminalHubScreen {
         ) {
             model.selectedAgentSessionID = card.id
             path.append(.chat(card.id))
-        }
-    }
-
-    private func historyEntry(_ entry: AgentLaunch) -> HistoryCard.Entry {
-        let agent = TerminalAgent.all.first { $0.id == entry.agentID }
-        let live = entry.terminalID.flatMap { id in
-            model.terminalCards.first { $0.id == id && $0.isRunning }?.id
-        }
-        return HistoryCard.Entry(
-            id: entry.id.uuidString,
-            symbol: agent?.symbol ?? "sparkles",
-            title: agent?.name ?? entry.agentID,
-            detail: entry.macName,
-            date: entry.date,
-            isLive: live != nil,
-            isEnabled: agent != nil || live != nil,
-            peek: {
-                if let terminal = model.terminalCards.first(where: { $0.id == live }) {
-                    return AnyView(TerminalPeek(terminal: terminal))
-                }
-                return AnyView(HistoryInfoPeek(
-                    symbol: agent?.symbol ?? "sparkles", title: agent?.name ?? entry.agentID, detail: entry.macName, date: entry.date
-                ))
-            }
-        ) {
-            if let live {
-                model.selectTerminal(live)
-                path.append(.terminal(live))
-            } else if let agent {
-                start(agent, restarting: entry)
-            }
         }
     }
 

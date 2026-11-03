@@ -46,5 +46,8 @@ extension MacSession {
         if let operation = agentGitBusy.removeValue(forKey: id) {
             agentGitResults[id] = AgentGitResult(operation: operation, succeeded: false, message: message)
         }
+        if let action = agentGitHubBusy.removeValue(forKey: id) {
+            agentGitHubResults[id] = AgentGitHubResult(action: action, succeeded: false, message: message)
+        }
     }
 }

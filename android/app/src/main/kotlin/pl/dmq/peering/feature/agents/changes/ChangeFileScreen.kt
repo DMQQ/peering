@@ -1,8 +1,8 @@
 package pl.dmq.peering.feature.agents.changes
 
+import pl.dmq.peering.ui.kit.tonalCard
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -143,7 +143,7 @@ private fun DiffBlock(
     onRemove: (Long) -> Unit,
 ) {
     val shape = peeringShapes.extraSmall
-    Column(Modifier.fillMaxWidth().clip(shape).border(1.dp, PeeringColors.hairline, shape)) {
+    Column(Modifier.fillMaxWidth().tonalCard(shape)) {
         lines.forEach { line ->
             DiffRow(line, selected = line == selected, onClick = { onPick(line) })
             comments.filter { it.line == line.commentNumber && it.onRemovedLine == (line.kind == DiffLineKind.REMOVED) && line.isCommentable }

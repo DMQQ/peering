@@ -44,6 +44,12 @@ extension AgentChatScreen {
         )
     }
 
+    /// Spoken words land at the end of the draft, where a correction can still reach them before it is sent.
+    func insertDictation(_ spoken: String, into id: UUID) {
+        let current = drafts[id] ?? ""
+        drafts[id] = current + DictationText.insertion(after: current, spoken: spoken)
+    }
+
     func send(_ session: RemoteAgentSession) {
         // Typed out in full and sent: the app answers its own commands instead of handing them to the CLI.
         if let typed = AgentSlash.query(drafts[session.id] ?? ""),

@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.terminal
 
+import pl.dmq.peering.ui.kit.tonalCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -56,16 +56,11 @@ private fun LaunchAge.text(): String = when (this) {
     is LaunchAge.Months -> pluralStringResource(R.plurals.terminal_age_months, count, count)
 }
 
-@Composable
-private fun outline(strong: Float, weak: Float) = Brush.verticalGradient(
-    listOf(PeeringColors.ink.copy(alpha = strong), PeeringColors.ink.copy(alpha = weak)),
-)
-
 /** An agent's tile, its name and when it was last started here, with an outlined Start. */
 @Composable
 fun LauncherCardRow(card: LauncherCard, enabled: Boolean, onStart: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth().border(1.dp, outline(0.18f, 0.05f), CardRadius).padding(14.dp),
+        modifier.fillMaxWidth().tonalCard(CardRadius).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(13.dp),
     ) {
@@ -124,7 +119,7 @@ fun LaunchHistoryHeading(onClear: () -> Unit, modifier: Modifier = Modifier) {
 /** Past starts as one outlined card, a row each: the agent, the computer, and how long ago. A tap starts it again. */
 @Composable
 fun LaunchHistoryCard(rows: List<HistoryRow>, onRestart: (HistoryRow) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().clip(HistoryRadius).border(1.dp, outline(0.16f, 0.05f), HistoryRadius)) {
+    Column(modifier.fillMaxWidth().tonalCard(HistoryRadius)) {
         rows.forEachIndexed { index, row ->
             if (index > 0) Box(Modifier.fillMaxWidth().padding(start = 14.dp).height(1.dp).background(PeeringColors.hairline))
             Row(

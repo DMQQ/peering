@@ -5,6 +5,8 @@ use crate::fakes::encoder::FakeEncoder;
 use crate::ports::capture::{DisplayInfo, RawFrame};
 use crate::ports::clock::Clock;
 use super::CaptureCondition;
+use crate::ports::encoder::EncodedOutput;
+use peering_wire::video::VideoTimestamp;
 
 fn display(id: u32, is_primary: bool) -> DisplayInfo {
     DisplayInfo {
@@ -242,6 +244,62 @@ fn a_burst_keeps_only_the_newest_delta() {
 }
 
 #[test]
+fn a_burst_encodes_one_frame_so_no_delta_points_at_a_dropped_picture() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    push(&mut coordinator, &[2, 3, 4]);
+    coordinator.pump(0.2).unwrap();
+    let sequences: Vec<u64> = coordinator.encoder.encode_calls().iter().map(|(sequence, _)| *sequence).collect();
+    assert_eq!(sequences, vec![1, 4]);
+}
+
+#[test]
+fn an_encoded_delta_that_is_dropped_makes_the_next_frame_a_keyframe_at_most_once_a_second() {
+    let mut coordinator = coordinator();
+    let mut outputs = Vec::new();
+    let mut slot = LatestFrameSlot::new();
+    let delta = |sequence: i64| EncodedOutput {
+        config: None,
+        frame: EncodedVideoFrame {
+            is_keyframe: false,
+            pixel_width: 1920,
+            pixel_height: 1080,
+            presentation_time: VideoTimestamp { value: sequence, timescale: 60 },
+            data: vec![0, 0, 0, 1, 0x41],
+        },
+    };
+    coordinator.route(delta(1), 0.0, &mut outputs, &mut slot).unwrap();
+    assert!(!coordinator.keyframe_pending);
+    coordinator.route(delta(2), 0.0, &mut outputs, &mut slot).unwrap();
+    assert!(coordinator.keyframe_pending);
+    coordinator.keyframe_pending = false;
+    coordinator.route(delta(3), 0.5, &mut outputs, &mut slot).unwrap();
+    assert!(!coordinator.keyframe_pending);
+    coordinator.route(delta(4), 1.5, &mut outputs, &mut slot).unwrap();
+    assert!(coordinator.keyframe_pending);
+}
+
+#[test]
+fn a_phone_that_connects_to_a_still_screen_gets_the_last_frame_again_as_a_keyframe() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("first");
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    assert!(coordinator.pump(0.2).unwrap().is_empty());
+    coordinator.attach("second");
+    let outputs = coordinator.pump(0.3).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    let delivered = frames(&outputs);
+    assert_eq!(delivered.len(), 1);
+    assert!(delivered[0].is_keyframe);
+    assert_eq!(sequence_of(delivered[0]), 1);
+}
+
+#[test]
 fn a_waiting_keyframe_survives_a_burst_of_deltas() {
     let mut coordinator = coordinator();
     coordinator.set_source(display_source(1), 0.0).unwrap();
@@ -251,7 +309,7 @@ fn a_waiting_keyframe_survives_a_burst_of_deltas() {
     let delivered = frames(&outputs);
     assert_eq!(delivered.len(), 1);
     assert!(delivered[0].is_keyframe);
-    assert_eq!(sequence_of(delivered[0]), 1);
+    assert_eq!(sequence_of(delivered[0]), 3);
 }
 
 #[test]

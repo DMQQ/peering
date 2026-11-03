@@ -34,6 +34,7 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
     private let hostID: String
     private let presence: @Sendable (String) -> PhonePresence
     private let observedChats: @Sendable (String) -> [LiveActivityChatTracker.Observed]
+    private let decisionsOnly: @Sendable (String) -> Bool
     private let send: Send
     private let flushTimeout: TimeInterval
 
@@ -49,12 +50,14 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
         flushTimeout: TimeInterval = 1.5,
         presence: @escaping @Sendable (String) -> PhonePresence,
         observedChats: @escaping @Sendable (String) -> [LiveActivityChatTracker.Observed],
+        decisionsOnly: @escaping @Sendable (String) -> Bool = { _ in false },
         send: @escaping Send
     ) {
         self.hostID = hostID
         self.flushTimeout = flushTimeout
         self.presence = presence
         self.observedChats = observedChats
+        self.decisionsOnly = decisionsOnly
         self.send = send
     }
 
@@ -161,6 +164,7 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
             path: client.viaRelay ? .relay : (directPathOpen ? .direct : .lan),
             chats: chats
         )
+        client.planner.decisionsOnly = decisionsOnly(clientID)
         let commands = client.planner.observe(truth, presence: presence(clientID), now: now, ignoringGap: ignoringGap)
         clients[clientID] = client
         if let due = [client.planner.nextDue, client.tracker.nextDue].compactMap({ $0 }).min() { schedule(clientID, at: due) }

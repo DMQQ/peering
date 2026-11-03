@@ -208,6 +208,9 @@ fn a_fallback_request_moves_the_picture_to_the_control_connection_and_back() {
         request_transport(&mut phone, VideoTransportKind::Primary).await;
         phone.sync().await;
         picture(&harness, 3);
+        // The move resyncs, so the returned lane is handed its description before the picture.
+        let (described, _) = client.next_message().await;
+        assert_eq!(described.kind, MessageKind::VideoConfig);
         let (returned, from) = client.next_message().await;
         assert_eq!(returned.kind, MessageKind::VideoFrame);
         assert_eq!(from, relay);

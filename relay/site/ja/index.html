@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Peering: iPhoneからMacを操作するリモートデスクトップ</title>
-<meta name="description" content="iPhoneからMacを、どこからでも操作。一度ペアリングするだけ。アカウント不要、エンドツーエンド暗号化、ローカルネットワークなら無料で使えます。">
+<meta name="description" content="iPhoneからMacを、どこからでも操作。一度ペアリングするだけ。アカウント不要、エンドツーエンド暗号化、ローカルネットワークなら無料で使えます。Androidは近日公開、Windowsはベータ版です。">
 <link rel="canonical" href="https://getpeering.app/ja/">
 <link rel="alternate" hreflang="en" href="https://getpeering.app/">
 <link rel="alternate" hreflang="de" href="https://getpeering.app/de/">
@@ -19,31 +19,56 @@
 <link rel="alternate" hreflang="x-default" href="https://getpeering.app/">
 <meta name="apple-itunes-app" content="app-id=6812658408">
 <meta name="theme-color" content="#0a0a0c">
-<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/styles.css">
 
-<!-- What a link to this page looks like when it is pasted into a message, and what a crawler
-     reads. og.png is a 1200x630 card rather than the app icon: every scraper crops to that shape,
-     and a square icon in it is a logo with a lot of nothing around it. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Peering">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://getpeering.app/ja/">
 <meta property="og:title" content="Peering: iPhoneからMacを操作するリモートデスクトップ">
 <meta property="og:description" content="iPhoneで、Macの画面を。一度ペアリングすれば、どこからでもMacにつながります。通信はエンドツーエンドで暗号化されます。">
-<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image" content="https://getpeering.app/assets/og/home-ja.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="MacとiPhoneで動くPeeringのリモートデスクトップ。メッセージは「あなたのMacを。あなたのiPhoneで。どこからでも。」">
+<meta property="og:image:alt" content="Peering: iPhoneからMacを操作するリモートデスクトップ">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Peering: iPhoneからMacを操作するリモートデスクトップ">
 <meta name="twitter:description" content="iPhoneで、Macの画面を。一度ペアリングすれば、どこからでもMacにつながります。通信はエンドツーエンドで暗号化されます。">
-<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
-<meta name="twitter:image:alt" content="MacとiPhoneで動くPeeringのリモートデスクトップ。メッセージは「あなたのMacを。あなたのiPhoneで。どこからでも。」">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/home-ja.png">
+<meta name="twitter:image:alt" content="Peering: iPhoneからMacを操作するリモートデスクトップ">
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://getpeering.app/#organization",
+      "name": "Peering",
+      "url": "https://getpeering.app/",
+      "logo": "https://getpeering.app/assets/favicon-192.png",
+      "sameAs": [
+        "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://getpeering.app/ja/#website",
+      "name": "Peering",
+      "url": "https://getpeering.app/ja/",
+      "inLanguage": "ja",
+      "publisher": {
+        "@id": "https://getpeering.app/#organization"
+      }
+    }
+  ]
+}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -51,11 +76,11 @@
   "name": "Peering",
   "url": "https://getpeering.app/ja/",
   "applicationCategory": "UtilitiesApplication",
-  "operatingSystem": "iOS, macOS",
+  "operatingSystem": "iOS, iPadOS, macOS, Android, Windows",
   "description": "iPhoneで、Macの画面を。自分のネットワークで一度ペアリングすれば、どこからでもMacにつながります。通信はエンドツーエンドで暗号化され、2台の間を直接結びます。",
   "downloadUrl": "https://getpeering.app/ja/download",
   "installUrl": "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408",
-  "screenshot": "https://getpeering.app/assets/og.png",
+  "screenshot": "https://getpeering.app/assets/og/home-ja.png",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -138,7 +163,7 @@
       "name": "どのMacとiPhoneで使えますか？",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "macOS 15 (Sequoia)以降を搭載したMacなら、Apple siliconでもIntelでも使えます。iOS 18以降を搭載したiPhoneまたはiPadで使え、iOS 26にアップデートできない古いデバイスも含まれます。"
+        "text": "macOS 15 (Sequoia)以降を搭載したMacなら、Apple siliconでもIntelでも使えます。iOS 18以降を搭載したiPhoneまたはiPadで使え、iOS 26にアップデートできない古いデバイスも含まれます。Android 10以降のAndroidスマートフォンとタブレットはGoogle Playで近日公開予定で、Windows向けの初期版ホストはベータ版です。"
       }
     },
     {
@@ -199,7 +224,6 @@
 
 <main id="main">
 
-  <!-- Hero -->
   <section class="hero" id="top">
     <div class="glow" aria-hidden="true"></div>
     <div class="wrap hero-inner">
@@ -217,13 +241,6 @@
         </div>
       </div>
 
-      <!-- Two real screenshots, in drawn frames rather than rendered ones: the two ends of one
-           product, the Mac it reaches and the phone it reaches from.
-
-           app-mac.webp is the whole of this Mac's display at 1512 by 982, which is the proportion
-           the frame draws. A screen-shaped picture of a screen is what a screenshot is; the frame
-           supplies the machine around it, including the notch, which no screenshot can contain
-           because it is not something the display draws but something it is missing. -->
       <div class="hero-stage">
       <div class="stage">
         <div class="mac" aria-label="Mac上のPeeringホストアプリ">
@@ -247,7 +264,6 @@
     </div>
   </section>
 
-  <!-- How it works -->
   <section class="section" id="how">
     <div class="wrap">
       <h2>一度ペアリングすれば、あとはいつでもそこに。</h2>
@@ -288,7 +304,45 @@
     </div>
   </section>
 
-  <!-- Features -->
+  <section class="section" id="platforms">
+    <div class="wrap">
+      <h2>対応デバイス</h2>
+      <p class="section-lede">手に持つスマートフォンやタブレットと、そこからつなぐコンピュータの二つです。</p>
+
+      <div class="grid platforms">
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.8" width="10" height="18.4" rx="2.4"/><path d="M10.6 5.4h2.8"/></svg>
+          <h3>iPhoneとiPad</h3>
+          <p>iOS 18以降。</p>
+          <p><a href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">iPhoneアプリを入手</a></p>
+        </div>
+
+        <div class="card feature">
+          <span class="feature-tag">近日公開</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.4" y="3.2" width="15.2" height="17.6" rx="2.2"/><path d="M10.8 18.2h2.4"/></svg>
+          <h3>Androidスマートフォンとタブレット</h3>
+          <p>Android 10以降。Google Playで近日公開。</p>
+          <p>ペアリングもプランもiPhoneと同じです。自分のネットワークでは無料でリレーは1日30分まで、Proの月額か買い切りなら無制限です。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="9.6" rx="1.6"/><path d="M2.8 18.4h18.4"/></svg>
+          <h3>Mac</h3>
+          <p>macOS 15 (Sequoia)以降、Apple siliconまたはIntel。画面を共有するホストです。</p>
+          <p><a href="/ja/download">Mac版をダウンロード</a></p>
+        </div>
+
+        <div class="card feature">
+          <span class="feature-tag">ベータ</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="11.6" rx="1.8"/><path d="M8.4 19.6h7.2"/><path d="M12 16v3.6"/></svg>
+          <h3>Windows PC</h3>
+          <p>Windows向けPeering Hostの初期版です。ディスプレイかウインドウ一つ、マウスとキーボード、ターミナル、Claude Codeとのチャットに対応します。</p>
+          <p>まだ実機のPCで動かしたことがなく、Mac版ホストより機能は少なめです。早期アクセスは<a href="/ja/support">support@getpeering.app</a>までメールで。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="section" id="features">
     <div class="wrap">
       <h2>できること</h2>
@@ -558,7 +612,6 @@
     </div>
   </section>
 
-  <!-- Privacy -->
   <section class="section" id="privacy">
     <div class="wrap">
       <h2>エンドツーエンドで暗号化。リレーは当事者ではありません。</h2>
@@ -611,7 +664,6 @@
     </div>
   </section>
 
-  <!-- Pricing -->
   <section class="section" id="pricing">
     <div class="wrap">
       <h2>料金</h2>
@@ -813,7 +865,6 @@
     </div>
   </section>
 
-  <!-- FAQ -->
   <section class="section" id="faq">
     <div class="wrap">
       <h2>よくある質問</h2>
@@ -901,7 +952,7 @@
           <summary>どのMacとiPhoneで使えますか？</summary>
           <p>
             macOS 15 (Sequoia)以降を搭載したMacなら、Apple siliconでもIntelでも使えます。iOS 18以降を
-            搭載したiPhoneまたはiPadで使え、iOS 26にアップデートできない古いデバイスも含まれます。
+            搭載したiPhoneまたはiPadで使え、iOS 26にアップデートできない古いデバイスも含まれます。Android 10以降のAndroidスマートフォンとタブレットはGoogle Playで近日公開予定で、Windows向けの初期版ホストはベータ版です。
           </p>
         </details>
         <details>
@@ -945,12 +996,22 @@
       <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
       <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
       <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
-      <a href="/ja/remote-desktop-apps-compared">アプリを比較</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリ比較</a>
       <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/best-remote-desktop-app-for-ipad">iPadに最適</a>
+      <a href="/ja/apple-remote-desktop-alternative">ARDの代替</a>
+      <a href="/ja/apple-remote-desktop-vs-screen-sharing">ARDと画面共有</a>
+      <a href="/ja/screens-vs-jump-desktop">ScreensとJump</a>
+      <a href="/ja/rustdesk-alternative-for-mac">RustDeskの代替</a>
+      <a href="/ja/control-mac-from-android">AndroidからMac</a>
+      <a href="/ja/claude-code-on-android">AndroidでClaude Code</a>
+      <a href="/ja/chrome-remote-desktop-alternative">Chromeリモートデスクトップの代替</a>
+      <a href="/ja/teamviewer-alternative-for-mac">TeamViewerの代替</a>
+      <a href="/ja/control-windows-pc-from-phone">スマホからWindows</a>
       <a href="/ja/download">ダウンロード</a>
       <a href="/ja/privacy">プライバシー</a>
       <a href="/ja/terms">利用規約</a>
-      <a href="mailto:support@getpeering.app">サポート</a>
+      <a href="/ja/support">サポート</a>
     </nav>
     <nav class="foot-links" aria-label="Languages">
       <a href="/" hreflang="en" lang="en">English</a>

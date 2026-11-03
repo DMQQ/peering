@@ -15,13 +15,25 @@ extension AgentSessionManager {
         var activityChanged: Bool?
         var stateChanged = false
         var persists = false
+        /// The next queued message, taken off the queue when the turn ended, to be sent as soon as the lock is let go.
+        var releasedPrompt: String?
+        var queueChanged = false
+        /// How many waiting messages the chat's end discarded, so the transcript can say they never went.
+        var droppedPrompts = 0
+        /// The mode a plan approval lent for the turn, to be put back now the turn is over.
+        var restoredMode: AgentPermissionMode?
+        /// The mode put back on a chat whose process has gone, for the owner to show.
+        var announcedMode: AgentPermissionMode?
     }
 
     func append(_ payload: AgentStreamEvent.Payload, to session: AgentSession) {
         // Read before the lock: one lock order everywhere avoids deadlock with the token store. Only the two events that can push need it, not every delta.
         let token = Self.mayPush(payload) ? PushTokenStore.shared.tokensByClient()[session.ownerClientID] : nil
         let phone = presence?(session.ownerClientID) ?? .gone
-        let applied = lock.withLock { apply(payload, to: session, token: token, presence: phone) }
+        let decisionsOnly = Self.mayPush(payload) && AgentAlertPreferences.shared.decisionsOnly(for: session.ownerClientID)
+        let applied = lock.withLock {
+            apply(payload, to: session, push: PushContext(token: token, presence: phone, decisionsOnly: decisionsOnly))
+        }
 
         if let emission = applied.emission {
             AgentTurnTelemetry.send(emission, agentID: session.agentID, sessionID: session.id)
@@ -39,7 +51,25 @@ extension AgentSessionManager {
             onActivityChanged?(active)
         }
         if applied.stateChanged { onChatStateChanged?(session.ownerClientID) }
+        if applied.queueChanged { announceQueue(of: session) }
+        if applied.droppedPrompts > 0 {
+            append(.notice(text: String(localized: "\(applied.droppedPrompts) queued message(s) were not sent because the chat stopped.")), to: session)
+        }
+        if let next = applied.releasedPrompt, !sendNow(next, to: session) {
+            applied.sink?(.failed(sessionID: session.id, message: "That chat cannot be continued. Start a new one."))
+        }
+        if let mode = applied.restoredMode { adapter(of: session).setPermissionMode(mode) }
+        if let mode = applied.announcedMode {
+            applied.sink?(.permissionModeChanged(sessionID: session.id, mode: mode))
+        }
         if applied.persists { persist(session) }
+    }
+
+    /// Read before the lock, for the two events that can push.
+    private struct PushContext {
+        var token: String?
+        var presence: PhonePresence
+        var decisionsOnly: Bool
     }
 
     static func mayPush(_ payload: AgentStreamEvent.Payload) -> Bool {
@@ -53,9 +83,9 @@ extension AgentSessionManager {
     private func apply(
         _ payload: AgentStreamEvent.Payload,
         to session: AgentSession,
-        token: String?,
-        presence: PhonePresence
+        push: PushContext
     ) -> Applied {
+        let token = push.token
         let stateBefore = session.state
         let event = session.transcript.append(payload)
         var applied = Applied(event: event)
@@ -64,9 +94,11 @@ extension AgentSessionManager {
         switch payload {
         case .turnStarted:
             session.state = .working
-            session.turnEditedFiles = []
+            session.turnRecap = AgentTurnRecap()
         case .toolStarted(let call):
-            if AgentTurnDigest.edits(call), let path = call.filePath { session.turnEditedFiles.insert(path) }
+            session.turnRecap.started(call)
+        case .toolFinished(let callID, let ok, _, _):
+            session.turnRecap.finished(callID: callID, ok: ok)
         case .approvalRequested(let approvalID, let call, let reason):
             session.pendingApprovals.insert(approvalID)
             session.state = .awaitingApproval
@@ -77,7 +109,8 @@ extension AgentSessionManager {
                     category: AgentApprovalNotification.pushCategory(for: call),
                     sessionID: session.id.uuidString,
                     approvalID: approvalID,
-                    answers: AgentApprovalNotification.pushAnswers(for: call)
+                    answers: AgentApprovalNotification.pushAnswers(for: call),
+                    questions: AgentApprovalNotification.pushQuestions(for: call)?.relayQuestions ?? []
                 ))
             }
         case .approvalResolved(let approvalID, _):
@@ -90,34 +123,28 @@ extension AgentSessionManager {
         case .textFinal(let text):
             session.lastReply = text
         case .turnFinished(let summary):
-            session.pendingApprovals.removeAll()
-            session.state = .idle
-            applied.persists = true
-            // The CLI's own answer wins: a Mac whose config pins a model keeps running it whatever the picker was told.
-            if let model = summary.model, model != session.model {
-                session.model = model
-                applied.correctedModel = model
-            }
-            if PushPolicy.shouldPush(presence: presence, hasToken: token != nil) {
-                let text = AgentNotificationText.finished(
-                    agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply,
-                    editedFiles: session.turnEditedFiles.count, duration: summary.duration, words: .localized
-                )
-                applied.push = (text.title, text.body, summary.ok ? RelayPushAction(
-                    category: AgentFinishedNotification.category,
-                    sessionID: session.id.uuidString,
-                    approvalID: ""
-                ) : nil)
-            }
+            finishTurn(summary, of: session, name: name, push: push, into: &applied)
         case .failure(let message):
             session.state = .failed
             // The CLI has lost this conversation: a prompt must not try to resume it again.
             if message == AgentExpiry.message { session.cliSessionID = nil }
             applied.persists = true
+            applied.queueChanged = !session.queue.prompts.isEmpty
+            applied.droppedPrompts = session.queue.prompts.count
+            _ = session.queue.release(state: .failed)
+            applied.restoredMode = takeModeAfterTurn(session)
         case .sessionExited:
             session.state = .exited
             session.adapterLive = false
             applied.persists = true
+            applied.queueChanged = applied.queueChanged || !session.queue.prompts.isEmpty
+            applied.droppedPrompts = session.queue.prompts.count
+            _ = session.queue.release(state: .exited)
+            // No process to tell: the mode is put back on the record, which the next adapter starts from.
+            if let mode = takeModeAfterTurn(session), mode != session.permissionMode {
+                session.permissionMode = mode
+                applied.announcedMode = mode
+            }
         case .sessionReady(_, let cliSessionID, let model, _):
             if let cliSessionID { session.cliSessionID = cliSessionID }
             if let model, model != session.model {
@@ -125,7 +152,7 @@ extension AgentSessionManager {
                 applied.correctedModel = model
             }
             applied.persists = true
-        case .textDelta, .notice, .toolFinished, .child:
+        case .textDelta, .notice, .child:
             break
         }
 
@@ -140,6 +167,42 @@ extension AgentSessionManager {
             }
         }
         return applied
+    }
+
+    /// Called with the lock held.
+    private func finishTurn(_ summary: AgentTurnSummary, of session: AgentSession, name: String, push: PushContext, into applied: inout Applied) {
+        session.pendingApprovals.removeAll()
+        session.state = .idle
+        session.lastRecap = session.turnRecap.line(words: .localized)
+        applied.restoredMode = takeModeAfterTurn(session)
+        applied.persists = true
+        applied.queueChanged = !session.queue.prompts.isEmpty
+        // Past the cap the queue waits for the person, who sends each message on from the phone.
+        if !AgentSpendingGuard.holdsQueue(cap: session.spendingCap, usage: session.usage),
+           case .send(let next) = session.queue.release(state: .idle) {
+            applied.releasedPrompt = next
+            // Busy again at once, so a message arriving before the CLI says so queues behind this one instead of racing it.
+            session.state = .working
+        }
+        // The CLI's own answer wins: a Mac whose config pins a model keeps running it whatever the picker was told.
+        if let model = summary.model, model != session.model {
+            session.model = model
+            applied.correctedModel = model
+        }
+        let alert: AgentAlertPolicy.Alert = summary.ok ? .finished : .failed
+        guard PushPolicy.shouldPush(presence: push.presence, hasToken: push.token != nil),
+              AgentAlertPolicy.allows(alert, decisionsOnly: push.decisionsOnly)
+        else { return }
+        let text = AgentNotificationText.finished(
+            agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply,
+            editedFiles: session.turnRecap.editedFiles.count, duration: summary.duration,
+            recap: session.lastRecap, words: .localized
+        )
+        applied.push = (text.title, text.body, summary.ok ? RelayPushAction(
+            category: AgentFinishedNotification.category,
+            sessionID: session.id.uuidString,
+            approvalID: ""
+        ) : nil)
     }
 
     func persist(_ session: AgentSession) {

@@ -2,6 +2,27 @@ import PeeringKit
 import SwiftUI
 
 extension RemoteScreen {
+    /// A sideways phone answers compact height, and a wide iPad regular width. Traits, not geometry, which reads landscape for an upright phone with its keyboard up.
+    var hubIsSplit: Bool {
+        horizontalSizeClass == .regular || verticalSizeClass == .compact
+    }
+
+    /// Split, the hub is not pushed at all: the stack sees no route, and ``hubSplit`` shows the same one.
+    var pushedRoute: Binding<[RemoteRoute]> {
+        Binding(
+            get: { hubIsSplit ? [] : route },
+            set: { if !hubIsSplit { route = $0 } }
+        )
+    }
+
+    @ViewBuilder
+    var hubSplit: some View {
+        if hubIsSplit, !route.isEmpty {
+            HubSplitView(route: $route)
+                .transition(.opacity)
+        }
+    }
+
     /// A shell or chat the Mac has just made opens on top of the pages that asked for it. Handled here, on the stack's owner, because the hub and its pages are covered by whatever is pushed above them and a covered page is not reliably told of a change.
     func openCreated(_ step: TerminalFlowStep) {
         let steps = route.compactMap { entry -> TerminalFlowStep? in

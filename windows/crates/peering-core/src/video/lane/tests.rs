@@ -159,11 +159,11 @@ fn control_is_granted_when_a_frame_was_produced_within_the_window() {
 }
 
 #[test]
-fn control_is_declined_when_the_last_frame_is_older_than_the_window() {
+fn control_is_granted_on_a_still_screen_long_after_the_last_frame() {
     let mut lane = keyed_lane();
     lane.send(&video(false, 100), 10.0).unwrap();
-    assert_eq!(lane.handle_transport_request(&request(VideoTransportKind::Control), 15.5), HostAnswer::Decline);
-    assert_eq!(lane.transport(), VideoTransportKind::Primary);
+    assert_eq!(lane.handle_transport_request(&request(VideoTransportKind::Control), 75.5), HostAnswer::Serve);
+    assert_eq!(lane.transport(), VideoTransportKind::Control);
 }
 
 #[test]

@@ -42,6 +42,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.forget_chosen_source_if_idle();
         self.capture.stop();
         self.source = None;
+        self.last_raw = None;
         self.last_config = None;
         self.capture_started_at = None;
         self.frame_ever_seen = false;
@@ -63,6 +64,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         let (width, height) = self.size;
         self.encoder.configure(width, height, self.pacer.rate(), self.target_bitrate_bps())?;
         self.source = Some(source.clone());
+        self.last_raw = None;
         self.chosen_source = Some(source);
         self.last_config = None;
         self.config_pending = false;
@@ -90,6 +92,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
                     .ok_or(CaptureError::DisplayNotFound(*id))?;
                 if replacing {
                     self.source = None;
+                    self.last_raw = None;
                 }
                 self.capture.start(*id)?;
                 Ok((display.pixel_width, display.pixel_height))
@@ -103,6 +106,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
                     .ok_or(CaptureError::WindowNotFound(*id))?;
                 if replacing {
                     self.source = None;
+                    self.last_raw = None;
                 }
                 self.capture.start_window(*id)?;
                 Ok((window.pixel_width, window.pixel_height))

@@ -20,18 +20,14 @@ struct AgentQueuedRow: View {
                             .strokeBorder(.white.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                     }
                     .opacity(0.6)
-                HStack(spacing: 5) {
+                HStack(spacing: 4) {
                     Image(systemName: "clock")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 9, weight: .medium))
                         .symbolEffect(.pulse)
                     Text(label)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 10.5))
                 }
-                .foregroundStyle(.white.opacity(0.7))
-                .padding(.horizontal, 9)
-                .frame(height: 22)
-                .background(.white.opacity(0.08), in: Capsule())
-                .overlay(Capsule().strokeBorder(.white.opacity(0.14)))
+                .foregroundStyle(.white.opacity(0.4))
             }
             .contextMenu {
                 Button("Remove from queue", systemImage: "xmark", role: .destructive, action: remove)

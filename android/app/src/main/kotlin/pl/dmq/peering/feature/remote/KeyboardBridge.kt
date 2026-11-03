@@ -22,8 +22,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 
 /**
- * A hidden field that takes the soft keyboard's text and key events. It always holds [SoftKeyboardEdit.SENTINEL], so
- * a delete changes the field instead of leaving it unchanged. Shown while [shown] is true.
+ * A hidden field that takes the soft keyboard's text and key events. Each change is sent as it happens, a word being
+ * composed included, so the Mac and the typing line keep up with every key. Shown while [shown] is true.
  */
 @Composable
 fun KeyboardBridge(
@@ -47,16 +47,10 @@ fun KeyboardBridge(
     BasicTextField(
         value = field,
         onValueChange = { next ->
-            if (next.composition != null) {
-                field = next
-                return@BasicTextField
-            }
-            when (val edit = SoftKeyboardEdit.of(next.text)) {
-                is SoftKeyboardEdit.Typed -> presenter.onSoftKeyboardText(edit.text)
-                SoftKeyboardEdit.Deleted -> presenter.onSoftKeyboardDelete()
-                SoftKeyboardEdit.None -> Unit
-            }
-            field = sentinelField()
+            val diff = SoftKeyboardEdit.between(field.text, next.text)
+            repeat(diff.deleted) { presenter.onSoftKeyboardDelete() }
+            presenter.onSoftKeyboardText(diff.appended)
+            field = if (next.composition != null) next else sentinelField()
         },
         modifier = modifier
             .size(1.dp)

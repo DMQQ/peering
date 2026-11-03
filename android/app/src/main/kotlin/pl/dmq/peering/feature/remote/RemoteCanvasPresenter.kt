@@ -5,6 +5,7 @@ import kotlin.math.hypot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import pl.dmq.peering.feature.sessionmode.TrackpadSwipe
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.MosaicLayout
 import pl.dmq.peering.wire.NormalizedPoint
@@ -16,7 +17,8 @@ import pl.dmq.peering.wire.TrackpadModel
 /**
  * Turns pointer events on the canvas into commands for the Mac. One finger drives the cursor (trackpad) or places it
  * on the picture (direct). Two fingers either pinch to zoom the view, or scroll the Mac when they do not pinch.
- * Pointer positions are canvas pixels. Not thread safe: the caller delivers events in order from one thread.
+ * A held finger or a two finger tap right clicks in direct mode, and three or four fingers swipe between desktops in
+ * either control mode. Pointer positions are canvas pixels. Not thread safe: the caller delivers events in order from one thread.
  */
 class RemoteCanvasPresenter(
     private val sink: CommandSink,
@@ -30,6 +32,11 @@ class RemoteCanvasPresenter(
     private var mosaic: MosaicLayout? = null
     private val taps = MosaicTapDetector()
     private val lift = MosaicLift()
+    private val gestures = PictureGestures()
+    private val direct = DirectTouch({ trackpad }, ::directPoint, ::modelUnits, ::emit)
+
+    /** Called with a three or four finger swipe made while the Mac is being controlled. */
+    var onSwiped: ((TrackpadSwipe) -> Unit)? = null
 
     /** Called with the source of the tile a tap landed on while a mosaic is up. */
     var onTileTapped: ((CaptureSource) -> Unit)? = null
@@ -45,29 +52,40 @@ class RemoteCanvasPresenter(
     private var startSpread = 0.0
     private var lastSpread = 0.0
     private var lastCentroid = CanvasPoint(0.0, 0.0)
-    private var directPressed = false
-    private var lastDirectPoint = NormalizedPoint(0.5, 0.5)
 
     fun setMode(next: InputMode) {
         if (next == mode) return
-        releaseDirect(lastDirectPoint)
+        direct.letGo()
         mode = next
     }
 
     /** While a mosaic is up the canvas only views: one finger pans, two zoom, and a tap on a tile opens that tile. */
     fun setMosaic(next: MosaicLayout?) {
         if (next == mosaic) return
-        releaseDirect(lastDirectPoint)
+        direct.letGo()
         mosaic = next
         lift.cancel()
         publish()
     }
 
     /** Milliseconds until a press on a tile counts as held, or null when none is waiting. */
-    fun holdRemaining(nowMs: Long): Long? = if (mosaic != null) lift.remaining(nowMs) else null
+    fun holdRemaining(nowMs: Long): Long? = when {
+        mosaic != null -> lift.remaining(nowMs)
+        effectiveMode == InputMode.DIRECT && direct.pending != null -> gestures.holdRemaining(nowMs)
+        else -> null
+    }
 
-    /** The waiting press has been held long enough: lifts the tile under it. True when one was lifted. */
-    fun onHoldElapsed(): Boolean {
+    fun setPixelsPerDp(density: Double) {
+        gestures.pixelsPerDp = density
+    }
+
+    /** The waiting press has been held long enough: lifts the tile under it, or right clicks. True when either happened. */
+    fun onHoldElapsed(nowMs: Long): Boolean {
+        if (mosaic == null) {
+            if (effectiveMode != InputMode.DIRECT || direct.pending == null) return false
+            val at = gestures.holdElapsed(nowMs) ?: return false
+            return direct.rightClick(at)
+        }
         val at = lift.waitingPoint() ?: return false
         val index = tileAt(at.x, at.y) ?: return false
         return lift.lift(index).also { if (it) publish() }
@@ -79,10 +97,11 @@ class RemoteCanvasPresenter(
         if (width <= 0 || height <= 0) return
         val size = CanvasSize(width, height)
         if (size == canvas) return
-        releaseDirect(lastDirectPoint)
+        direct.letGo()
         canvas = size
         trackpad = TrackpadModel(width, height)
         pointers.clear()
+        gestures.cancel()
         lift.cancel()
         pinching = false
         viewport = viewport.pannedBy(0.0, 0.0, size)
@@ -119,6 +138,11 @@ class RemoteCanvasPresenter(
     fun onPointerDown(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
         pointers[id] = CanvasPoint(x, y)
+        gestures.down(id, x, y, timeMs)
+        if (gestures.swiping) {
+            beginSwipe()
+            return
+        }
         if (mosaic != null) {
             taps.down(id, x, y, timeMs, pointers.size)
             if (pointers.size > 1 && lift.drag != null) {
@@ -132,9 +156,9 @@ class RemoteCanvasPresenter(
                 if (pointers.size == 1) cursor().let { model.syncCursor(it.x, it.y) }
                 emit(model.onDown(id, x, y, timeMs))
             }
-            effectiveMode == InputMode.DIRECT && pointers.size == 1 -> pressDirect(x, y)
+            effectiveMode == InputMode.DIRECT && pointers.size == 1 -> direct.touched(x, y)
         }
-        if (pointers.size >= 2) releaseDirect(lastDirectPoint)
+        if (pointers.size >= 2) direct.letGo()
         rebaseline()
     }
 
@@ -142,6 +166,8 @@ class RemoteCanvasPresenter(
         val model = trackpad ?: return
         val previous = pointers[id] ?: return
         pointers[id] = CanvasPoint(x, y)
+        gestures.move(id, x, y)
+        if (gestures.swiping || gestures.spent) return
         if (mosaic != null) {
             taps.move(id, x, y)
             lift.moved(id, x, y)
@@ -158,13 +184,18 @@ class RemoteCanvasPresenter(
                 val actions = model.onMove(id, x, y, timeMs)
                 if (!pinching) emit(actions)
             }
-            pointers.size == 1 && directPressed -> moveDirect(x, y)
+            pointers.size == 1 -> direct.moved(x, y, gestures.travelled)
         }
     }
 
     fun onPointerUp(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
         if (pointers.remove(id) == null) return
+        val outcome = gestures.up(id, timeMs)
+        if (gestures.swiping || gestures.spent) {
+            if (outcome is PictureGestures.Outcome.Swipe && controlling) onSwiped?.invoke(outcome.direction)
+            return
+        }
         if (lift.holds(id)) {
             drop(id)
             rebaseline()
@@ -174,9 +205,36 @@ class RemoteCanvasPresenter(
         if (mosaic != null && taps.up(id, x, y, timeMs, pointers.size)) openTileAt(x, y)
         when {
             effectiveMode == InputMode.TRACKPAD -> emit(model.onUp(id, x, y, timeMs))
-            effectiveMode == InputMode.DIRECT && pointers.isEmpty() -> releaseDirect(directPoint(x, y) ?: lastDirectPoint)
+            effectiveMode == InputMode.DIRECT && pointers.isEmpty() -> {
+                direct.lifted(x, y)
+                if (outcome is PictureGestures.Outcome.SecondaryClick) direct.rightClick(outcome.at)
+            }
         }
         rebaseline()
+    }
+
+    /** Drops every finger with no click, releasing a held drag: for a gesture handed elsewhere or a pad going away. */
+    fun cancelPointers() {
+        val model = trackpad ?: return
+        pointers.clear()
+        gestures.cancel()
+        direct.forget()
+        pinching = false
+        emit(model.cancel())
+    }
+
+    private val controlling: Boolean get() = effectiveMode != InputMode.OBSERVE
+
+    /** Three fingers take the touch from the cursor, the pan and the zoom: whatever they had begun lets go unclicked. */
+    private fun beginSwipe() {
+        val model = trackpad ?: return
+        pinching = false
+        direct.letGo()
+        emit(model.cancel())
+        if (lift.drag != null) {
+            lift.cancel()
+            publish()
+        }
     }
 
     private fun tileAt(x: Double, y: Double): Int? {
@@ -244,31 +302,6 @@ class RemoteCanvasPresenter(
         startSpread = frame.spread
         lastSpread = frame.spread
         lastCentroid = frame.centroid
-    }
-
-    private fun pressDirect(x: Double, y: Double) {
-        val model = trackpad ?: return
-        val point = directPoint(x, y) ?: return
-        directPressed = true
-        lastDirectPoint = point
-        val (unitX, unitY) = modelUnits(point)
-        emit(model.onDirectDown(unitX, unitY))
-    }
-
-    private fun moveDirect(x: Double, y: Double) {
-        val model = trackpad ?: return
-        val point = directPoint(x, y) ?: lastDirectPoint
-        lastDirectPoint = point
-        val (unitX, unitY) = modelUnits(point)
-        emit(model.onDirectMove(unitX, unitY))
-    }
-
-    private fun releaseDirect(point: NormalizedPoint) {
-        val model = trackpad ?: return
-        if (!directPressed) return
-        directPressed = false
-        val (unitX, unitY) = modelUnits(point)
-        emit(model.onDirectUp(unitX, unitY))
     }
 
     /** The picture point under a canvas point, or null while no picture is fitted. */

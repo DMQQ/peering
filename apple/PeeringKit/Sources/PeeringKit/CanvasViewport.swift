@@ -3,8 +3,8 @@ import Foundation
 
 /// The zoom and pan rules of the remote picture, with no view in the way.
 public enum CanvasViewport {
-    /// The picture never shrinks below the screen, give or take a percent: a screen protector hides the outer few points, and a picture exactly the width of the glass loses its edges under it.
-    public static let minimumZoom: CGFloat = 0.99
+    /// Under 1 so the picture can be shrunk inside the screen, which also brings back edges a screen protector hides.
+    public static let minimumZoom: CGFloat = 0.75
     public static let maximumZoom: CGFloat = 8
 
     /// How far past its own edge a zoomed picture may be dragged, as a share of the canvas.

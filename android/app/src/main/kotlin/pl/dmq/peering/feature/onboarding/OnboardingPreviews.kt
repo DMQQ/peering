@@ -19,8 +19,7 @@ private fun ignore(offer: PlanOffer) = Unit
 
 private val offers = listOf(
     PaywallProduct(PlanOffer.MONTHLY, "monthly", "$2.99"),
-    PaywallProduct(PlanOffer.YEARLY, "yearly", "$29.99"),
-    PaywallProduct(PlanOffer.LIFETIME, "lifetime", "$59.99"),
+    PaywallProduct(PlanOffer.LIFETIME, "lifetime", "$24.99"),
 )
 
 @Composable
@@ -34,11 +33,11 @@ private fun Frame(ui: PaywallUi, freeChosen: Boolean) {
 
 @Preview(name = "Plans, a paid plan chosen", showBackground = true, heightDp = 640)
 @Composable
-private fun PlansPaidPreview() = Frame(PaywallUi(products = offers, selected = PlanOffer.YEARLY), freeChosen = false)
+private fun PlansPaidPreview() = Frame(PaywallUi(products = offers, selected = PlanOffer.MONTHLY), freeChosen = false)
 
 @Preview(name = "Plans, Free chosen", showBackground = true, heightDp = 640)
 @Composable
-private fun PlansFreePreview() = Frame(PaywallUi(products = offers, selected = PlanOffer.YEARLY), freeChosen = true)
+private fun PlansFreePreview() = Frame(PaywallUi(products = offers, selected = PlanOffer.MONTHLY), freeChosen = true)
 
 @Preview(name = "Plans, store unreachable", showBackground = true, heightDp = 400)
 @Composable

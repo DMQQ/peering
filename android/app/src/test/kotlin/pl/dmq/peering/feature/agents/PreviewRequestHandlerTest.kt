@@ -164,7 +164,8 @@ class PreviewRequestHandlerTest {
             java.io.ByteArrayInputStream(ByteArray(0)),
         )
         assertEquals("application/octet-stream", reply.mimeType)
-        assertEquals(mapOf("Vary" to "Accept, Origin"), reply.headers)
+        assertEquals("Accept, Origin", reply.headers["Vary"])
+        assertEquals(setOf("Vary", "Content-Security-Policy"), reply.headers.keys)
     }
 
     @Test

@@ -16,6 +16,7 @@ pub mod outbound;
 pub mod paired_list;
 pub mod pairing;
 pub mod pointer;
+pub mod preview;
 pub mod push_tokens;
 pub mod relay;
 pub mod session;

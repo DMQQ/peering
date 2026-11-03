@@ -43,6 +43,9 @@ final class MacSession: Identifiable {
 
     var hostName: String?
 
+    /// Chosen from the hello, and from the last hello this host sent until the next one arrives, so a connect that fails first still names the right kind of computer.
+    var hostPlatform = HostPlatform.mac
+
     /// Resolved per Mac: the bitrate on the wire depends on this session's path and plan.
     var connectionPath: ConnectionPath?
     var usedDirectPath = false
@@ -131,6 +134,11 @@ final class MacSession: Identifiable {
     /// Never assumed: `false` is a Mac too old to have been asked, where the command means a dropped session rather than a stopped picture. See ``PicturePause/mayAsk(hostDeclared:)``.
     var hostSupportsVideoPause = false
 
+    /// How this session is being used, kept here so a screen that is rebuilt for the same Mac does not ask again or forget that it stopped the picture. See ``SessionMode``.
+    var mode = SessionMode.screen
+    var modeResolved = false
+    var picturePausedByMode = false
+
     /// `nil` is not yet answered, or a Mac that cannot; either way every agent is shown.
     var hostSupportsAgentList = false
     var installedAgents: Set<String>?
@@ -146,6 +154,17 @@ final class MacSession: Identifiable {
     var hostSupportsAgentSessionImport = false
     var hostSupportsAgentSessionPeek = false
     var hostSupportsAgentPause = false
+    var hostSupportsAgentQueue = false
+    var hostSupportsAgentAwayControls = false
+    var hostSupportsAgentGitHub = false
+    var hostSupportsAgentRoutines = false
+    /// Nil until the Mac has answered a routine request.
+    var agentRoutines: [AgentRoutine]?
+    var agentRoutinesAwaiting = false
+    /// Why the Mac refused the last routine request, shown on the routines screen.
+    var agentRoutineFailure: String?
+    /// Mirrors ``AgentGuardStore`` so a chat's banner redraws when its cap changes.
+    var agentSpendingCaps: [UUID: AgentSpendingCap] = [:]
 
     /// A Mac from before the list chats with the first two.
     var hostChatAgents: Set<String> = ["claude", "codex"]
@@ -254,8 +273,17 @@ final class MacSession: Identifiable {
     // MARK: - Agent chats
 
     var agentSessions: [RemoteAgentSession] = []
+    /// False until the Mac has sent its first chat listing, so an empty list can be told from one not yet asked for.
+    var hasAgentListing = false
+    /// The queues a Mac that holds them has reported, which is the whole truth about them: the phone keeps no copy of its own for such a Mac.
+    var hostAgentQueues: [UUID: [String]] = [:]
     /// Messages typed while a turn runs: the CLIs take one question at a time, so the rest wait here and go as each turn ends.
-    var agentQueues: [UUID: AgentPromptQueue] = [:]
+    var agentQueues: [UUID: AgentPromptQueue] = [:] {
+        didSet {
+            guard let hostID else { return }
+            AgentQueueStore.save(agentQueues, hostKey: hostID)
+        }
+    }
     /// Approvals the Mac has reported resolved on this connection; an answer is delivered only once its id is here. See ``ApprovalAnswerPolicy``.
     @ObservationIgnored var resolvedApprovalIDs: Set<String> = []
     /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.
@@ -281,6 +309,10 @@ final class MacSession: Identifiable {
     /// A commit or push the Mac has not answered yet, and the last answer, per chat.
     var agentGitBusy: [UUID: AgentGitOperation] = [:]
     var agentGitResults: [UUID: AgentGitResult] = [:]
+    /// What `gh` on the Mac said about each chat's branch, the action it has not answered yet, and its last answer.
+    var agentGitHub: [UUID: AgentGitHubReport] = [:]
+    var agentGitHubBusy: [UUID: AgentGitHubAction] = [:]
+    var agentGitHubResults: [UUID: AgentGitHubResult] = [:]
 
     /// A PTY gives a byte stream with no marker for where one command's output starts, so the only link is that it arrived right after one.
     var lastSentCommand: String?
@@ -319,6 +351,7 @@ final class MacSession: Identifiable {
     var downloads: [UUID: FileDownload] = [:]
     var finishedDownloads: [UUID: URL] = [:]
     var finishedVideos: [UUID: (path: String, url: URL)] = [:]
+    var previewViewers = 0
     var downloadFailures: [UUID: String] = [:]
 
     /// One per terminal: the Mac answers a change by naming the path, so two operations through one shell would match one remembered request. The entry also disables the controls.

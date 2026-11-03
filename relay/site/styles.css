@@ -890,6 +890,8 @@ a { color: inherit; }
 
 .feature { padding: 24px; }
 
+.grid.platforms { grid-template-columns: repeat(2, 1fr); }
+
 /* The plan a feature needs, on the cards that need one.
    On the card's top-trailing corner rather than above the heading, which is where the app puts it
    on a control it has locked: above the heading it takes a line out of the flow, so a card that
@@ -1650,6 +1652,7 @@ a { color: inherit; }
   }
   .stage .phone { margin-left: calc(var(--display) * -0.10); }
   .steps, .grid, .privacy-notes { grid-template-columns: 1fr; }
+  .grid.platforms { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 720px) {

@@ -11,6 +11,7 @@ fn approval() -> PushAction<'static> {
         session_id: "S-1",
         approval_id: "A-1",
         options: &[],
+        questions: &[],
     }
 }
 

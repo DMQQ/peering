@@ -147,7 +147,7 @@ private final class FittingScrollView: UIScrollView {
 
 /// **A web view because there is no other option, and locked down because of what one is.** An SVG
 /// is an XML document, an XML document can carry a `<script>`, and this one came off somebody
-/// else's machine — a server the user happens to have an account on, or their own Mac. Rendering it
+/// else's machine, a server the user happens to have an account on, or their own Mac. Rendering it
 /// must never mean running it, so JavaScript is off, nothing is persisted, and the view refuses to
 /// go anywhere.
 private struct SVGImageView: UIViewRepresentable {

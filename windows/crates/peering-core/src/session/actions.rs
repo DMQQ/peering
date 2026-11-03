@@ -49,4 +49,6 @@ pub enum CloseReason {
     /// The client or the Mac refused the pairing. The refusal was already sent to the client.
     PairingRejected,
     PairingNotSaved,
+    /// The operating system's generator failed, so the pairing values would be predictable.
+    RandomSourceFailed,
 }

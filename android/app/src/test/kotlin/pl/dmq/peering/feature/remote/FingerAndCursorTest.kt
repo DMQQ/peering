@@ -111,6 +111,7 @@ class FingerAndCursorTest {
     fun `a touch down sends the position before the press so the click lands under the finger`() {
         presenter.setMode(InputMode.DIRECT)
         presenter.onPointerDown(1, 500.0, 500.0, 0)
+        presenter.onPointerUp(1, 500.0, 500.0, 50)
 
         assertEquals(MouseMove::class, sink.sent.first()::class)
     }

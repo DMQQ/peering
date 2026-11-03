@@ -33,6 +33,7 @@ internal class ControllerRemoteModel(
     private val onDisconnect: () -> Unit,
     private val onLeave: () -> Unit,
     private val onOpenHub: () -> Unit,
+    private val openModeChoice: () -> Unit,
     private val onOpenPaywall: () -> Unit,
 ) : RemoteModel {
     override val statusPillMemory = StatusPillMemory()
@@ -69,6 +70,8 @@ internal class ControllerRemoteModel(
     }
 
     override fun onStepAway() = onLeave()
+
+    override fun onChangeMode() = openModeChoice()
 
     override fun onRetryPicture() {
         controller.retryPicture()

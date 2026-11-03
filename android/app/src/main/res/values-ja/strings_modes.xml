@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_ask_how_to_use">接続時にコンピュータの使い方を確認する</string>
+    <string name="remote_chip_mode">モード</string>
+    <string name="mode_picker_title">このコンピュータをどう使いますか？</string>
+    <string name="mode_screen_title">画面</string>
+    <string name="mode_screen_body">デスクトップを見て、タッチで操作します。</string>
+    <string name="mode_workspace_title">ワークスペース</string>
+    <string name="mode_workspace_body">エージェント、ファイル、ターミナルを画面なしで使います。</string>
+    <string name="mode_remote_title">リモコン</string>
+    <string name="mode_remote_body">画面なしでトラックパッドとキーボードを使います。</string>
+    <string name="dock_show_screen">画面</string>
+    <string name="dock_change_mode">モード</string>
+    <string name="dock_keyboard">キーボード</string>
+    <string name="dock_hide_keyboard">キーボードを隠す</string>
+    <string name="dock_space_previous">前のデスクトップ</string>
+    <string name="dock_space_next">次のデスクトップ</string>
+    <string name="dock_lock">ロック</string>
+    <string name="dock_full_screen">フルスクリーン</string>
+    <string name="dock_exit_full_screen">フルスクリーンを終了</string>
+    <string name="dock_desktops">デスクトップ</string>
+    <string name="dock_desktop_number">デスクトップ %1$d</string>
+    <string name="dock_type_hint">Mac に入力</string>
+    <string name="dock_apps_hint">アプリを長押しするとお気に入りに追加できます。</string>
+    <string name="dock_apps_favourites">お気に入り</string>
+    <string name="dock_apps_running">起動中</string>
+    <string name="dock_apps_installed">Mac にインストール済み</string>
+    <string name="dock_shortcut_spotlight">Spotlight</string>
+    <string name="dock_shortcut_switch_app">アプリを切り替え</string>
+    <string name="dock_shortcut_mission_control">Mission Control</string>
+    <string name="dock_shortcut_show_desktop">デスクトップを表示</string>
+    <string name="dock_shortcut_copy">コピー</string>
+    <string name="dock_shortcut_paste">ペースト</string>
+    <string name="dock_shortcut_undo">取り消す</string>
+    <string name="dock_shortcut_close_window">ウインドウを閉じる</string>
+    <string name="dock_shortcut_quit_app">アプリを終了</string>
+    <string name="dock_shortcut_screenshot">スクリーンショット</string>
+    <string name="terminal_pane_empty_title">ターミナルを選択</string>
+    <string name="terminal_pane_empty_body">リストから選ぶか、新しく開始してください。</string>
+    <string name="files_pane_empty_title">ファイルを選択</string>
+    <string name="files_pane_empty_body">リストからファイルを開くと、ここにプレビューが表示されます。</string>
+</resources>

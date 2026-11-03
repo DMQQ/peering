@@ -25,6 +25,7 @@ use std::collections::HashMap;
 
 use crate::activity::{ActivityEnvironment, ActivityFailure, ActivityRequest};
 use crate::apns_policy::CircuitBreaker;
+use crate::protocol::PushQuestion;
 use crate::redact::tag;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -92,6 +93,8 @@ pub struct PushAction<'a> {
     pub approval_id: &'a str,
     /// Answers for the phone's notification extension to turn into buttons; empty for the rest.
     pub options: &'a [String],
+    /// A multi-question ask the phone asks one question at a time; empty for the rest.
+    pub questions: &'a [PushQuestion],
 }
 
 /// The APNs body. Compact JSON built by hand: the shape never varies.
@@ -108,7 +111,7 @@ fn payload(
         Some(action) => format!(r#","category":{}"#, serde_json::to_string(action.category)?),
         None => String::new(),
     };
-    if action.is_some_and(|action| !action.options.is_empty()) {
+    if action.is_some_and(|action| !action.options.is_empty() || !action.questions.is_empty()) {
         category.push_str(r#","mutable-content":1"#);
     }
     let mut payload = format!(
@@ -130,6 +133,9 @@ fn payload(
             ));
             if !action.options.is_empty() {
                 payload.push_str(&format!(r#","agentAnswers":{}"#, serde_json::to_string(action.options)?));
+            }
+            if !action.questions.is_empty() {
+                payload.push_str(&format!(r#","agentQuestions":{}"#, serde_json::to_string(action.questions)?));
             }
         }
     }
@@ -401,6 +407,7 @@ mod tests {
                 session_id: "S-1",
                 approval_id: "A-1",
                 options: &[],
+                questions: &[],
             }),
         };
         let json = parsed(&payload("T", "B", Some(route)).unwrap());
@@ -423,11 +430,38 @@ mod tests {
                 session_id: "S-1",
                 approval_id: "A-1",
                 options: &options,
+                questions: &[],
             }),
         };
         let json = parsed(&payload("T", "B", Some(route)).unwrap());
         assert_eq!(json["aps"]["mutable-content"], 1);
         assert_eq!(json["agentAnswers"], serde_json::json!(["Red", "Blue"]));
+    }
+
+    #[test]
+    fn payload_with_questions_carries_them_for_the_lock_screen() {
+        let questions = [
+            PushQuestion { question: "Colour?".to_owned(), answers: vec!["Red".to_owned(), "Blue".to_owned()] },
+            PushQuestion { question: "Size?".to_owned(), answers: vec!["Big".to_owned()] },
+        ];
+        let route = PushRoute {
+            host_id: "MAC-1",
+            source: None,
+            action: Some(PushAction {
+                category: "peering.agent.approval.open",
+                session_id: "S-1",
+                approval_id: "A-1",
+                options: &[],
+                questions: &questions,
+            }),
+        };
+        let json = parsed(&payload("T", "B", Some(route)).unwrap());
+        assert_eq!(json["aps"]["mutable-content"], 1);
+        assert_eq!(json["aps"]["category"], "peering.agent.approval.open");
+        assert_eq!(
+            json["agentQuestions"],
+            serde_json::json!([{"q": "Colour?", "a": ["Red", "Blue"]}, {"q": "Size?", "a": ["Big"]}])
+        );
     }
 
     #[test]

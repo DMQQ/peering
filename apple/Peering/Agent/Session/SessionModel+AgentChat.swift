@@ -89,7 +89,7 @@ extension SessionModel {
 
     func ensureAgentHistory(_ id: UUID) { activeSession?.ensureAgentHistory(id) }
 
-    func agentQueue(for id: UUID) -> [String] { activeSession?.agentQueues[id]?.prompts ?? [] }
+    func agentQueue(for id: UUID) -> [String] { activeSession?.waitingAgentPrompts(for: id) ?? [] }
 
     func removeQueuedAgentPrompt(at offset: Int, in id: UUID) { activeSession?.removeQueuedAgentPrompt(at: offset, in: id) }
 

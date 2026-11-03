@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>휴대폰으로 Windows PC 제어 (베타)</title>
+<meta name="description" content="Windows용 Peering Host는 초기 베타입니다. 화면, 마우스, 키보드, 터미널, Claude Code를 휴대폰에서.">
+<link rel="canonical" href="https://getpeering.app/ko/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/control-windows-pc-from-phone">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:url" content="https://getpeering.app/ko/control-windows-pc-from-phone">
+<meta property="og:title" content="휴대폰으로 Windows PC 제어 (베타)">
+<meta property="og:description" content="Windows용 Peering Host는 초기 베타입니다. 화면, 마우스, 키보드, 터미널, Claude Code를 휴대폰에서.">
+<meta property="og:image" content="https://getpeering.app/assets/og/control-windows-pc-from-phone.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="휴대폰으로 Windows PC 제어 (베타)">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="휴대폰으로 Windows PC 제어 (베타)">
+<meta name="twitter:description" content="Windows용 Peering Host는 초기 베타입니다. 화면, 마우스, 키보드, 터미널, Claude Code를 휴대폰에서.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/control-windows-pc-from-phone.png">
+<meta name="twitter:image:alt" content="휴대폰으로 Windows PC 제어 (베타)">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "inLanguage": "ko",
+  "name": "Peering",
+  "url": "https://getpeering.app/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android 10 이상, iOS 18 이상, macOS 15 이상",
+  "description": "Windows용 Peering Host는 초기 베타입니다. 화면, 마우스, 키보드, 터미널, Claude Code를 휴대폰에서.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ko",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peering으로 휴대폰에서 Windows PC를 제어할 수 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "초기 베타로 가능합니다. Windows 호스트는 만들어지고 코드 상으로 테스트되었지만 아직 실제 PC에서 실행된 적이 없습니다. 얼리 액세스는 support@getpeering.app로 요청하세요."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "어떤 휴대폰으로 Windows 호스트를 제어하나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Google Play 출시 예정인 안드로이드용 Peering 앱과 iPhone, iPad용 앱입니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "실행하면 Windows가 왜 경고하나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "베타 설치 프로그램이 아직 코드 서명되지 않아 SmartScreen이 게시자를 알아보지 못합니다. 출처를 신뢰한다면 추가 정보를 누른 뒤 실행을 선택하세요."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Windows 호스트에 관리자 권한이 필요한가요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "아니요. 설치 프로그램은 현재 사용자에게만 설치합니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "휴대폰에서 Claude Code를 실행할 수 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "네. Windows 호스트에는 휴대폰에서 승인하는 Claude Code 채팅이 있지만, 변경 검토, 커밋, 푸시는 아직 없습니다."
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ko/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "휴대폰으로 Windows PC 제어하기",
+      "item": "https://getpeering.app/ko/control-windows-pc-from-phone"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ko/" aria-label="Peering, 홈">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="페이지">
+      <a href="/ko/">홈</a>
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/download">다운로드</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+    <h1>휴대폰으로 Windows PC 제어하기: 초기 베타</h1>
+    <p class="updated">Peering을 만드는 사람들이 썼습니다, 2026년 11월. 무엇보다 먼저 아래 상자를 읽어 주세요.</p>
+
+<div class="card callout">
+      <strong>솔직히 말하면:</strong> Windows용 Peering Host는 만들어졌고 테스트도 통과하지만, 아직 실제 Windows PC에서
+      실행된 적이 없습니다. 다운로드 페이지에도 없습니다. 미리 써 보고 무엇이 깨지는지 알려 주실 분은
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a>로 연락해 주세요. 지금 Windows에서 동작하는 것이
+      필요하다면 <a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱</a>과
+      <a href="/ko/teamviewer-alternative-for-mac">팀뷰어</a> 페이지에서 대신 쓸 것을 안내합니다.
+    </div>
+
+    <h2>Windows 호스트란</h2>
+    <p>
+      Mac을 제어하는 같은 Peering 휴대폰 앱이 Peering Host를 실행하는 Windows PC와도 페어링할 수 있습니다. 호스트는 트레이에
+      머물며, 창에 여섯 자리 페어링 코드를 보여 주고, 내 네트워크와 릴레이를 통해 페어링된 휴대폰을 받아들이며, 각 기기의 키를
+      Windows의 보호 기능으로 지킵니다. 휴대폰 목록에는 PC가 베타로 표시됩니다.
+    </p>
+
+    <h2>만들어진 것</h2>
+    <ul>
+      <li><strong>화면</strong>: 디스플레이 하나 또는 윈도우 하나를, 하드웨어 인코딩 H.264로 초당 15, 30, 60프레임, 포인터를 그려 넣어 전송.</li>
+      <li><strong>입력</strong>: 마우스, 키보드, 텍스트. 휴대폰의 트랙패드 모드와 여러 손가락 제스처 포함.</li>
+      <li><strong>소리</strong>: PC의 소리, 그리고 공유 클립보드.</li>
+      <li><strong>터미널</strong>: 휴대폰 앱에서 PC의 셸.</li>
+      <li><strong>Claude Code 채팅</strong>: 승인 요청과 완료된 턴을 휴대폰으로 전송.</li>
+      <li><strong>파일</strong>: PC의 폴더를 탐색하고 파일을, 폴더는 zip으로 다운로드.</li>
+      <li><strong>연결</strong>: Mac과 같은 암호화 페어링, LAN 검색, 릴레이.</li>
+    </ul>
+
+    <h2>아직 없는 것</h2>
+    <ul>
+      <li>앱 단위 공유, 미리보기 이미지, 윈도우 모자이크.</li>
+      <li>가상 데스크톱, 가상 디스플레이, 프라이버시 커튼.</li>
+      <li>PC를 깨어 있게 유지하기와 깨우기 일정.</li>
+      <li>휴대폰에서 에이전트 변경 검토, 커밋, 푸시.</li>
+      <li>코드 서명. 게시자가 아직 확인되지 않아, 호스트를 처음 실행하면 Windows SmartScreen이 경고합니다.</li>
+    </ul>
+
+    <figure class="card doc-figure" style="max-width: 340px; margin-left: auto; margin-right: auto;">
+      <img src="/assets/android/android-pair.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="안드로이드의 Peering 신뢰하는 컴퓨터 목록. MacBook Pro와 베타로 표시된 Windows PC, 여섯 자리 페어링 코드 입력란.">
+      <figcaption>신뢰하는 컴퓨터 목록. Mac 옆에 베타로 표시된 Windows PC.</figcaption>
+    </figure>
+
+    <h2>지금 써 볼 만한 사람</h2>
+    <p>
+      베타에 익숙한 분. 서명되지 않은 설치 프로그램을 실행하고, 무언가 나타나지 않을 때 로그 파일을 읽고, 본 것을 알려 줄 수
+      있는 분입니다. 설치 프로그램은 사용자별이라 관리자 권한이 필요 없고, 로그인할 때 호스트를 시작하게 할 수 있습니다.
+      직접 빌드하고 싶다면 소스가 저장소에 있습니다.
+    </p>
+
+    <h2>휴대폰 쪽</h2>
+    <p>
+      <a href="/ko/control-mac-from-android">안드로이드 앱</a>(Google Play 출시 예정)이나 iPhone 앱을 쓰세요. 안드로이드는
+      Windows 호스트가 지원하지 않는 컨트롤을 숨깁니다. iPhone 앱은 현재 Windows 호스트가 무시하는 일부 Mac 전용 컨트롤을 보여 줍니다.
+    </p>
+
+    <h2>가격</h2>
+    <p>
+      Mac과 같습니다. 내 네트워크에서는 무료, 다른 네트워크에서는 하루 30분의 릴레이 시간, 무제한은 Pro나 평생.
+      요금제는 휴대폰에 속하므로 페어링한 모든 컴퓨터에 적용됩니다.
+    </p>
+
+    <h2>자주 묻는 질문</h2>
+    <h3>Peering으로 휴대폰에서 Windows PC를 제어할 수 있나요?</h3>
+    <p>초기 베타로 가능합니다. Windows 호스트는 만들어지고 코드 상으로 테스트되었지만 아직 실제 PC에서 실행된 적이 없습니다. 얼리 액세스는 support@getpeering.app로 요청하세요.</p>
+    <h3>어떤 휴대폰으로 Windows 호스트를 제어하나요?</h3>
+    <p>Google Play 출시 예정인 안드로이드용 Peering 앱과 iPhone, iPad용 앱입니다.</p>
+    <h3>실행하면 Windows가 왜 경고하나요?</h3>
+    <p>베타 설치 프로그램이 아직 코드 서명되지 않아 SmartScreen이 게시자를 알아보지 못합니다. 출처를 신뢰한다면 추가 정보를 누른 뒤 실행을 선택하세요.</p>
+    <h3>Windows 호스트에 관리자 권한이 필요한가요?</h3>
+    <p>아니요. 설치 프로그램은 현재 사용자에게만 설치합니다.</p>
+    <h3>휴대폰에서 Claude Code를 실행할 수 있나요?</h3>
+    <p>네. Windows 호스트에는 휴대폰에서 승인하는 Claude Code 채팅이 있지만, 변경 검토, 커밋, 푸시는 아직 없습니다.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ko/download">Mac용 Peering 다운로드</a>
+      <a class="btn btn-quiet" href="https://play.google.com/store/apps/details?id=pl.dmq.peering">Google Play 출시 예정</a>
+      <a class="btn btn-quiet" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">iPhone 앱 받기</a>
+    </div>
+
+    <div class="related">
+      <h2>더 읽어 보기</h2>
+      <ul>
+      <li><a href="/ko/control-mac-from-android">안드로이드 휴대폰으로 Mac 제어하기</a></li>
+      <li><a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a></li>
+      <li><a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱 대안</a></li>
+      <li><a href="/ko/teamviewer-alternative-for-mac">내 Mac을 위한 팀뷰어 대안</a></li>
+      <li><a href="/ko/remote-desktop-apps-compared">원격 데스크톱 앱 비교</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="가이드, 법적 고지, 지원">
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/keep-mac-awake-for-remote-access">집에 둔 Mac</a>
+      <a href="/ko/coding-agent-notifications">코딩 에이전트</a>
+      <a href="/ko/remote-desktop-apps-compared">앱 비교</a>
+      <a href="/ko/screens-alternative">Screens 대안</a>
+      <a href="/ko/best-remote-desktop-app-for-ipad">iPad용 추천</a>
+      <a href="/ko/apple-remote-desktop-alternative">ARD 대안</a>
+      <a href="/ko/apple-remote-desktop-vs-screen-sharing">ARD와 화면 공유</a>
+      <a href="/ko/screens-vs-jump-desktop">Screens와 Jump</a>
+      <a href="/ko/rustdesk-alternative-for-mac">RustDesk 대안</a>
+      <a href="/ko/control-mac-from-android">안드로이드로 Mac 제어</a>
+      <a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a>
+      <a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱 대안</a>
+      <a href="/ko/teamviewer-alternative-for-mac">팀뷰어 대안</a>
+      <a href="/ko/control-windows-pc-from-phone">휴대폰으로 Windows 제어</a>
+      <a href="/ko/download">다운로드</a>
+      <a href="/ko/privacy">개인정보 처리방침</a>
+      <a href="/ko/terms">이용약관</a>
+      <a href="/ko/support">지원</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/control-windows-pc-from-phone" hreflang="en" lang="en">English</a>
+      <a href="/de/control-windows-pc-from-phone" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/control-windows-pc-from-phone" hreflang="es" lang="es">Español</a>
+      <a href="/fr/control-windows-pc-from-phone" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/control-windows-pc-from-phone" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/control-windows-pc-from-phone" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/control-windows-pc-from-phone" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/control-windows-pc-from-phone" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/control-windows-pc-from-phone" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/control-windows-pc-from-phone" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone 및 Mac은 Apple Inc.의 상표입니다.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

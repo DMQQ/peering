@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_ask_how_to_use">连接时询问如何使用电脑</string>
+    <string name="remote_chip_mode">模式</string>
+    <string name="mode_picker_title">你想如何使用这台电脑？</string>
+    <string name="mode_screen_title">屏幕</string>
+    <string name="mode_screen_body">查看桌面并通过触摸控制。</string>
+    <string name="mode_workspace_title">工作区</string>
+    <string name="mode_workspace_body">无画面使用智能体、文件和终端。</string>
+    <string name="mode_remote_title">遥控</string>
+    <string name="mode_remote_body">无画面使用触控板和键盘。</string>
+    <string name="dock_show_screen">屏幕</string>
+    <string name="dock_change_mode">模式</string>
+    <string name="dock_keyboard">键盘</string>
+    <string name="dock_hide_keyboard">隐藏键盘</string>
+    <string name="dock_space_previous">上一个桌面</string>
+    <string name="dock_space_next">下一个桌面</string>
+    <string name="dock_lock">锁定</string>
+    <string name="dock_full_screen">全屏</string>
+    <string name="dock_exit_full_screen">退出全屏</string>
+    <string name="dock_desktops">桌面</string>
+    <string name="dock_desktop_number">桌面 %1$d</string>
+    <string name="dock_type_hint">在 Mac 上输入</string>
+    <string name="dock_apps_hint">按住某个应用即可将其添加到个人收藏。</string>
+    <string name="dock_apps_favourites">个人收藏</string>
+    <string name="dock_apps_running">正在运行</string>
+    <string name="dock_apps_installed">已安装在你的 Mac 上</string>
+    <string name="dock_shortcut_spotlight">聚焦</string>
+    <string name="dock_shortcut_switch_app">切换应用</string>
+    <string name="dock_shortcut_mission_control">调度中心</string>
+    <string name="dock_shortcut_show_desktop">显示桌面</string>
+    <string name="dock_shortcut_copy">拷贝</string>
+    <string name="dock_shortcut_paste">粘贴</string>
+    <string name="dock_shortcut_undo">撤销</string>
+    <string name="dock_shortcut_close_window">关闭窗口</string>
+    <string name="dock_shortcut_quit_app">退出应用</string>
+    <string name="dock_shortcut_screenshot">截屏</string>
+    <string name="terminal_pane_empty_title">选择终端</string>
+    <string name="terminal_pane_empty_body">从列表中选择，或新建一个。</string>
+    <string name="files_pane_empty_title">选择文件</string>
+    <string name="files_pane_empty_body">从列表中打开文件，即可在此预览。</string>
+</resources>

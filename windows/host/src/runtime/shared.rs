@@ -100,6 +100,8 @@ pub struct HostState {
     pub sessions: HashMap<u64, SessionSlot>,
     pub next_session: u64,
     pub catalog_checked_at: Option<f64>,
+    /// The pictures for the phones' source grids, and who is looking at them.
+    pub pictures: super::thumbnails::SourcePictures,
     pub notices: NoticeTracker,
     /// The last thing a phone asked for that this host would not do, shown until it lapses.
     pub refusal: Option<Refusal>,
@@ -111,6 +113,8 @@ pub struct HostState {
     pub audio: AudioPipeline,
     pub focus: FocusPipeline,
     pub settings: HostSettings,
+    pub privacy: super::privacy::PrivacyControl,
+    pub git_writes: super::agent_git::GitWrites,
     pub settings_saver: SettingsSaver,
     /// The hook broker while Claude Code hooks are on, which a phone's Allow or Deny is offered to first.
     pub hook_broker: Option<Arc<HookBroker>>,

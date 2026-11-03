@@ -9,6 +9,8 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,7 +19,8 @@ import pl.dmq.peering.wire.PreviewFailure
 
 /**
  * The web view behind the preview screen. Every request for a loopback address is answered by [handler] through the
- * computer, so none reaches the phone's own network; the page cache is off, so a reload shows what the server has now.
+ * computer, so none reaches the phone's own network, and [PreviewShield] closes the paths that skip interception; the
+ * page cache is off, so a reload shows what the server has now.
  */
 @SuppressLint("SetJavaScriptEnabled")
 class PreviewWeb(context: Context, private val presenter: PreviewPresenter, fetch: PreviewFetch) {
@@ -25,7 +28,7 @@ class PreviewWeb(context: Context, private val presenter: PreviewPresenter, fetc
     private val handler = PreviewRequestHandler(fetch, scope, ResourcePreviewTexts(context.resources), onPageFailure = presenter::pageFailed)
 
     val view: WebView = WebView(context).apply {
-        settings.javaScriptEnabled = true
+        settings.javaScriptEnabled = shielded(this)
         settings.domStorageEnabled = true
         settings.cacheMode = WebSettings.LOAD_NO_CACHE
         settings.allowFileAccess = false
@@ -33,6 +36,13 @@ class PreviewWeb(context: Context, private val presenter: PreviewPresenter, fetc
         settings.setSupportMultipleWindows(false)
         setBackgroundColor(TRANSPARENT)
         webViewClient = Client()
+    }
+
+    /** A web view too old to run the shield's script runs no script at all, since WebRTC could then leave the phone. */
+    private fun shielded(view: WebView): Boolean {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return false
+        WebViewCompat.addDocumentStartJavaScript(view, PreviewShield.documentStartScript, setOf("*"))
+        return true
     }
 
     val canGoBack: Boolean get() = view.canGoBack()

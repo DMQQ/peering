@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Claude Code on Android: Run It on Your Mac, Approve It</title>
+<meta name="description" content="Start Claude Code, Codex or OpenCode on your Mac from Android, approve tool calls from the notification shade and review diffs. Free on your Wi-Fi.">
+<link rel="canonical" href="https://getpeering.app/claude-code-on-android">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="en_GB">
+<meta property="og:url" content="https://getpeering.app/claude-code-on-android">
+<meta property="og:title" content="Claude Code on Android: Run It on Your Mac, Approve It">
+<meta property="og:description" content="Start Claude Code, Codex or OpenCode on your Mac from Android, approve tool calls from the notification shade and review diffs. Free on your Wi-Fi.">
+<meta property="og:image" content="https://getpeering.app/assets/og/claude-code-on-android.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Claude Code on Android: Run It on Your Mac, Approve It">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Claude Code on Android: Run It on Your Mac, Approve It">
+<meta name="twitter:description" content="Start Claude Code, Codex or OpenCode on your Mac from Android, approve tool calls from the notification shade and review diffs. Free on your Wi-Fi.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/claude-code-on-android.png">
+<meta name="twitter:image:alt" content="Claude Code on Android: Run It on Your Mac, Approve It">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Peering",
+  "url": "https://getpeering.app/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android 10 or later, iOS 18 or later, macOS 15 or later",
+  "description": "Start Claude Code, Codex or OpenCode on your Mac from Android, approve tool calls from the notification shade and review diffs. Free on your Wi-Fi.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I use Claude Code on Android?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Claude Code runs on a computer, not a phone. With Peering it keeps running on your Mac, and the Android app shows its chat, lets you start new ones, answer its questions and approve commands."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it work with Codex and OpenCode too?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Peering's agent view supports Claude Code, Codex and OpenCode installed on the Mac."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I approve a command without opening the app?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The notification has Allow and Deny buttons. On Android it arrives while Peering keeps a session open in the background."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Peering see my code or API keys?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. The agent runs on your Mac with your own credentials, and the connection between the phone and the Mac is end-to-end encrypted."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is there a Windows version?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The Windows host is in early beta. It has Claude Code chat but not yet change review, commit or push, and it has not been run on a real PC."
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Claude Code on Android",
+      "item": "https://getpeering.app/claude-code-on-android"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/" aria-label="Peering, home">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/how-to-pair-iphone-mac">Pairing guide</a>
+      <a href="/access-your-mac-from-anywhere">From anywhere</a>
+      <a href="/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Claude Code on Android, Running on Your Mac</h1>
+    <p class="updated">Written by the people who make Peering. Checked against the app's own code, November 2026.</p>
+
+<div class="card callout">
+      <strong>The short version.</strong> Your coding agent keeps running on your Mac, with your
+      repositories, keys and tools. Peering on Android gives you its chat on the phone: start one,
+      follow it, answer its questions, review what it changed, and tap Allow or Deny in the
+      notification when it asks to run a command.
+    </div>
+
+    <h2>Why run the agent on the Mac and not on the phone</h2>
+    <p>
+      Claude Code, Codex and OpenCode need a real machine: the checkout, the build tools, the test
+      suite, your git credentials. Running one in a phone terminal app means copying all of that
+      somewhere else. Peering leaves the work where it already is and makes the phone a remote for
+      it. When you close the phone, the agent carries on.
+    </p>
+
+    <h2>What you can do from the phone</h2>
+    <ul>
+      <li><strong>Start an agent in one tap</strong> in any folder on the Mac. Claude Code, Codex and OpenCode are supported.</li>
+      <li><strong>Follow it as a chat</strong>, not a scrolling terminal: messages, tool calls, sub-agents and the files it touched, with tabs when several chats run at once.</li>
+      <li><strong>Answer its questions.</strong> When an agent asks something with several choices, tap one. Questions with several parts are answered one at a time.</li>
+      <li><strong>Allow or Deny a command</strong> from the notification, without opening the app.</li>
+      <li><strong>Review the changes</strong>: a To review inbox gathers chats with finished work, and each shows the diff by file. Follow-up buttons appear after a turn that changed files.</li>
+      <li><strong>Type with hints</strong>: slash commands and at-mentions of files are suggested as you type, and you can dictate a prompt instead.</li>
+      <li><strong>Drop to the terminal or the screen</strong> when the chat is not enough. The agent's shell, a plain terminal and the Mac's whole desktop are all in the same app.</li>
+    </ul>
+
+    <figure class="card doc-figure">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <img src="/assets/android/android-agents.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="Peering&#x27;s Agents screen on Android, listing Claude Code, Codex and OpenCode chats running on the Mac, with a To review card.">
+      <img src="/assets/android/android-approve-from-shade.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="Android notification shade with a Peering notice that Claude Code needs approval, with Allow and Deny buttons.">
+      </div>
+      <figcaption>Agent chats running on the Mac, and an approval answered from the Android notification shade.</figcaption>
+    </figure>
+
+    <h2>Approvals from the notification shade</h2>
+    <p>
+      When Claude Code wants to run something you have not allowed, it stops and waits. On Android,
+      Peering posts a notification naming the agent and the command, with Allow and Deny buttons.
+      Answer it from the shade or the lock screen. The same happens when an agent finishes a turn,
+      or when a terminal on the Mac is waiting for a password.
+    </p>
+    <p>
+      To be exact about when this works: Android notifications arrive while Peering holds a session
+      open in the background. An ongoing notification names the Mac and has a Disconnect button, and
+      the Mac pauses the picture so nothing is streamed that you cannot see. You can turn that off
+      in Settings. If Android itself stops the app, for example under aggressive battery limits,
+      the alerts stop until you open it again. The iPhone app also receives them with the app
+      closed; see <a href="/coding-agent-notifications">notifications for coding agents</a>.
+    </p>
+
+    <h2>Setting it up</h2>
+    <p>
+      Install <a href="/download">Peering for Mac</a> and the agent you use, as you normally would.
+      Install Peering on the phone from Google Play when it is listed, pair once with the six-digit
+      code, and open the Agents tab. Peering finds the agents installed on the Mac; it does not
+      ship or pay for one, and it never sees your API keys or subscription.
+    </p>
+
+    <h2>Safe enough to leave running</h2>
+    <p>
+      Everything between the phone and the Mac is end-to-end encrypted, including the chat and the
+      approvals. The relay that carries it when you are away cannot read it. The Android app can be
+      locked behind your fingerprint or face, so a borrowed phone cannot approve a command.
+    </p>
+
+    <h2>What it costs</h2>
+    <p>
+      The agents, the terminal and the alerts are on every plan. Free on your own network with no time limit, plus 30 minutes a day of relay time for reaching the computer from another network. Pro ($2.99 a month) or Lifetime ($24.99 once) removes the daily limit. Those are the US prices; Google Play shows yours in local currency.
+    </p>
+
+    <h2>Questions</h2>
+    <h3>Can I use Claude Code on Android?</h3>
+    <p>Claude Code runs on a computer, not a phone. With Peering it keeps running on your Mac, and the Android app shows its chat, lets you start new ones, answer its questions and approve commands.</p>
+    <h3>Does it work with Codex and OpenCode too?</h3>
+    <p>Yes. Peering's agent view supports Claude Code, Codex and OpenCode installed on the Mac.</p>
+    <h3>Can I approve a command without opening the app?</h3>
+    <p>Yes. The notification has Allow and Deny buttons. On Android it arrives while Peering keeps a session open in the background.</p>
+    <h3>Does Peering see my code or API keys?</h3>
+    <p>No. The agent runs on your Mac with your own credentials, and the connection between the phone and the Mac is end-to-end encrypted.</p>
+    <h3>Is there a Windows version?</h3>
+    <p>The Windows host is in early beta. It has Claude Code chat but not yet change review, commit or push, and it has not been run on a real PC.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/download">Download Peering for Mac</a>
+      <a class="btn btn-quiet" href="https://play.google.com/store/apps/details?id=pl.dmq.peering">Google Play, coming soon</a>
+      <a class="btn btn-quiet" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">Get the iPhone app</a>
+    </div>
+
+    <div class="related">
+      <h2>Keep reading</h2>
+      <ul>
+      <li><a href="/coding-agent-notifications">Notifications for coding agents</a></li>
+      <li><a href="/control-mac-from-android">Control your Mac from an Android phone</a></li>
+      <li><a href="/android-tablet-remote-desktop">Remote desktop for Android tablets</a></li>
+      <li><a href="/control-windows-pc-from-phone">Control a Windows PC from your phone (beta)</a></li>
+      <li><a href="/access-your-mac-from-anywhere">Access your Mac from anywhere</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guides, legal and support">
+      <a href="/how-to-pair-iphone-mac">Pairing guide</a>
+      <a href="/remote-desktop-for-mac">Remote desktop</a>
+      <a href="/access-your-mac-from-anywhere">From anywhere</a>
+      <a href="/keep-mac-awake-for-remote-access">Mac at home</a>
+      <a href="/coding-agent-notifications">Coding agents</a>
+      <a href="/remote-desktop-apps-compared">Compare apps</a>
+      <a href="/screens-alternative">Screens alternative</a>
+      <a href="/best-remote-desktop-app-for-ipad">Best for iPad</a>
+      <a href="/apple-remote-desktop-alternative">ARD alternatives</a>
+      <a href="/apple-remote-desktop-vs-screen-sharing">ARD vs Screen Sharing</a>
+      <a href="/screens-vs-jump-desktop">Screens vs Jump</a>
+      <a href="/rustdesk-alternative-for-mac">RustDesk alternative</a>
+      <a href="/control-mac-from-android">Mac from Android</a>
+      <a href="/claude-code-on-android">Claude Code on Android</a>
+      <a href="/chrome-remote-desktop-alternative">Chrome Remote Desktop alternative</a>
+      <a href="/teamviewer-alternative-for-mac">TeamViewer alternative</a>
+      <a href="/control-windows-pc-from-phone">Windows from a phone</a>
+      <a href="/download">Download</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Claude and Claude Code are trademarks of Anthropic. Codex is a trademark of OpenAI. Android and Google Play are trademarks of Google LLC. Apple, iPhone and Mac are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

@@ -15,4 +15,8 @@
     <string name="link_end_title">Diese Sitzung beenden?</string>
     <string name="link_end_message">Ein Link außerhalb von Peering hat darum gebeten, die Verbindung zu deinem Computer zu trennen.</string>
     <string name="link_end_confirm">Sitzung beenden</string>
+    <string name="link_open_title">Diesen Link öffnen?</string>
+    <string name="link_open_message">Ein Link außerhalb von Peering möchte eine Verbindung zu einem deiner Computer herstellen. Fahre nur fort, wenn du ihn selbst geöffnet hast.</string>
+    <string name="link_pair_message">Ein Link außerhalb von Peering möchte einen Computer koppeln. Fahre nur fort, wenn du ihn selbst geöffnet hast.</string>
+    <string name="link_open_confirm">Fortfahren</string>
 </resources>

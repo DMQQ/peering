@@ -11,13 +11,18 @@ struct AgentChatTranscript: View {
     let queued: [String]
     let unqueue: (Int) -> Void
     let resend: (String) -> Void
+    var cite: ((String) -> Void)?
     let review: (AgentApproval) -> Void
     let openSubagent: (String) -> Void
 
     /// What was already in the transcript when it appeared; nil until then, so a conversation being opened is never typed out.
     @State private var present: Set<UUID>?
+    /// How far each streaming reply has typed out, so a row rebuilt by scrolling picks up where it was. A plain reference, so recording progress every frame does not redraw the transcript.
+    @State private var revealed = RevealProgress()
     /// Scrolling a transcript shorter than its viewport pushes the offset negative and snaps back, which reads as flicker.
     @State private var overflows = false
+    /// Within a screen's worth of the first message, the one place the jump to the end is offered: partway down, the end is a short scroll away.
+    @State private var nearTop = false
 
     private func scrollToEnd(_ reader: ScrollViewProxy, animated: Bool = false) {
         guard overflows else { return }
@@ -66,12 +71,15 @@ struct AgentChatTranscript: View {
                             expandedTools: $expandedTools,
                             canSend: canSend,
                             resend: resend,
+                            cite: cite,
                             approval: approval(for: item),
                             review: review,
                             openSubagent: subagentOpener(for: item),
                             subagentSteps: subagent(for: item)?.items.count,
                             streams: streams(item),
-                            onReveal: { if stickToBottom { scrollToEnd(reader) } }
+                            onReveal: { if stickToBottom { scrollToEnd(reader) } },
+                            revealedCount: revealed.counts[item.id] ?? 0,
+                            onRevealProgress: { [revealed] in revealed.counts[item.id] = $0 }
                         )
                         .agentRowArrival()
                     }
@@ -99,6 +107,31 @@ struct AgentChatTranscript: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
+            .overlay(alignment: .bottom) {
+                if overflows && nearTop {
+                    Button {
+                        stickToBottom = true
+                        scrollToEnd(reader, animated: true)
+                    } label: {
+                        Image(systemName: "arrow.down")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .glassSurface(in: Circle(), interactive: true)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
+                    .accessibilityLabel("Scroll to the latest message")
+                    .padding(.bottom, 10)
+                    .transition(.scale(scale: 0.8).combined(with: .opacity))
+                }
+            }
+            .animation(Motion.tap, value: overflows && nearTop)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top < geometry.containerSize.height
+            } action: { _, now in
+                nearTop = now
+            }
             // A chat opens at its latest message. Only the first layout: later growth is the manual stick-to-bottom below.
             .defaultScrollAnchor(.bottom, for: .initialOffset)
             .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -115,6 +148,7 @@ struct AgentChatTranscript: View {
                 stickToBottom = atBottom
             }
             .onChange(of: session.transcript.items.count) { old, _ in
+                revealed.keepOnly(session.transcript.items.map(\.id))
                 // A conversation read back from the Mac arrives after the screen does: that first fill lands on its end, not its top, and without animating past the whole history.
                 if old == 0 {
                     stickToBottom = true
@@ -128,10 +162,21 @@ struct AgentChatTranscript: View {
                 scrollToEnd(reader)
             }
             .onChange(of: session.id) { _, _ in
+                revealed.keepOnly(session.transcript.items.map(\.id))
                 present = Set(session.transcript.items.map(\.id))
                 stickToBottom = true
                 scrollToEnd(reader)
             }
         }
+    }
+}
+
+@MainActor
+private final class RevealProgress {
+    var counts: [UUID: Int] = [:]
+
+    func keepOnly(_ ids: [UUID]) {
+        let present = Set(ids)
+        counts = counts.filter { present.contains($0.key) }
     }
 }

@@ -1,10 +1,11 @@
-//! Names the build's version for the update check, and embeds `app.manifest` (per-monitor DPI v2, asInvoker, long paths, Windows 10 and 11) into the Windows executable.
+//! Names the build's version for the update check, and embeds `app.manifest` and `assets/app.ico` (per-monitor DPI v2, asInvoker, long paths, Windows 10 and 11) into the Windows executable.
 //! Other targets have no resources to embed, so the script only names the version for them.
 
 use std::env;
 
 fn main() {
     println!("cargo:rerun-if-changed=app.manifest");
+    println!("cargo:rerun-if-changed=assets/app.ico");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=PEERING_RELEASE_TAG");
     println!("cargo:rustc-env=PEERING_HOST_VERSION={}", build_version());
@@ -33,7 +34,9 @@ fn embed_manifest() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("cargo sets the manifest directory"))
         .join("app.manifest");
     let script = PathBuf::from(env::var("OUT_DIR").expect("cargo sets the output directory")).join("app.rc");
-    let manifest_path = manifest.display().to_string().replace('\\', "\\\\");
-    std::fs::write(&script, format!("1 24 \"{manifest_path}\"\n")).expect("the resource script is writable");
+    let icon = manifest.with_file_name("assets").join("app.ico");
+    let escape = |path: &PathBuf| path.display().to_string().replace('\\', "\\\\");
+    std::fs::write(&script, format!("1 24 \"{}\"\n1 ICON \"{}\"\n", escape(&manifest), escape(&icon)))
+        .expect("the resource script is writable");
     embed_resource::compile(&script, embed_resource::NONE).manifest_required().expect("the manifest is embedded");
 }

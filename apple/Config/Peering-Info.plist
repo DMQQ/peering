@@ -33,6 +33,8 @@
 	<string>Peering connects to your Mac on the local network to stream its screen and send input.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Peering listens while you dictate, so you can speak instead of typing on the Mac.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Peering saves photos and videos you download from your Mac to your photo library.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Peering turns what you say into text, on your iPhone when the language allows it, and types it on your Mac.</string>
 	<key>NSSupportsLiveActivities</key>

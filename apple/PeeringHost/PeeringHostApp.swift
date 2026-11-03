@@ -54,7 +54,7 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct PeeringHostApp: App {
     /// The window is reopened from the menu bar, which needs something to name it by once the
-    /// user has closed it — closing a window must not take the host down with it.
+    /// user has closed it, closing a window must not take the host down with it.
     static let mainWindowID = "main"
 
     @NSApplicationDelegateAdaptor(HostAppDelegate.self) private var appDelegate
@@ -69,8 +69,8 @@ struct PeeringHostApp: App {
                 .environment(model)
                 .environment(updater)
                 .onOpenURL { model.handleWidgetCommand($0) }
-                // Dark by fiat, not by preference. The palette is fixed rather than semantic —
-                // see `HostPalette` — so the appearance has to be pinned too, or every control
+                // Dark by fiat, not by preference. The palette is fixed rather than semantic,
+                // see `HostPalette`, so the appearance has to be pinned too, or every control
                 // the system draws for us (fields, toggles, segmented pickers, sheets, the
                 // confirmation dialog) would come back in the Mac's own appearance and land
                 .preferredColorScheme(.dark)
@@ -95,7 +95,7 @@ private struct HostRootView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     /// Whether this Mac has been shown the away-from-home switches before. Persisted rather than
-    /// re-derived from permission state, since it is a step in its own right — skippable, and
+    /// re-derived from permission state, since it is a step in its own right, skippable, and
     /// meant only once, not every time permissions happen to be re-checked.
     @AppStorage("pl.dmq.peering.host.hasSeenAwaySwitchesOnboarding") private var hasSeenAwaySwitchesOnboarding = false
 

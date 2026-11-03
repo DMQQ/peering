@@ -443,8 +443,6 @@
     <string name="quality_save_failed">Le choix n\'a pas pu être enregistré sur ce téléphone.</string>
     <string name="paywall_offer_monthly">Mensuel</string>
     <string name="paywall_offer_monthly_detail">Relais illimité, renouvelé chaque mois</string>
-    <string name="paywall_offer_yearly">Annuel</string>
-    <string name="paywall_offer_yearly_detail">Relais illimité, renouvelé chaque année</string>
     <string name="paywall_unavailable_not_supported">Google Play Billing n\'est pas disponible sur ce téléphone, le temps de relais ne peut donc pas être acheté ici.</string>
     <string name="paywall_unavailable_unreachable">Impossible de joindre Google Play. Vérifiez la connexion et réessayez.</string>
     <string name="paywall_unavailable_not_configured">Les formules de relais ne sont pas encore configurées dans Google Play pour cette app.</string>
@@ -515,7 +513,6 @@
     <string name="tour_plan_free_detail">%1$d minutes par jour hors de votre propre réseau</string>
     <string name="tour_plan_best_value">Meilleure offre</string>
     <string name="tour_plan_per_month">par mois</string>
-    <string name="tour_plan_per_year">par an</string>
     <string name="tour_plan_one_time">une fois</string>
     <string name="tour_plans_loading">Chargement des formules…</string>
     <string name="tour_plans_unreachable">Impossible de joindre Google Play. Vous pourrez choisir une formule plus tard dans les Réglages.</string>

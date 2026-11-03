@@ -57,9 +57,10 @@ struct AgentApprovalNotificationTests {
         #expect(note.actions.allSatisfy { $0.opensApp })
     }
 
-    @Test func severalQuestionsAndPlansOnlyOpen() {
+    @Test func tooManyQuestionsAndPlansOnlyOpen() {
+        let five = (0..<5).map { _ in question(["a"]) }
         let several = AgentApprovalNotification(
-            approval: approval(name: "AskUserQuestion", questions: [question(["a"]), question(["b"])]),
+            approval: approval(name: "AskUserQuestion", questions: five),
             sessionID: session
         )
         let plan = AgentApprovalNotification(approval: approval(name: "ExitPlanMode"), sessionID: session)

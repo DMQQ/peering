@@ -80,8 +80,8 @@ final class InputInjector: @unchecked Sendable {
         self.isTrusted = isTrusted
     }
 
-    /// The mapping currently in force. Set to `nil` when no capture source is known, which
-    /// makes every pointer command a no-op rather than sending the cursor to a stale place.
+    /// The mapping currently in force. It outlives a stopped capture, so a paused window keeps mapping to that window;
+    /// while it is `nil` every pointer command is a no-op.
     var transform: InputTransform? {
         get { lock.withLock { _transform } }
         set {

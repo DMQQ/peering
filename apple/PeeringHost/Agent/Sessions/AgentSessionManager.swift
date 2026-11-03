@@ -30,6 +30,8 @@ final class AgentSessionManager: @unchecked Sendable {
     var onChatStateChanged: (@Sendable (String) -> Void)?
     /// Where a phone is, for deciding whether a finished turn is pushed. Set once before any phone connects.
     var presence: (@Sendable (String) -> PhonePresence)?
+    /// Takes the routine requests. Set once before any phone connects.
+    var routineRequests: (@Sendable (String, AgentRequest, @escaping Sink) -> Void)?
 
     init(store: AgentSessionDiskStore = AgentSessionManager.defaultStore()) {
         self.store = store
@@ -52,13 +54,25 @@ final class AgentSessionManager: @unchecked Sendable {
         lock.withLock {
             sessions.values
                 .filter { $0.ownerClientID == clientID }
-                .map { LiveActivityChatTracker.Observed(id: $0.id.uuidString, state: $0.state) }
+                .map { LiveActivityChatTracker.Observed(id: $0.id.uuidString, state: $0.state, recap: $0.lastRecap) }
         }
     }
 
     /// Chats come back idle and without a process: the CLI is started again by the first thing sent to one.
     private func restore() {
-        let records = store.loadAll()
+        let now = Date()
+        var records: [AgentSessionRecord] = []
+        for (record, lastActivity) in store.loadAllWithActivity() {
+            if AgentChatRetirement.isRetired(
+                agentID: record.agentID, cliSessionID: record.cliSessionID, lastActivity: lastActivity, now: now
+            ) {
+                do { try store.archive(record.id) } catch {
+                    agentLog.error("retired agent chat could not be archived · \(String(describing: error), privacy: .public)")
+                }
+            } else {
+                records.append(record)
+            }
+        }
         lock.withLock {
             for record in records {
                 guard let entry = AgentCatalogue.entry(for: record.agentID) else { continue }
@@ -72,6 +86,9 @@ final class AgentSessionManager: @unchecked Sendable {
                 }
                 sessions[record.id] = session
             }
+        }
+        do { try store.pruneArchive(now: now) } catch {
+            agentLog.error("agent chat archive could not be pruned · \(String(describing: error), privacy: .public)")
         }
         if !records.isEmpty { agentLog.notice("agent chats restored · \(records.count)") }
     }
@@ -94,6 +111,7 @@ final class AgentSessionManager: @unchecked Sendable {
                     .sorted { $0.createdAt < $1.createdAt }
             }
             sink(.snapshot(snapshot))
+            announceQueues(ownedBy: clientID, to: sink)
 
         case .history(let id, let since):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
@@ -162,9 +180,25 @@ final class AgentSessionManager: @unchecked Sendable {
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             AgentGitActions.push(directory: session.directory, sessionID: id, sink: sink)
 
+        case .github(let id):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            AgentGitHubActions.read(directory: session.directory, sessionID: id, sink: sink)
+
+        case .githubAction(let id, let action):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            AgentGitHubActions.perform(action, directory: session.directory, sessionID: id, sink: sink)
+
         case .pause(let id):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             pause(session, sink: sink)
+
+        case .queue(let id, let text):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            handleQueue(text, for: session, sink: sink)
+
+        case .unqueue(let id, let index, let text):
+            guard let session = owned(id, by: clientID) else { return }
+            handleUnqueue(text, at: index, for: session)
 
         case .listResumable:
             listResumable(clientID: clientID, sink: sink)
@@ -174,6 +208,12 @@ final class AgentSessionManager: @unchecked Sendable {
 
         case .peekResumable(let cliSessionID):
             peekResumable(cliSessionID: cliSessionID, sink: sink)
+
+        case .setAlertPreference, .setSpendingCap, .releaseHeld, .approvePlan:
+            handleAway(request, clientID: clientID, sink: sink)
+
+        case .listRoutines, .saveRoutine, .deleteRoutine, .runRoutineNow:
+            routineRequests?(clientID, request, sink)
         }
     }
 
@@ -191,7 +231,7 @@ final class AgentSessionManager: @unchecked Sendable {
         }
     }
 
-    private func owned(_ id: UUID, by clientID: String, reporting sink: Sink) -> AgentSession? {
+    func owned(_ id: UUID, by clientID: String, reporting sink: Sink) -> AgentSession? {
         let session = owned(id, by: clientID)
         if session == nil { sink(.failed(sessionID: id, message: "That chat is no longer here.")) }
         return session

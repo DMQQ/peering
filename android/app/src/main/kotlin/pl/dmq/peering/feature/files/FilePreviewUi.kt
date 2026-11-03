@@ -9,6 +9,7 @@ data class FilePreviewUi(
     val download: DownloadStatus,
     val wraps: Boolean,
     val canShare: Boolean,
+    val canSaveToPhotos: Boolean = false,
 ) {
     val canWrap: Boolean get() = content is PreviewContent.Text
 }

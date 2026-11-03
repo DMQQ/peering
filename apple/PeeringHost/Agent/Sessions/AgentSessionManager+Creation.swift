@@ -6,7 +6,7 @@ import RemoteCore
 /// Starting a chat and making room for it.
 extension AgentSessionManager {
     /// Running CLIs per phone. Chats with no process (restored, ended) do not count against it.
-    private static let maximumLiveSessionsPerClient = 4
+    static let maximumLiveSessionsPerClient = 4
     /// Chats kept per phone, running or not: the oldest one with no process gives way.
     private static let maximumStoredSessionsPerClient = 20
 

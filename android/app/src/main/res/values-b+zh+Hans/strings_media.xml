@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_save_to_photos">存储到照片</string>
+    <string name="preview_saved_to_photos">已存储到照片</string>
+    <string name="preview_save_to_photos_failed">无法存储到照片</string>
+    <string name="bg_progress_working">正在处理</string>
+    <string name="bg_progress_awaiting_approval">等待批准</string>
+</resources>

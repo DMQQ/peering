@@ -42,10 +42,10 @@ class ApprovalNoticeTest {
     }
 
     @Test
-    fun aPlanAndSeveralQuestionsAreOnlyOpened() {
+    fun aPlanAndTooManyQuestionsAreOnlyOpened() {
         assertEquals(ApprovalNotice.Layout.OpenOnly, ApprovalNotice.of("c1", ask(name = "ExitPlanMode")).layout)
-        val two = ask(detail = null, questions = listOf(question("a"), question("b")))
-        assertEquals(ApprovalNotice.Layout.OpenOnly, ApprovalNotice.of("c1", two).layout)
+        val five = ask(detail = null, questions = List(5) { question("a") })
+        assertEquals(ApprovalNotice.Layout.OpenOnly, ApprovalNotice.of("c1", five).layout)
     }
 
     @Test
@@ -83,5 +83,12 @@ class ApprovalNoticeTest {
         assertNull(ApprovalNotice.answerFor("choose.2", listOf("A", "B")))
         assertNull(ApprovalNotice.answerFor("choose.x", listOf("A")))
         assertNull(ApprovalNotice.answerFor("open", listOf("A")))
+    }
+
+    @Test
+    fun allowIsLeftOffWhenTheSystemCannotRequireAnUnlock() {
+        val notice = ApprovalNotice.of("c1", ask())
+        assertEquals(listOf("deny"), notice.actionsShown(unlockEnforced = false).map { it.id })
+        assertEquals(listOf("deny", "allow"), notice.actionsShown(unlockEnforced = true).map { it.id })
     }
 }

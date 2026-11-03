@@ -1,0 +1,55 @@
+{
+ "en": {
+  "h": [
+   "Your computer,\nin your\n*pocket*.",
+   "Work from\n*anywhere*.",
+   "Start agents\nin *one tap*.",
+   "Approve from\nthe *shade*.",
+   "A real\n*keyboard*.",
+   "Your phone is\na *trackpad*.",
+   "Pair in\n*seconds*."
+  ],
+  "feature": "Your computer,\nin your *pocket*.",
+  "feature_sub": "Screen, agents, keyboard and trackpad, on any network.",
+  "b": {
+   "awake": "Your Mac stays awake",
+   "lid": "Works with the lid closed",
+   "e2e": "End-to-end encrypted",
+   "anynet": "Home Wi-Fi or across the world",
+   "runs": "Runs on your computer",
+   "multi": "Answer every question",
+   "keys": "Real modifier keys",
+   "fkeys": "F1 to F12",
+   "gestures": "Two-finger scroll and swipe",
+   "noaccount": "No account needed",
+   "platforms": "Mac and Windows (beta)"
+  },
+  "ui": {
+   "host": "Damian’s MacBook Pro",
+   "doc": "orders.ts · orders-service",
+   "relay": "RELAY",
+   "lan": "LAN",
+   "back": "Back", "enter": "Enter",
+   "apps": "Apps", "keyboard": "Keyboard", "clipboard": "Clipboard", "shortcuts": "Shortcuts", "tab": "Tab",
+   "agents": "Agents", "agents_sub": "2 open on your Mac",
+   "to_review": "To review", "to_review_sub": "6 files in 1 chat",
+   "chats": "Chats", "on_computer": "On this computer",
+   "working": "Working", "needs_you": "Waiting on you", "idle": "Idle",
+   "choose_agent": "Choose an agent",
+   "date": "Sun, 4 Oct",
+   "n_title1": "Claude Code needs you", "n_body1": "Wants to run on your computer: npm test",
+   "allow": "Allow", "deny": "Deny",
+   "n_title2": "Claude Code asks", "n_step": "Question 1 of 2", "n_body2": "Which database should the tests use?",
+   "opt1": "Postgres", "opt2": "SQLite", "opt3": "In memory",
+   "n_title3": "Codex finished", "n_body3": "24 tests passed in orders-service",
+   "now": "now", "min": "2 min",
+   "type_hint": "Type to the Mac",
+   "trackpad": "Trackpad", "screen": "Screen", "mode": "Mode", "lock": "Lock", "desktops": "Desktops",
+   "trusted": "Trusted computers", "nearby": "Nearby", "online": "Online · tap to connect", "nearby_status": "Nearby · tap to connect",
+   "pc": "Studio PC", "beta": "Beta",
+   "tagline": "Your computer, from anywhere.",
+   "code_title": "Enter the code", "code_body": "Your computer shows six digits.",
+   "pair": "Pair"
+  }
+ }
+}

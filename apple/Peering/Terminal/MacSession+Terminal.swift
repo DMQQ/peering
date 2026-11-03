@@ -33,7 +33,7 @@ extension MacSession {
     /// does not need one: a shell opens in the login folder and is sent one line, exactly as a
     /// browser sends `cd` when a folder is opened. Sent as bytes rather than through
     /// ``sendTerminalInput(_:to:)`` so it does not name the shell "cd" or land in the command
-    /// history — the same reasoning ``navigate(to:in:)`` records.
+    /// history, the same reasoning ``navigate(to:in:)`` records.
     func createTerminal(inDirectory path: String?) {
         pendingTerminalDirectory = path
         wire?.sendTerminal(.create)
@@ -59,7 +59,7 @@ extension MacSession {
     }
 
     /// Looking at a terminal does not answer it, so this deliberately leaves its attention mark
-    /// alone — a tab that is waiting for a password is still waiting while you read it, and the
+    /// alone, a tab that is waiting for a password is still waiting while you read it, and the
     /// mark goes out when the shell says something, which is the only proof it got an answer.
     func selectTerminal(_ id: UUID) {
         selectedTerminalID = id
@@ -87,7 +87,7 @@ extension MacSession {
               let command = lastSentCommand,
               let sentAt = lastSentAt,
               // A shell's answer arrives in the next read or two. Past that the message belongs
-              // to something else — a build log, a script printing its own failures.
+              // to something else, a build log, a script printing its own failures.
               sentAt.isWithin(seconds: 5)
         else { return }
 

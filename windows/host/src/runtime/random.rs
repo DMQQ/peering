@@ -10,7 +10,7 @@ const SECRET_BYTES: usize = 16;
 #[derive(Default)]
 pub struct SystemRandomSource;
 
-/// A failed generator returns an empty value. The pairing then fails on the client's length check instead of
+/// A failed generator returns an empty value. The session's length checks then refuse the pairing instead of
 /// proceeding with a value anyone could predict.
 impl peering_core::video::lane::Random for SystemRandomSource {
     fn fill(&mut self, buffer: &mut [u8]) -> bool {

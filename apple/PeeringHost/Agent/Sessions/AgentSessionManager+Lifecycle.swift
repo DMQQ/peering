@@ -44,6 +44,9 @@ extension AgentSessionManager {
         }
         adapter.onPermissionMode = { [weak self, weak session] mode in
             guard let self, let session else { return }
+            self.lock.withLock {
+                if mode == .plan, session.permissionMode != .plan { session.modeBeforePlan = session.permissionMode }
+            }
             self.change(session, \.permissionMode, to: mode, announcing: .permissionModeChanged(sessionID: session.id, mode: mode))
         }
         adapter.onModel = { [weak self, weak session] model in
@@ -71,7 +74,8 @@ extension AgentSessionManager {
     }
 
     /// Off the connection's queue: resolving the binary runs a login shell and that queue carries pings.
-    func launch(_ adapter: any AgentAdapter, for session: AgentSession) {
+    /// `started` runs once the CLI is up, and not at all when it could not be started.
+    func launch(_ adapter: any AgentAdapter, for session: AgentSession, started: (@Sendable () -> Void)? = nil) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self, weak session] in
             let directory = session.map { URL(fileURLWithPath: $0.directory) }
             if let directory, FolderAccessWatch.isMissing(directory.path) {
@@ -86,7 +90,7 @@ extension AgentSessionManager {
                         guard let self, let watched else { return }
                         self.append(.notice(text: FolderAccessWatch.chatMessage), to: watched)
                     },
-                    work: { (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) != nil }
+                    work: { FolderAccessWatch.requestAccess(to: directory.path) }
                 )
                 if !readable, let session {
                     self?.append(.notice(text: FolderAccessWatch.deniedMessage), to: session)
@@ -94,6 +98,7 @@ extension AgentSessionManager {
             }
             do {
                 try adapter.start()
+                started?()
             } catch let failure as AgentLaunchFailure {
                 agentLog.error("agent chat could not start · \(failure.message, privacy: .public)")
                 self?.abandon(adapter, of: session, message: failure.message)

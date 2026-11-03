@@ -1,6 +1,8 @@
 package pl.dmq.peering.ui.kit
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -21,7 +23,11 @@ private const val PRESSED_ALPHA = 0.85f
  */
 fun Modifier.pressFeedback(source: InteractionSource, scale: Float = PRESSED_SCALE, alpha: Float = PRESSED_ALPHA): Modifier = composed {
     val pressed by source.collectIsPressedAsState()
-    val amount = animateFloatAsState(if (pressed) 1f else 0f, Motion.fast(), label = "press")
+    val amount = animateFloatAsState(
+        if (pressed) 1f else 0f,
+        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "press",
+    )
     graphicsLayer {
         val held = amount.value
         val size = 1f - (1f - scale) * held

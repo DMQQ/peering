@@ -16,7 +16,7 @@ import pl.dmq.peering.wire.RemoteFileKind
 
 class FilePreviewPresenterTest {
     private fun presenter(port: FakeFileBrowsingPort) =
-        FilePreviewPresenter(port, CoroutineScope(UnconfinedTestDispatcher()))
+        FilePreviewPresenter(port, CoroutineScope(UnconfinedTestDispatcher()), FakeGalleryWriter())
 
     private fun preview(
         kind: RemoteFileKind?,

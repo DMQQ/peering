@@ -5,6 +5,7 @@ import android.view.SurfaceView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -20,6 +21,7 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.viewinterop.AndroidView
@@ -39,6 +41,8 @@ fun RemoteCanvas(
 ) {
     val state by presenter.state.collectAsState()
     val haptics = LocalHapticFeedback.current
+    val density = LocalDensity.current.density.toDouble()
+    LaunchedEffect(presenter, density) { presenter.setPixelsPerDp(density) }
     Box(
         modifier = modifier
             .clipToBounds()
@@ -82,13 +86,13 @@ private fun Modifier.placedAt(rect: CanvasRect): Modifier = layout { measurable,
     }
 }
 
-private suspend fun PointerInputScope.forwardPointers(presenter: RemoteCanvasPresenter, onLifted: () -> Unit) {
+internal suspend fun PointerInputScope.forwardPointers(presenter: RemoteCanvasPresenter, onLifted: () -> Unit) {
     awaitPointerEventScope {
         while (true) {
             val waiting = presenter.holdRemaining(SystemClock.uptimeMillis())
             val event = if (waiting == null) awaitPointerEvent() else withTimeoutOrNull(waiting) { awaitPointerEvent() }
             if (event == null) {
-                if (presenter.onHoldElapsed()) onLifted()
+                if (presenter.onHoldElapsed(SystemClock.uptimeMillis())) onLifted()
                 continue
             }
             event.changes.forEach { change ->

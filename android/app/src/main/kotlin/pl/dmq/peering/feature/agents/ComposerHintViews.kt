@@ -1,7 +1,6 @@
 package pl.dmq.peering.feature.agents
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,8 +60,7 @@ private fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit
     Column(
         modifier.padding(horizontal = 16.dp).fillMaxWidth()
             .clip(PanelShape)
-            .background(PeeringColors.containerHigh)
-            .border(1.dp, PeeringColors.hairline, PanelShape),
+            .background(PeeringColors.containerHigh),
     ) { content() }
 }
 

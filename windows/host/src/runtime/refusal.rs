@@ -1,8 +1,8 @@
 //! Telling a phone that the host cannot do what it asked, so the control it used does not appear to hang. A refusal is a
 //! notice that lapses by itself: an `error` frame would end an iPhone session, and a standing notice would stay on screen.
 
+use peering_core::ports::curtain::PrivacyOutcome;
 use peering_core::session::dispatch::IgnoreReason;
-use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::handshake::NoticePayload;
 
 use crate::strings;
@@ -10,10 +10,11 @@ use crate::strings;
 /// How long a refusal stays on the phone before it clears.
 pub const REFUSAL_SECONDS: f64 = 6.0;
 const WARNING_SYMBOL: &str = "exclamationmark.triangle.fill";
-/// The code the iPhone words itself for a privacy mode that could not darken the displays.
-const PRIVACY_FAILED_CODE: &str = "privacyModeFailed";
+/// The codes the iPhone words itself for a privacy mode that could not darken the displays, or left some uncovered.
+const PRIVACY_FAILED_CODE: &str = "privacy-mode-failed";
+const PRIVACY_UNCOVERED_CODE: &str = "privacy-mode-uncovered";
 /// The code the iPhone words itself for a display that is gone.
-const DISPLAY_GONE_CODE: &str = "displayDisconnected";
+const DISPLAY_GONE_CODE: &str = "display-disconnected";
 
 /// A refusal in force until `expires_at`.
 #[derive(Debug, Clone, PartialEq)]
@@ -45,17 +46,26 @@ fn warning(message: &str, code: Option<&str>) -> NoticePayload {
     }
 }
 
+/// What to tell the phone after switching privacy mode, or `None` when it went as asked.
+pub fn privacy_notice(outcome: PrivacyOutcome) -> Option<NoticePayload> {
+    match outcome {
+        PrivacyOutcome::Quiet => None,
+        PrivacyOutcome::Failed => Some(warning(strings::PRIVACY_MODE_FAILED, Some(PRIVACY_FAILED_CODE))),
+        PrivacyOutcome::Uncovered(count) => {
+            Some(warning(&strings::privacy_mode_uncovered(count), Some(PRIVACY_UNCOVERED_CODE)))
+        }
+    }
+}
+
 /// What to tell the phone for a command that was recognised and not carried out, or `None` for one a phone only sends to a
 /// host that declared it (switching privacy mode off needs no word either).
 pub fn notice_for(reason: IgnoreReason) -> Option<NoticePayload> {
     match reason {
-        IgnoreReason::PrivacyMode { enabled: true } => Some(warning(strings::PRIVACY_MODE_UNAVAILABLE, Some(PRIVACY_FAILED_CODE))),
         IgnoreReason::SpaceSwitch => Some(warning(strings::DESKTOPS_UNAVAILABLE, None)),
         IgnoreReason::WindowAction => Some(warning(strings::WINDOW_ACTIONS_UNAVAILABLE, None)),
         IgnoreReason::Launch => Some(warning(strings::LAUNCH_UNAVAILABLE, None)),
         IgnoreReason::MosaicSource => Some(warning(strings::MOSAIC_UNAVAILABLE, None)),
-        IgnoreReason::PrivacyMode { enabled: false }
-        | IgnoreReason::ObserveMode
+        IgnoreReason::ObserveMode
         | IgnoreReason::VirtualDisplay
         | IgnoreReason::NotSupportedHere => None,
     }
@@ -66,30 +76,17 @@ pub fn source_unavailable(reason: &str) -> NoticePayload {
     warning(reason, Some(DISPLAY_GONE_CODE))
 }
 
-/// The answer to a web preview request, which this host does not serve: the request's own id with `notAllowed`, so the page
-/// stops waiting. A cancel and anything unreadable get none.
-pub fn preview_refusal(payload: &[u8]) -> Option<Frame> {
-    let request: serde_json::Value = serde_json::from_slice(payload).ok()?;
-    let id = request.get("fetch")?.get("_0")?.get("id")?.as_u64()?;
-    let failure = serde_json::json!({ "failure": { "id": id, "reason": "notAllowed" } });
-    // A json! object of numbers and strings.
-    Some(Frame::new(MessageKind::PreviewEvent, serde_json::to_vec(&failure).expect("a preview failure always serialises")))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn privacy_mode_asked_for_is_refused_with_the_code_the_iphone_words() {
-        let notice = notice_for(IgnoreReason::PrivacyMode { enabled: true }).expect("a notice");
-        assert_eq!(notice.code.as_deref(), Some("privacyModeFailed"));
-        assert!(notice.message.is_some());
-    }
-
-    #[test]
-    fn switching_privacy_mode_off_is_not_refused() {
-        assert_eq!(notice_for(IgnoreReason::PrivacyMode { enabled: false }), None);
+    fn privacy_mode_that_covered_nothing_is_worded_by_the_iphone_code() {
+        let notice = privacy_notice(PrivacyOutcome::Failed).expect("a notice");
+        assert_eq!(notice.code.as_deref(), Some("privacy-mode-failed"));
+        assert_eq!(privacy_notice(PrivacyOutcome::Quiet), None);
+        let uncovered = privacy_notice(PrivacyOutcome::Uncovered(2)).expect("a notice");
+        assert_eq!(uncovered.code.as_deref(), Some("privacy-mode-uncovered"));
     }
 
     #[test]
@@ -111,20 +108,5 @@ mod tests {
         let refusal = Refusal::until(source_unavailable("gone"), 10.0);
         assert!(refusal.in_force(15.9));
         assert!(!refusal.in_force(16.0));
-    }
-
-    #[test]
-    fn a_preview_fetch_is_answered_with_its_own_id() {
-        let request = br#"{"fetch":{"_0":{"id":7,"port":3000,"method":"GET","target":"/","headers":[]}}}"#;
-        let frame = preview_refusal(request).expect("a refusal");
-        assert_eq!(frame.kind, MessageKind::PreviewEvent);
-        let value: serde_json::Value = serde_json::from_slice(&frame.payload).unwrap();
-        assert_eq!(value, serde_json::json!({ "failure": { "id": 7, "reason": "notAllowed" } }));
-    }
-
-    #[test]
-    fn a_cancel_or_garbage_gets_no_answer() {
-        assert_eq!(preview_refusal(br#"{"cancel":{"id":7}}"#), None);
-        assert_eq!(preview_refusal(b"nonsense"), None);
     }
 }

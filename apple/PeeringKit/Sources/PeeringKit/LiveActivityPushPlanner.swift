@@ -40,6 +40,8 @@ public struct LiveActivityPushPlanner: Sendable {
     private var latest: LiveActivityTruth?
     private var presence = PhonePresence.gone
     private var held = false
+    /// "Notify me only for decisions": a finished or failed card still updates, silently.
+    public var decisionsOnly = false
 
     public init() {}
 
@@ -148,7 +150,7 @@ public struct LiveActivityPushPlanner: Sendable {
             held = true
             return nil
         }
-        let alert = event == .end ? nil : Self.alert(for: truth, channel: &channel, kind: kind)
+        let alert = event == .end ? nil : Self.alert(for: truth, channel: &channel, kind: kind, decisionsOnly: decisionsOnly)
         channel.lastSent = sent
         lastPushAt[token] = now
         Self.settle(&channel, headline: kind == .agentChat ? truth.topChat : nil, now: now)
@@ -221,13 +223,18 @@ public struct LiveActivityPushPlanner: Sendable {
         if channel.settledSince == nil { channel.settledSince = now }
     }
 
-    private static func alert(for truth: LiveActivityTruth, channel: inout Channel, kind: LiveActivityKind) -> LiveActivityCommand.Alert? {
+    private static func alert(
+        for truth: LiveActivityTruth,
+        channel: inout Channel,
+        kind: LiveActivityKind,
+        decisionsOnly: Bool
+    ) -> LiveActivityCommand.Alert? {
         guard kind == .agentChat, let top = truth.topChat, channel.announced[top.id] != top.state else { return nil }
         channel.announced[top.id] = top.state
         switch top.state {
         case .needsYou: return .needsApproval
-        case .finished: return .finished
-        case .failed: return .failed
+        case .finished: return AgentAlertPolicy.allows(.finished, decisionsOnly: decisionsOnly) ? .finished : nil
+        case .failed: return AgentAlertPolicy.allows(.failed, decisionsOnly: decisionsOnly) ? .failed : nil
         case .working: return nil
         }
     }

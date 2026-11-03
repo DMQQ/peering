@@ -23,12 +23,37 @@ extension MacSession {
     // MARK: - Downloading
 
     func downloadFile(_ path: String, sessionID id: UUID, playsInline: Bool = false) {
+        if let played = finishedVideo(path, sessionID: id), FileManager.default.fileExists(atPath: played.path) {
+            if !playsInline { saveCopy(of: played, sessionID: id) }
+            return
+        }
+        if playsInline, let running = downloads[id], running.playsInline, running.sourcePath == path { return }
         begin(FileDownload(name: Self.fileName(of: path), sourcePath: path, isFolder: false, playsInline: playsInline, readPath: path, destination: Self.destination(named: Self.fileName(of: path))), sessionID: id)
+    }
+
+    /// The player keeps reading the cached file, and the share sheet's folder is deleted after sharing, so the download gets its own copy.
+    private func saveCopy(of played: URL, sessionID id: UUID) {
+        let copy = Self.destination(named: played.lastPathComponent)
+        do {
+            try FileManager.default.createDirectory(at: copy.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: played, to: copy)
+            downloadFailures.removeValue(forKey: id)
+            finishedDownloads[id] = copy
+        } catch {
+            Analytics.failed(error, in: .fileTransfer)
+            downloadFailures[id] = String(localized: "This phone could not save the file: \(error.localizedDescription)")
+        }
     }
 
     func downloadFolder(_ path: String, sessionID id: UUID) {
         let name = Self.fileName(of: path)
         begin(FileDownload(name: "\(name).zip", sourcePath: path, isFolder: true, readPath: nil, destination: Self.destination(named: "\(name).zip")), sessionID: id)
+    }
+
+    /// Ends a video the preview was fetching to play, leaving any download the user asked for running.
+    func cancelInlineDownload(sessionID id: UUID) {
+        guard downloads[id]?.playsInline == true else { return }
+        cancelDownload(sessionID: id)
     }
 
     func cancelDownload(sessionID id: UUID) {

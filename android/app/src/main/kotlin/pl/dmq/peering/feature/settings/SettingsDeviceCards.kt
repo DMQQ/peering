@@ -92,6 +92,13 @@ internal fun SessionControlsCard(prefs: DevicePrefs, presenter: SettingsPresente
         )
         ControlsDivider()
         ControlToggle(
+            stringResource(R.string.settings_ask_how_to_use),
+            SessionIcons.apps,
+            prefs.asksHowToUse,
+            presenter::setAsksHowToUse,
+        )
+        ControlsDivider()
+        ControlToggle(
             stringResource(R.string.settings_computer_sound),
             SessionIcons.sound,
             prefs.playsComputerSound,

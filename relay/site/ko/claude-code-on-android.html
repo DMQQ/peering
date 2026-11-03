@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>안드로이드에서 Claude Code 쓰기</title>
+<meta name="description" content="Mac의 Claude Code, Codex, OpenCode를 안드로이드에서 시작하고 알림창에서 승인, 변경 사항 검토까지.">
+<link rel="canonical" href="https://getpeering.app/ko/claude-code-on-android">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/claude-code-on-android">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/claude-code-on-android">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/claude-code-on-android">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/claude-code-on-android">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/claude-code-on-android">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/claude-code-on-android">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/claude-code-on-android">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/claude-code-on-android">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/claude-code-on-android">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/claude-code-on-android">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/claude-code-on-android">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:url" content="https://getpeering.app/ko/claude-code-on-android">
+<meta property="og:title" content="안드로이드에서 Claude Code 쓰기">
+<meta property="og:description" content="Mac의 Claude Code, Codex, OpenCode를 안드로이드에서 시작하고 알림창에서 승인, 변경 사항 검토까지.">
+<meta property="og:image" content="https://getpeering.app/assets/og/claude-code-on-android.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="안드로이드에서 Claude Code 쓰기">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="안드로이드에서 Claude Code 쓰기">
+<meta name="twitter:description" content="Mac의 Claude Code, Codex, OpenCode를 안드로이드에서 시작하고 알림창에서 승인, 변경 사항 검토까지.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/claude-code-on-android.png">
+<meta name="twitter:image:alt" content="안드로이드에서 Claude Code 쓰기">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "inLanguage": "ko",
+  "name": "Peering",
+  "url": "https://getpeering.app/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android 10 이상, iOS 18 이상, macOS 15 이상",
+  "description": "Mac의 Claude Code, Codex, OpenCode를 안드로이드에서 시작하고 알림창에서 승인, 변경 사항 검토까지.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ko",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "안드로이드에서 Claude Code를 쓸 수 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Claude Code는 휴대폰이 아니라 컴퓨터에서 실행됩니다. Peering을 쓰면 Mac에서 계속 실행되고, 안드로이드 앱이 채팅을 보여 주며 새 채팅 시작, 질문 답변, 명령 승인을 할 수 있습니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Codex와 OpenCode도 되나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "네. Peering의 에이전트 화면은 Mac에 설치된 Claude Code, Codex, OpenCode를 지원합니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "앱을 열지 않고 명령을 승인할 수 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "네. 알림에 허용과 거부 버튼이 있습니다. 안드로이드에서는 Peering이 백그라운드에서 세션을 열어 두는 동안 도착합니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peering이 내 코드나 API 키를 보나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "아니요. 에이전트는 내 자격 증명으로 내 Mac에서 실행되고, 휴대폰과 Mac 사이의 연결은 종단 간 암호화됩니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Windows 버전이 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Windows 호스트는 초기 베타입니다. Claude Code 채팅은 있지만 변경 검토, 커밋, 푸시는 아직 없고, 실제 PC에서 실행해 본 적이 없습니다."
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ko/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "안드로이드에서 Claude Code",
+      "item": "https://getpeering.app/ko/claude-code-on-android"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ko/" aria-label="Peering, 홈">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="페이지">
+      <a href="/ko/">홈</a>
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/download">다운로드</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+    <h1>안드로이드에서 Claude Code를, Mac에서 실행하며</h1>
+    <p class="updated">Peering을 만드는 사람들이 썼습니다. 2026년 11월, 앱의 실제 코드와 대조해 확인했습니다.</p>
+
+<div class="card callout">
+      <strong>요약하면.</strong> 코딩 에이전트는 내 저장소, 키, 도구가 있는 Mac에서 계속 실행됩니다.
+      안드로이드용 Peering은 그 채팅을 휴대폰으로 가져옵니다. 새로 시작하고, 지켜보고, 질문에 답하고, 바뀐 내용을 검토하고,
+      명령 실행을 요청하면 알림에서 허용이나 거부를 탭하세요.
+    </div>
+
+    <h2>왜 휴대폰이 아니라 Mac에서 에이전트를 돌리나</h2>
+    <p>
+      Claude Code, Codex, OpenCode에는 진짜 컴퓨터가 필요합니다. 체크아웃한 코드, 빌드 도구, 테스트, git 자격 증명.
+      휴대폰 터미널 앱에서 돌리려면 그 모든 것을 다른 곳으로 옮겨야 합니다. Peering은 작업을 원래 있던 곳에 두고
+      휴대폰을 리모컨으로 만듭니다. 휴대폰을 닫아도 에이전트는 계속 일합니다.
+    </p>
+
+    <h2>휴대폰으로 할 수 있는 일</h2>
+    <ul>
+      <li><strong>탭 한 번으로 에이전트 시작</strong>: Mac의 어느 폴더에서든. Claude Code, Codex, OpenCode를 지원합니다.</li>
+      <li><strong>채팅으로 지켜보기</strong>: 스크롤되는 터미널이 아니라 메시지, 도구 호출, 하위 에이전트, 건드린 파일로. 여러 채팅이 동시에 돌면 탭으로 나뉩니다.</li>
+      <li><strong>질문에 답하기.</strong> 에이전트가 선택지가 있는 질문을 하면 하나를 탭하세요. 여러 부분으로 된 질문은 하나씩 답합니다.</li>
+      <li><strong>명령 허용 또는 거부</strong>: 앱을 열지 않고 알림에서.</li>
+      <li><strong>변경 사항 검토</strong>: 검토 대기 받은편지함에 작업이 끝난 채팅이 모이고, 각각 파일별 diff를 보여 줍니다. 파일을 바꾼 턴이 끝나면 후속 버튼이 나타납니다.</li>
+      <li><strong>힌트와 함께 입력</strong>: 입력하는 동안 슬래시 명령과 파일 @멘션이 제안되고, 프롬프트를 받아쓰기로 말할 수도 있습니다.</li>
+      <li><strong>터미널이나 화면으로 내려가기</strong>: 채팅만으로 부족할 때. 에이전트의 셸, 일반 터미널, Mac 데스크톱 전체가 모두 같은 앱에 있습니다.</li>
+    </ul>
+
+    <figure class="card doc-figure">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <img src="/assets/android/android-agents.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="안드로이드의 Peering 에이전트 화면. Mac에서 실행 중인 Claude Code, Codex, OpenCode 채팅 목록과 검토 대기 카드.">
+      <img src="/assets/android/android-approve-from-shade.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="안드로이드 알림창에 Claude Code가 승인을 기다린다는 Peering 알림과 허용, 거부 버튼이 보이는 화면.">
+      </div>
+      <figcaption>Mac에서 실행 중인 에이전트 채팅, 그리고 안드로이드 알림창에서 답한 승인 요청.</figcaption>
+    </figure>
+
+    <h2>알림창에서 승인하기</h2>
+    <p>
+      Claude Code가 허용하지 않은 무언가를 실행하려 하면 멈추고 기다립니다. 안드로이드에서는 Peering이 에이전트와 명령을
+      알려 주는 알림을 허용, 거부 버튼과 함께 띄웁니다. 알림창이나 잠금 화면에서 바로 답하세요. 에이전트가 턴을 마쳤을 때나
+      Mac의 터미널이 비밀번호를 기다릴 때도 마찬가지입니다.
+    </p>
+    <p>
+      언제 동작하는지 정확히 말하면, 안드로이드 알림은 Peering이 백그라운드에서 세션을 열어 두는 동안 도착합니다.
+      진행 중 알림에 Mac 이름과 연결 끊기 버튼이 표시되고, Mac은 보이지 않는 화면을 보내지 않도록 영상을 멈춥니다.
+      설정에서 끌 수 있습니다. 공격적인 배터리 제한 등으로 안드로이드가 앱을 종료하면 다시 열 때까지 알림이 오지 않습니다.
+      iPhone 앱은 앱을 닫아도 알림을 받습니다. <a href="/ko/coding-agent-notifications">코딩 에이전트 알림</a>을 참고하세요.
+    </p>
+
+    <h2>설정 방법</h2>
+    <p>
+      <a href="/ko/download">Mac용 Peering</a>과 사용하는 에이전트를 평소처럼 설치하세요. Google Play에 등록되면 휴대폰에
+      Peering을 설치하고, 여섯 자리 코드로 한 번 페어링한 뒤 에이전트 탭을 여세요. Peering은 Mac에 설치된 에이전트를 찾아냅니다.
+      에이전트를 포함하거나 비용을 대신 내지 않으며, API 키나 구독 정보를 보지 않습니다.
+    </p>
+
+    <h2>켜 두어도 안전하게</h2>
+    <p>
+      휴대폰과 Mac 사이의 모든 것은 채팅과 승인을 포함해 종단 간 암호화됩니다. 밖에 있을 때 이를 전달하는 릴레이도 읽을 수 없습니다.
+      안드로이드 앱을 지문이나 얼굴로 잠글 수 있어서, 빌린 휴대폰으로 명령을 승인할 수 없습니다.
+    </p>
+
+    <h2>가격</h2>
+    <p>
+      에이전트, 터미널, 알림은 모든 요금제에 포함됩니다. 내 네트워크에서는 시간 제한 없이 무료이고, 다른 네트워크에서 컴퓨터에 접속하는 릴레이 시간이 하루 30분 포함됩니다. Pro(월 $2.99) 또는 평생(한 번 $24.99)이면 하루 제한이 없어집니다. 미국 가격 기준이며, Google Play에서는 현지 통화로 표시됩니다.
+    </p>
+
+    <h2>자주 묻는 질문</h2>
+    <h3>안드로이드에서 Claude Code를 쓸 수 있나요?</h3>
+    <p>Claude Code는 휴대폰이 아니라 컴퓨터에서 실행됩니다. Peering을 쓰면 Mac에서 계속 실행되고, 안드로이드 앱이 채팅을 보여 주며 새 채팅 시작, 질문 답변, 명령 승인을 할 수 있습니다.</p>
+    <h3>Codex와 OpenCode도 되나요?</h3>
+    <p>네. Peering의 에이전트 화면은 Mac에 설치된 Claude Code, Codex, OpenCode를 지원합니다.</p>
+    <h3>앱을 열지 않고 명령을 승인할 수 있나요?</h3>
+    <p>네. 알림에 허용과 거부 버튼이 있습니다. 안드로이드에서는 Peering이 백그라운드에서 세션을 열어 두는 동안 도착합니다.</p>
+    <h3>Peering이 내 코드나 API 키를 보나요?</h3>
+    <p>아니요. 에이전트는 내 자격 증명으로 내 Mac에서 실행되고, 휴대폰과 Mac 사이의 연결은 종단 간 암호화됩니다.</p>
+    <h3>Windows 버전이 있나요?</h3>
+    <p>Windows 호스트는 초기 베타입니다. Claude Code 채팅은 있지만 변경 검토, 커밋, 푸시는 아직 없고, 실제 PC에서 실행해 본 적이 없습니다.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ko/download">Mac용 Peering 다운로드</a>
+      <a class="btn btn-quiet" href="https://play.google.com/store/apps/details?id=pl.dmq.peering">Google Play 출시 예정</a>
+      <a class="btn btn-quiet" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">iPhone 앱 받기</a>
+    </div>
+
+    <div class="related">
+      <h2>더 읽어 보기</h2>
+      <ul>
+      <li><a href="/ko/coding-agent-notifications">코딩 에이전트 알림</a></li>
+      <li><a href="/ko/control-mac-from-android">안드로이드 휴대폰으로 Mac 제어하기</a></li>
+      <li><a href="/ko/android-tablet-remote-desktop">안드로이드 태블릿용 원격 데스크톱</a></li>
+      <li><a href="/ko/control-windows-pc-from-phone">휴대폰으로 Windows PC 제어하기 (베타)</a></li>
+      <li><a href="/ko/access-your-mac-from-anywhere">어디서나 Mac에 접속하기</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="가이드, 법적 고지, 지원">
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/keep-mac-awake-for-remote-access">집에 둔 Mac</a>
+      <a href="/ko/coding-agent-notifications">코딩 에이전트</a>
+      <a href="/ko/remote-desktop-apps-compared">앱 비교</a>
+      <a href="/ko/screens-alternative">Screens 대안</a>
+      <a href="/ko/best-remote-desktop-app-for-ipad">iPad용 추천</a>
+      <a href="/ko/apple-remote-desktop-alternative">ARD 대안</a>
+      <a href="/ko/apple-remote-desktop-vs-screen-sharing">ARD와 화면 공유</a>
+      <a href="/ko/screens-vs-jump-desktop">Screens와 Jump</a>
+      <a href="/ko/rustdesk-alternative-for-mac">RustDesk 대안</a>
+      <a href="/ko/control-mac-from-android">안드로이드로 Mac 제어</a>
+      <a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a>
+      <a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱 대안</a>
+      <a href="/ko/teamviewer-alternative-for-mac">팀뷰어 대안</a>
+      <a href="/ko/control-windows-pc-from-phone">휴대폰으로 Windows 제어</a>
+      <a href="/ko/download">다운로드</a>
+      <a href="/ko/privacy">개인정보 처리방침</a>
+      <a href="/ko/terms">이용약관</a>
+      <a href="/ko/support">지원</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/claude-code-on-android" hreflang="en" lang="en">English</a>
+      <a href="/de/claude-code-on-android" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/claude-code-on-android" hreflang="es" lang="es">Español</a>
+      <a href="/fr/claude-code-on-android" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/claude-code-on-android" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/claude-code-on-android" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/claude-code-on-android" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/claude-code-on-android" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/claude-code-on-android" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/claude-code-on-android" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone 및 Mac은 Apple Inc.의 상표입니다.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

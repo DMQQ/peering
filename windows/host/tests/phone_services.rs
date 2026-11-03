@@ -158,10 +158,19 @@ fn privacy_mode_is_refused_with_the_code_the_iphone_words_and_lapses() {
         let harness = harness();
         let mut phone = paired_phone(&harness.runtime).await;
         phone.send_command(&RemoteCommand::SetPrivacyMode { enabled: true }).await;
-        phone.sync().await;
-        pump(&harness);
+        // The curtain runs off the host's lock, so the refusal lands a moment after the command.
+        let mut shown_yet = false;
+        for _ in 0..10_000 {
+            harness.clock.advance(0.5);
+            pump(&harness);
+            if phone.sync_seeing(MessageKind::Notice).await {
+                shown_yet = true;
+                break;
+            }
+        }
+        assert!(shown_yet, "the refusal was shown");
         let shown: NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
-        assert_eq!(shown.code.as_deref(), Some("privacyModeFailed"));
+        assert_eq!(shown.code.as_deref(), Some("privacy-mode-failed"));
         harness.clock.advance(7.0);
         pump(&harness);
         let cleared: NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
@@ -228,17 +237,17 @@ fn a_source_the_host_cannot_capture_is_a_notice_and_not_an_error_that_ends_the_s
         phone.sync().await;
         pump(&harness);
         let shown: NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
-        assert_eq!(shown.code.as_deref(), Some("displayDisconnected"));
+        assert_eq!(shown.code.as_deref(), Some("display-disconnected"));
         phone.sync().await;
     });
 }
 
 #[test]
-fn a_web_preview_request_is_answered_so_the_page_stops_waiting() {
+fn a_web_preview_request_for_the_hosts_own_port_is_refused_so_the_page_stops_waiting() {
     run(async {
         let harness = harness();
         let mut phone = paired_phone(&harness.runtime).await;
-        let request = br#"{"fetch":{"_0":{"id":42,"port":3000,"method":"GET","target":"/","headers":[]}}}"#;
+        let request = br#"{"fetch":{"_0":{"id":42,"port":51515,"method":"GET","target":"/","headers":[]}}}"#;
         phone.send(Frame::new(MessageKind::PreviewRequest, request.to_vec())).await;
         let answer: serde_json::Value = decode_json(&phone.next_of(MessageKind::PreviewEvent).await);
         assert_eq!(answer, serde_json::json!({ "failure": { "id": 42, "reason": "notAllowed" } }));

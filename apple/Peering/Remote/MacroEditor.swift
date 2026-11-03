@@ -106,7 +106,7 @@ struct MacroEditorView: View {
                 }
 
                 Section(header: Text("Built-in macros")) {
-                    ForEach(Macro.defaults) { macro in
+                    ForEach(Macro.defaults(for: model.hostPlatform)) { macro in
                         HStack {
                             Text(macro.title)
                             Spacer()

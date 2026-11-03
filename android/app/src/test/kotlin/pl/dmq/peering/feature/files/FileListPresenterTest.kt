@@ -75,6 +75,25 @@ class FileListPresenterTest {
     }
 
     @Test
+    fun backGoesUpAFolderAndReportsARootAsNothingLeft() = runTest {
+        val inside = FakeFileBrowsingPort(FileBrowserState(listing = listing("/a/b")))
+        assertTrue(presenter(inside).back())
+        assertEquals(listOf("up"), inside.calls)
+        val root = FakeFileBrowsingPort(FileBrowserState(listing = listing("/")))
+        assertFalse(presenter(root).back())
+    }
+
+    @Test
+    fun backClearsASearchBeforeLeavingTheFolder() = runTest {
+        val port = FakeFileBrowsingPort(FileBrowserState(listing = listing("/a/b")))
+        val presenter = presenter(port)
+        presenter.setQuery("x")
+        assertTrue(presenter.back())
+        assertEquals("", presenter.ui.value.query)
+        assertTrue(port.calls.isEmpty())
+    }
+
+    @Test
     fun sortingReordersWithoutAskingTheMac() = runTest {
         val port = FakeFileBrowsingPort(FileBrowserState(listing = listing("/a", file("small", size = 1), file("big", size = 9))))
         val presenter = presenter(port)

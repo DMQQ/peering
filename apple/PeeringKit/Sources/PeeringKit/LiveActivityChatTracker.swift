@@ -8,10 +8,13 @@ public struct LiveActivityChatTracker: Sendable {
     public struct Observed: Sendable, Equatable {
         public var id: String
         public var state: AgentSessionState
+        /// The line ``AgentTurnRecap`` made of the chat's last turn, shown on a finished card.
+        public var recap: String?
 
-        public init(id: String, state: AgentSessionState) {
+        public init(id: String, state: AgentSessionState, recap: String? = nil) {
             self.id = id
             self.state = state
+            self.recap = recap
         }
     }
 
@@ -62,9 +65,13 @@ public struct LiveActivityChatTracker: Sendable {
         stopping = stopping.filter { present.contains($0.key) }
         settled = settled.filter { present.contains($0.key) && now - $0.value.at < .seconds(LiveActivityPushPlanner.finishedLinger) }
 
+        let recaps = Dictionary(sessions.map { ($0.id, $0.recap) }, uniquingKeysWith: { first, _ in first })
         let stopped = settled
             .sorted { $0.value.at > $1.value.at }
-            .map { LiveActivityChat(id: $0.key, symbol: symbol, state: $0.value.state) }
+            .map { entry in
+                let recap = entry.value.state == .finished ? recaps[entry.key] ?? nil : nil
+                return LiveActivityChat(id: entry.key, symbol: symbol, state: entry.value.state, recap: recap)
+            }
         return busy + stopped
     }
 }

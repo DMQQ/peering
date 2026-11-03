@@ -71,7 +71,7 @@ extension SessionModel {
             SessionActivity.shared.sessionEnded()
         } else {
             SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? String(localized: "the Mac"),
+                hostName: hostName ?? hostPlatform.adapt(String(localized: "the Mac")),
                 startedAt: wasStartedAt,
                 path: wasPath
             )

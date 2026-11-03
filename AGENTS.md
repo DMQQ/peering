@@ -6,7 +6,7 @@ The app was briefly called MacCast in its first three days. Strings from that na
 
 Everything a fresh agent needs that is **not** derivable from reading the source. Written
 2026-09-14 by the agent that built the bulk of the system. If you are picking this up cold,
-read this top to bottom before touching anything — several of the traps below cost hours.
+read this top to bottom before touching anything, several of the traps below cost hours.
 
 ---
 
@@ -14,11 +14,11 @@ read this top to bottom before touching anything — several of the traps below 
 
 A cross-platform remote desktop system:
 
-- **`PeeringHost`** — a macOS app that captures the screen, encodes it, and injects synthetic
+- **`PeeringHost`**: a macOS app that captures the screen, encodes it, and injects synthetic
   input. Non-sandboxed on purpose (a sandboxed app cannot post `CGEvent`s into other apps,
-  which is the entire function of the app — so the Mac App Store is not a target).
-- **`Peering`** — an iOS app that renders the stream and sends gestures/keystrokes back.
-- **`RemoteCore`** — a local Swift package with everything shared: framing, protocol,
+  which is the entire function of the app, so the Mac App Store is not a target).
+- **`Peering`**: an iOS app that renders the stream and sends gestures/keystrokes back.
+- **`RemoteCore`**: a local Swift package with everything shared: framing, protocol,
   crypto, coordinate mapping.
 
 Communication is over local Wi-Fi. The design goal that drives most decisions: **the Mac is
@@ -45,7 +45,7 @@ build phases.
 ```bash
 # Build the iOS client for the physical device
 xcodebuild -project Peering.xcodeproj -scheme Peering \
-  -destination 'id=8A51FAD5-A897-57CD-9C09-395D9F2C258A' build
+  -destination 'id=<device-id>' build
 
 # Build/run the host
 xcodebuild -project Peering.xcodeproj -scheme PeeringHost -configuration Debug build
@@ -58,16 +58,16 @@ cd RemoteCore && swift test
 #
 # NOTE: the path is Release-iphoneos, not Debug-iphoneos. The Peering scheme's Run action builds
 # the Release configuration, so a plain `xcodebuild ... build` writes Release-iphoneos and leaves
-# any Debug-iphoneos directory untouched — installing from Debug therefore silently reinstalls a
+# any Debug-iphoneos directory untouched: installing from Debug therefore silently reinstalls a
 # build from some *earlier* session, which looks exactly like your changes not being there. Check
 # `ls -l` on the product before installing if in doubt. (`devicectl list devices` for the current
 # UDID; it is per-machine and does change.)
-xcrun devicectl device install app --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
+xcrun devicectl device install app --device <device-id> \
   ~/Library/Developer/Xcode/DerivedData/Peering-*/Build/Products/Release-iphoneos/Peering.app
-xcrun devicectl device process launch --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
+xcrun devicectl device process launch --device <device-id> \
   pl.dmq.peering
 
-# Read the host log  (NOTE: /usr/bin/log explicitly — see trap #1)
+# Read the host log  (NOTE: /usr/bin/log explicitly: see trap #1)
 /usr/bin/log show --last 5m --style compact \
   --predicate 'subsystem == "pl.dmq.peering.host"'
 ```
@@ -88,7 +88,7 @@ it.** Phases 1–5 of the plan were all verified with it before any iOS UI exist
 ### `apple/Tools/run-probe.sh`
 
 Builds, **signs**, and runs `apple/Tools/PeeringProbe`. The signing step is load-bearing, not
-housekeeping — read the comment at the top of the script before you change it.
+housekeeping, read the comment at the top of the script before you change it.
 
 ```bash
 apple/Tools/run-probe.sh --drive --accept --id probe-client-2
@@ -100,14 +100,14 @@ apple/Tools/run-probe.sh --reset --id probe-client-3 --accept   # force a fresh 
 
 Full flag list: `apple/Tools/run-probe.sh --help`. Highlights: `--drive` (moves the real cursor and
 verifies it lands), `--type` / `--key` / `--combo` / `--space` (injection), `--flags LABEL`
-(prints held modifiers — use it to prove nothing is stuck), `--video` / `--video-only` /
+(prints held modifiers, use it to prove nothing is stuck), `--video` / `--video-only` /
 `--video-recv`, `--switch-to src@seconds`, `--catalog`, `--find`.
 
 ### `apple/Tools/activity.sh [seconds]`
 
 Drives the cursor in a Lissajous path (incommensurate axes, so the picture never settles into
 a loop the encoder compresses away) and restores it on exit. **Any test of frame ordering,
-frame rate, or queue depth needs the screen moving** — see trap #7. Run it in the background
+frame rate, or queue depth needs the screen moving**, see trap #7. Run it in the background
 across the measurement:
 
 ```bash
@@ -136,7 +136,7 @@ apple/Tools/run-probe.sh $ID --switch-to window:NNNN@1 --switch-to application:N
 
 ### Wire protocol (`RemoteCore`)
 
-**Framing — built first, because every command depends on it:**
+**Framing, built first, because every command depends on it:**
 
 ```
 ┌──────────────┬─────────┬─────────────────────┐
@@ -146,9 +146,9 @@ apple/Tools/run-probe.sh $ID --switch-to window:NNNN@1 --switch-to application:N
 ```
 
 `FrameDecoder` accumulates bytes and emits whole frames. Hard 16 MiB length cap enforced
-**before allocating** — otherwise a corrupt length field is an instant memory-exhaustion DoS.
+**before allocating**, otherwise a corrupt length field is an instant memory-exhaustion DoS.
 
-**Two TCP connections, not one** — control and video. Sharing one stream causes head-of-line
+**Two TCP connections, not one**, control and video. Sharing one stream causes head-of-line
 blocking: a 200 KB keyframe sits in front of the next mouse move. Control latency is what a
 user feels. One `NWListener` on **port 51515** accepts both; the first frame declares the role.
 
@@ -158,7 +158,7 @@ user feels. One `NWListener` on **port 51515** accepts both; the first frame dec
 ### Security design (all of this is deliberate; don't "simplify" it)
 
 - **TLS 1.3 with a runtime-generated self-signed identity**, minted on the host and pinned by
-  the client. Self-signed is not weaker than CA-signed *provided the client pins* — if
+  the client. Self-signed is not weaker than CA-signed *provided the client pins*, if
   anything stronger, since there is no CA to coerce.
 - **TLS-PSK was considered and rejected**, and the reason is worth keeping: the only workable
   PSK suite is TLS 1.2-only and is plain PSK with **no (EC)DHE**, so no forward secrecy. A
@@ -168,7 +168,7 @@ user feels. One `NWListener` on **port 51515** accepts both; the first frame dec
   6-digit PIN used as a client→host proof is offline-brute-forceable by an active attacker
   during first pairing: the attacker substitutes their own identity, receives the PIN-derived
   MAC over *their* transcript, and grinds all 10⁶ candidates offline. With SAS the two screens
-  show 6 digits derived from the handshake transcript and the user confirms they match — an
+  show 6 digits derived from the handshake transcript and the user confirms they match, an
   active MITM now succeeds with probability 10⁻⁶ per attempt and cannot grind offline.
 - After pairing the host's long-term identity key is pinned in the **iOS Keychain** with
   `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`; later connections need no interaction.
@@ -179,7 +179,7 @@ user feels. One `NWListener` on **port 51515** accepts both; the first frame dec
   the comparison is meaningless. Comparisons are **constant-time** (Swift's `Data ==`
   short-circuits). Both are pinned by unit tests.
 
-**The SAS pairing is automatable from the client side** — `handlePairConfirm` on the client
+**The SAS pairing is automatable from the client side**, `handlePairConfirm` on the client
 acts on the *client's* `pairConfirm` frame; the host merely displays its code. That is why the
 probe's `--accept` works, and it is not a hole (the client is the one being asked to confirm).
 
@@ -188,17 +188,17 @@ probe's `--accept` works, and it is not a hole (the client is the one being aske
 ```swift
 public enum CaptureSource: Codable, Sendable, Hashable {
     case display(UInt32)       // CGDirectDisplayID raw value
-    case application(Int32)    // pid_t — all that app's windows, composited
+    case application(Int32)    // pid_t, all that app's windows, composited
     case window(UInt32)        // CGWindowID raw value
 }
 ```
 
-Platform-neutral raw values **on purpose** — `CGDirectDisplayID`/`CGWindowID` live in
+Platform-neutral raw values **on purpose**, `CGDirectDisplayID`/`CGWindowID` live in
 macOS-only headers; using them directly breaks the iOS build. Same reason `RemoteCore` speaks
 `UInt16` keycodes and `UInt` modifiers rather than `CGKeyCode`/`NSEvent.ModifierFlags`.
 
 One `CaptureSourceResolver` owns the translation to `SCContentFilter`, so the rest of the
-pipeline never switches on source kind. The catalogue is **live** — re-enumerated on
+pipeline never switches on source kind. The catalogue is **live**, re-enumerated on
 `NSWorkspace` launch/terminate and `didChangeScreenParametersNotification`.
 
 ### Streaming pipeline
@@ -207,25 +207,25 @@ pipeline never switches on source kind. The catalogue is **live** — re-enumera
   `SCContentFilter(display:excludingWindows:)`. `queueDepth` **2–3** (default 8 is the primary
   latency knob). `captureResolution = .nominal`. `pixelFormat = '420v'` (the encoder's native
   input, skips a colour conversion). Do **not** use `scalesToFit`.
-- **Encode:** `VTCompressionSessionEncodeFrameWithOutputHandler` — the only variant whose
+- **Encode:** `VTCompressionSessionEncodeFrameWithOutputHandler`, the only variant whose
   callback is `CM_SWIFT_SENDABLE`, which is the crux of making it work under Swift 6 strict
   concurrency. `AllowFrameReordering` **defaults to `true` and must be set `false`** (B-frames
   add latency). Plus `EnableLowLatencyRateControl`, `RealTime`, `ExpectedFrameRate`,
   `PrioritizeEncodingSpeedOverQuality`. H.264 to start; codec is behind an enum.
 - **Parameter sets** live in the format description attached to the output sample buffer, not
-  in the sample data. Keep **AVCC** (4-byte length-prefixed NALUs) — that is what VideoToolbox
+  in the sample data. Keep **AVCC** (4-byte length-prefixed NALUs), that is what VideoToolbox
   emits and what the client needs.
 - **Decode/render (client):** `AVSampleBufferDisplayLayer.sampleBufferRenderer`. No separate
-  `VTDecompressionSession` — the renderer decodes in hardware internally. Build `CMSampleBuffer`s
+  `VTDecompressionSession`, the renderer decodes in hardware internally. Build `CMSampleBuffer`s
   with `CMSampleBufferCreateReady` (`decodeTimeStamp = .invalid`, valid because reordering is
   off). Use `renderer.enqueue/flush/isReadyForMoreMediaData` (the *renderer's*, not the layer's).
-- **Force a keyframe the moment a client connects** — never by tearing down the session.
+- **Force a keyframe the moment a client connects**: never by tearing down the session.
 - **The control-channel video fallback** (protocol v12): when video stops arriving for three
   seconds while the control channel still answers, the *client* asks the host to move video
   onto the control channel (`videoTransport`, 0x18), where it travels cut into 16 KB chunks
   (`videoChunk`, 0x17) so a control message is never stuck behind a whole keyframe. The host
-  decides whether to honour it — it refuses when it has produced nothing lately, because a
-  still screen and a blocked path look identical from its side — and caps the rate at the low
+  decides whether to honour it, it refuses when it has produced nothing lately, because a
+  still screen and a blocked path look identical from its side, and caps the rate at the low
   tier while the picture is there. The lane it came from keeps being probed with keyframes
   every four seconds, and two of those arriving is what the client treats as recovery and asks
   to switch back on. Rules live in `apple/RemoteCore/VideoFallback.swift`, in values, so they can be
@@ -259,7 +259,7 @@ user is a device, not a person.
 - **Event counts are mostly the developer's own devices** while there are few installs; read a rate
   only once real users arrive.
 
-## 5. Traps — read this section twice
+## 5. Traps: read this section twice
 
 These are the ones that cost real time. Each was hit at least once.
 
@@ -283,7 +283,7 @@ These are the ones that cost real time. Each was hit at least once.
    in memory and still violated it. Go through the script.)*
 
 5. **The repository folder and its all-lowercase spelling are the
-   same directory** (inode 256522752) — case-insensitive filesystem, not a duplicate. Both are
+   same directory** (inode 256522752), case-insensitive filesystem, not a duplicate. Both are
    registered as working directories; don't be confused by tooling that reports both.
 
 6. **There is a stray `./build/` at the repo root** holding a second DerivedData
@@ -301,7 +301,7 @@ These are the ones that cost real time. Each was hit at least once.
    unrelated-looking errors (`Cannot find type 'ClientSession' in scope`, `Cannot call value of
    non-function type 'Binding<Subject>'`, …). This looks catastrophic and is not. Decisive
    check: look at Xcode's own `*.xcactivitylog` in
-   `~/Library/Developer/Xcode/DerivedData/Peering-*/Logs/Build/` — a "Build succeeded" next to
+   `~/Library/Developer/Xcode/DerivedData/Peering-*/Logs/Build/`, a "Build succeeded" next to
    a "Clean succeeded" means you are chasing ghosts. Rebuild to repopulate.
 
 9. **Swift 6: a C callback's closure infers `MainActor` isolation and SIGTRAPs.** Needs explicit
@@ -311,24 +311,24 @@ These are the ones that cost real time. Each was hit at least once.
     panel, not 3024×1964. A wrong pair here *cancels out* in coordinate maths, so it hides.
 
 11. **SCK frame info is sample-level.** `CMGetAttachment` returns nil for it. Reading it wrong
-    looks *exactly* like denied Screen Recording permission — a silent black stream. This is
+    looks *exactly* like denied Screen Recording permission, a silent black stream. This is
     the single worst failure mode in the app.
 
 12. **`CGEvent` flags bit 29 is always set.** Raw `flagsState` is never zero, so compare through
     a modifier mask, never against zero.
 
-13. **`CGEvent(mouseEventSource:)` does not exist** — the label is `source:`. The original spec
+13. **`CGEvent(mouseEventSource:)` does not exist**, the label is `source:`. The original spec
     sample had three calls that do not compile.
 
 14. **`SCDisplay.width`/`height` are in points, not pixels.** Use `CGDisplayPixelsWide(_:)` or
     `SCContentFilter.pointPixelScale`.
 
-15. **`sourceRect` is in points while `destinationRect` is in pixels** — an easy off-by-scale bug.
+15. **`sourceRect` is in points while `destinationRect` is in pixels**, an easy off-by-scale bug.
 
 16. **`SCContentFilter.backgroundColor` defaults to clear, not black.** App and window capture
     must set it explicitly or the client shows a transparent-onto-garbage surface.
 
-17. **`CGPreflightScreenCaptureAccess()` only checks — it never prompts.** Using it as a gate
+17. **`CGPreflightScreenCaptureAccess()` only checks, it never prompts.** Using it as a gate
     creates a deadlock where the app never asks and therefore never receives permission. Call
     `CGRequestScreenCaptureAccess()` to prompt.
 
@@ -338,10 +338,10 @@ These are the ones that cost real time. Each was hit at least once.
 19. **`INFOPLIST_KEY_NSBonjourServices` is silently inert.** It must go in the real Info.plist
     (`apple/Config/Peering-Info.plist`), even though `INFOPLIST_KEY_NSLocalNetworkUsageDescription`
     and friends work fine as build settings. Missing Bonjour services makes browse fail
-    *quietly* — no prompt, no error.
+    *quietly*, no prompt, no error.
 
 20. **Sign stably.** Ad-hoc or per-build signing changes app identity, so TCC treats every build
-    as a new app and re-prompts — the usual cause of "it asks for permission on every run".
+    as a new app and re-prompts, the usual cause of "it asks for permission on every run".
     After granting Screen Recording, a **full quit-and-relaunch** is usually needed because
     consent is evaluated at process start.
 
@@ -355,8 +355,8 @@ These are the ones that cost real time. Each was hit at least once.
     `VTEncodeInfoFlags.frameDropped` on the encode callback. Don't conflate the two.
 
 23. **`NSEvent.ModifierFlags` and `CGKeyCode` are absent from the iOS SDK.** (Bit *values* line
-    up with `kCGEventFlagMask*` — shift `1<<17`, control `1<<18`, option `1<<19`, command
-    `1<<20` — but they are an AppKit bit layout and must not live in shared code.)
+    up with `kCGEventFlagMask*`, shift `1<<17`, control `1<<18`, option `1<<19`, command
+    `1<<20`, but they are an AppKit bit layout and must not live in shared code.)
 
 ### Testing-methodology traps
 
@@ -374,10 +374,10 @@ These are the ones that cost real time. Each was hit at least once.
     deterministically with the host behaving perfectly, because each silently assumed a state
     an earlier check had changed:
     - `--drive` computed expectations from `CGDisplayBounds` (the display) while the host maps
-      input through *whatever it is currently capturing* — and it deliberately keeps capturing
+      input through *whatever it is currently capturing*, and it deliberately keeps capturing
       the last client's source after that client leaves. `input.transform` starts correct
       (`HostModel.swift:113`) and is only reset by `ensureCapturing()`, which runs **only on a
-      video connection** — and `--drive` is control-only. Now self-correcting: it asks for the
+      video connection**, and `--drive` is control-only. Now self-correcting: it asks for the
       main display and polls until the mapping actually changes.
     - The switch check needs the **catalogue**'s declared `pixelSize` to know how many
       `videoConfig` updates the host owes (two sources compositing to the same size owe none).
@@ -398,7 +398,7 @@ These are the ones that cost real time. Each was hit at least once.
     (`SelfSignedIdentity.swift:187-222`) mints a **second** key when `SecItemCopyMatching`
     fails: application tags are not a uniqueness constraint for keys, so
     `SecKeyCreateRandomKey` with the same tag succeeds. The probe then presents a new public
-    key and the host refuses with *"a client claiming to be X presented a different key"* —
+    key and the host refuses with *"a client claiming to be X presented a different key"*,
     which reads like an attack, not like a local signing problem. The fix is
     `--reset --id <new-id> --accept`.
 
@@ -444,7 +444,7 @@ All of the following was green in the regression sweep:
 | `RemoteCore` tests | **100 tests in 14 suites pass** |
 | iOS device build | `BUILD SUCCEEDED` |
 
-### End-to-end on hardware — **it works**
+### End-to-end on hardware: **it works**
 
 Verified on a real iPhone 15 Pro Max on 2026-09-14:
 
@@ -475,7 +475,7 @@ connect→disconnect loop:
 
 TLS succeeds every time and the host logs the client as connected, then it dies within
 10–100 ms. The iOS app stays in the foreground and keeps retrying. **This is the current
-front-burner bug** — a diagnosis was in flight when this file was written; check the repo's
+front-burner bug**, a diagnosis was in flight when this file was written; check the repo's
 recent commits/notes for the outcome before re-investigating from scratch.
 
 ---
@@ -487,7 +487,7 @@ recent commits/notes for the outcome before re-investigating from scratch.
   needs no ordering; it deliberately does **not** stop the capture stream, because a stop
   landing second can black out a client that has already arrived.
 - **`ensureCapturing()`** (`VideoCoordinator.swift:259`) is deliberately **not** "is anything
-  being captured" — a stream left running on a departed client's source is still running, and
+  being captured", a stream left running on a departed client's source is still running, and
   answering the narrow question is what let it be shown to the next client.
 - **Switching sources rebuilds the `SCStream`** rather than calling `updateContentFilter(_:)`.
   That is a deliberate trade: an in-place swap still owes a fresh keyframe and still leaves the
@@ -498,17 +498,17 @@ recent commits/notes for the outcome before re-investigating from scratch.
   catalogue" could not tell *which* client already had it, so the first client suppressed the
   push for all the others and every later client got an empty source picker.
 - **The capture watchdog covers the start window only.** A static screen also produces no
-  frames, but a static screen still delivers its *first* frame — so "no frame has **ever**
+  frames, but a static screen still delivers its *first* frame, so "no frame has **ever**
   arrived" distinguishes a dead stream from a still one, and later silence is left alone.
 - **Video frames are droppable; keyframes are not.** `mouseDown`/`mouseUp`/`keyDown`/`keyUp` are
-  never coalesced or reordered — a dropped `mouseUp` leaves a stuck button.
+  never coalesced or reordered, a dropped `mouseUp` leaves a stuck button.
   `mouseMove`/`joystickMove` are coalesced to ~60 Hz (iOS emits up to 120 Hz).
-- **`--video-only` is expected to be refused** — a video connection with no authorized control
+- **`--video-only` is expected to be refused**: a video connection with no authorized control
   session must be rejected.
 - **Clicking a captured app/window cannot defeat window stacking.** If the app is behind
   another window the injected click lands on whatever is actually frontmost. The mitigation is
   to raise the app on selection, not to synthesize around it.
-- **`coordinator.onGeometry` is wired but nothing consumes it** — input mapping from the
+- **`coordinator.onGeometry` is wired but nothing consumes it**: input mapping from the
   frame's content rect is deliberately deferred. This is where subtle drift bugs will live.
 
 ---
@@ -516,7 +516,7 @@ recent commits/notes for the outcome before re-investigating from scratch.
 ## 8. Working agreements
 
 - The user's standing instruction is **"continue all work until you are done and i can verify"**
-  — carry work through to a verifiable state rather than stopping to check in at each step.
+  carry work through to a verifiable state rather than stopping to check in at each step.
 - The user has authorised **spawning subagents to parallelise** work.
 - **Keep explanations plain and short.** Direct feedback: *"i dont understand what did you just
   wrote."* No jargon dumps, no long recaps. Say what happened and what to do next.
@@ -525,11 +525,6 @@ recent commits/notes for the outcome before re-investigating from scratch.
 
 ## 9. Reference
 
-- Approved plan: `/Users/dmq/.claude/plans/partitioned-dancing-lightning.md` — contains the full
-  design rationale and a list of **verified defects in the original spec's sample code**
-  (message framing missing entirely, three `CGEvent` calls that don't compile, a `CGSize`/`Data`
-  mismatch, a leaked connection, etc.). Worth reading before assuming the spec is correct.
-- iOS device id (iPhone 15 Pro Max): `8A51FAD5-A897-57CD-9C09-395D9F2C258A`
 - Bundle ids: `pl.dmq.peering` (iOS), `pl.dmq.peering.host` (Mac). Keychain pin services are
   `pl.dmq.peering.client.pins` (client) and `pl.dmq.peering.pins` (host). The repo, the targets
   and the schemes are all named Peering.

@@ -15,4 +15,8 @@
     <string name="link_end_title">End this session?</string>
     <string name="link_end_message">A link outside Peering asked to disconnect you from your computer.</string>
     <string name="link_end_confirm">End session</string>
+    <string name="link_open_title">Open this link?</string>
+    <string name="link_open_message">A link from outside Peering asked to connect to one of your computers. Continue only if you opened it yourself.</string>
+    <string name="link_pair_message">A link from outside Peering asked to pair with a computer. Continue only if you opened it yourself.</string>
+    <string name="link_open_confirm">Continue</string>
 </resources>

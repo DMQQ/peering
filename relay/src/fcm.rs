@@ -63,6 +63,10 @@ fn data_for(route: Option<PushRoute<'_>>) -> Map<String, Value> {
         if !action.options.is_empty() {
             data.insert("agentAnswers".to_owned(), Value::String(Value::from(action.options).to_string()));
         }
+        if !action.questions.is_empty() {
+            let questions = serde_json::to_value(action.questions).unwrap_or(Value::Null);
+            data.insert("agentQuestions".to_owned(), Value::String(questions.to_string()));
+        }
     }
     data
 }

@@ -70,7 +70,7 @@ final class StoreManager {
     private(set) var activeTier: Tier?
     /// Not what a gate asks: false also before `Transaction.currentEntitlements` has answered. Use ``access``.
     var isPro: Bool { activeTier != nil }
-    /// The plan this app states to the relay — free for anyone who has bought nothing.
+    /// The plan this app states to the relay, free for anyone who has bought nothing.
     var relayPlan: RelayPlan { activeTier?.plan ?? .free }
 
     /// Separate from `activeTier != nil`: nil means both "bought nothing" and "not asked yet", and the no-flash rule is that difference.

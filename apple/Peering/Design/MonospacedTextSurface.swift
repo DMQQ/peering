@@ -60,7 +60,7 @@ struct MonospacedTextSurface: UIViewRepresentable {
         // Guarded, and the guard is load-bearing rather than an optimisation: assigning the text
         // sends the selection back to the start, so an unguarded assignment on every keystroke
         // would put the caret at the top of the file after every character typed. The two agree
-        // while typing — the coordinator's callback fed this exact string back — so the guard is
+        // while typing, the coordinator's callback fed this exact string back, so the guard is
         // what keeps typing from being undone by the redraw it caused.
         if view.text != text {
             view.text = text

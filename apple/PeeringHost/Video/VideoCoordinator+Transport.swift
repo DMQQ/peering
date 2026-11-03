@@ -57,11 +57,8 @@ extension VideoCoordinator {
 
         switch request.transport {
         case .control:
-            guard streamer.isProducing(within: Self.producingWindow) else {
-// A still screen produces no frames at all, and neither does a capture that never started. Moving the
-// stream in either case would cap the rate and change nothing else, so the request is declined and the
-// client asks again shortly, by which time there is either a picture to move or nothing to move it for.
-                coordinatorLog.notice("declined the control-channel fallback: nothing has been produced recently")
+            guard streamer.fallbackAnswer() == .serve else {
+                coordinatorLog.notice("declined the control-channel fallback: nothing has been produced to move")
                 return
             }
             guard streamer.use(transport: .control, controlPeer: controlPeer) else { return }
@@ -99,7 +96,7 @@ extension VideoCoordinator {
             coordinatorLog.notice("video is going on the relay's datagram path")
             return secret
         } catch {
-            Analytics.failed(error, in: .relay)
+            Analytics.failed(error, in: .relay, context: ["operation": "open relay datagram lane"])
             coordinatorLog.error("could not open the relay's video datagram path: \(String(describing: error), privacy: .public)")
             return nil
         }
@@ -125,10 +122,6 @@ extension VideoCoordinator {
             return min(asked, VideoFallbackPolicy.controlChannelBitrateKbps)
         }
     }
-
-    /// How recently the encoder must have produced something for the host to believe that a
-    /// missing picture is the network's doing rather than there being no picture.
-    static let producingWindow: TimeInterval = 5
 
     func stop() {
 // Before anything else: a teardown must not be reported as a failure to capture.

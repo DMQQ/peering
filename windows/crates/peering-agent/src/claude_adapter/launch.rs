@@ -8,6 +8,8 @@ pub struct LaunchSpec {
     pub program: String,
     pub arguments: Vec<String>,
     pub directory: PathBuf,
+    /// Written to stdin, which is then closed. A prompt goes here so user text is never on a command line.
+    pub input: Option<String>,
 }
 
 pub trait ProcessLauncher {

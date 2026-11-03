@@ -108,7 +108,7 @@ device name and `cursorInPicture` are changed in the file, and take effect at th
   thread of its own every 300 ms while such a phone is connected, and again 150 ms after a phone's click.
 - Windows: the picker lists the top-level windows the system will capture (Windows.Graphics.Capture), each checked when listed.
   Choosing one streams that window and maps the phone's pointer into it; closing it returns the picture to the primary display.
-  Applications (several windows of one program), icons and thumbnails are not offered.
+  Applications (several windows of one program) and icons are not offered. Thumbnails are: a screenshot of each window and display (`PrintWindow`, `BitBlt`), shrunk to 240 px across and sent in the catalogue while a phone has its picker open.
 - Pushes through the relay: an agent chat's approval request, and a finished turn when the phone is not in the foreground, in
   addition to the Claude Code hooks. They need a push token the phone registered and a relay connection.
 - A log: `%LOCALAPPDATA%\Peering Host\logs\peering-host.log`, 1 MiB each, three older files kept, panics included.
@@ -120,8 +120,7 @@ device name and `cursorInPicture` are changed in the file, and take effect at th
   mode, a mosaic, a source it cannot capture) and a web preview request gets a `failure` event. An `error` frame is never used
   for this, because it ends an iPhone session.
 
-Not built: application capture (WGC captures one window or one screen, not the windows of a program together), source icons and
-thumbnails, the web preview proxy, Live Activity pushes (`notifyActivity`), a real privacy curtain, Spaces, a mosaic, HEVC, the keep
+Not built: application capture (WGC captures one window or one screen, not the windows of a program together), source icons, the web preview proxy, Live Activity pushes (`notifyActivity`), a real privacy curtain, Spaces, a mosaic, HEVC, the keep
 awake and wake schedules, and signing. The Windows-only code behind this section (WASAPI, UI Automation, Windows.Graphics.Capture, the
 duplication's pointer, the HTTPS request) is written against the `windows` crate 0.58 and type-checked for the Windows target;
 none of it has run on a Windows machine.
