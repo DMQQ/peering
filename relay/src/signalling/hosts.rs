@@ -56,11 +56,15 @@ impl HostRegistry {
         tx: mpsc::Sender<ServerMessage>,
         proof: Option<&str>,
     ) -> Result<(), &'static str> {
+        let mut inner = self.inner.lock().await;
+        let held_live = inner.get(device_id).is_some_and(|host| !host.tx.is_closed() && !host.tx.same_channel(&tx));
+        if held_live && self.bindings.would_rebind(device_id, proof) {
+            return Err("that device id is online under the key it proved, and this registration presents another");
+        }
         match self.bindings.check_and_bind(device_id, proof) {
             Binding::Refused(reason) => return Err(reason),
-            // Loud, because it cannot be judged here: a device that re-minted its identity and a
-            // stranger who took an id look the same. Refusing is what let a stranger take a Mac
-            // off the relay by arriving first.
+            // Only reached while the old key is offline, so a stranger cannot displace a live Mac.
+            // Refusing outright is what let a stranger take a Mac off the relay by arriving first.
             Binding::Rebound => {
                 warn!(
                     device_id = %tag(device_id),
@@ -70,7 +74,7 @@ impl HostRegistry {
             Binding::Bound | Binding::Matched => {}
         }
 
-        self.inner.lock().await.insert(
+        inner.insert(
             device_id.to_string(),
             Host { protocol_version: version, proven: proof.is_some(), tx },
         );

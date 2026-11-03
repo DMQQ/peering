@@ -879,3 +879,25 @@ fn forwarded_v6_clients_are_limited_by_their_prefix() {
     let _held = limiter.admit_signalling(first).unwrap();
     assert!(limiter.admit_signalling(sibling).is_none());
 }
+
+#[tokio::test]
+async fn a_live_proven_host_cannot_be_displaced_by_another_key() {
+    let hosts = HostRegistry::new();
+    let (owner, _owner_rx) = channel();
+    let (stranger, _stranger_rx) = channel();
+    hosts.put("mac", 3, owner.clone(), Some("04aa")).await.unwrap();
+
+    assert!(hosts.put("mac", 3, stranger, Some("04bb")).await.is_err());
+    assert!(hosts.entry_for("mac").await.expect("still registered").tx.same_channel(&owner));
+}
+
+#[tokio::test]
+async fn an_offline_host_may_return_under_a_new_key() {
+    let hosts = HostRegistry::new();
+    let (old, old_rx) = channel();
+    hosts.put("mac", 3, old, Some("04aa")).await.unwrap();
+    drop(old_rx);
+
+    let (new, _new_rx) = channel();
+    assert!(hosts.put("mac", 3, new, Some("04bb")).await.is_ok());
+}

@@ -320,7 +320,12 @@ pub fn verdict(purchase: &PlayPurchase, product_id: &str, client_key: Option<&st
     if purchase.product_id != product_id {
         return PlayVerdict::Rejected(PlayRejection::UnknownProduct);
     }
-    if client_key.is_some_and(|key| !bound_to(purchase, key)) {
+    let bound = match client_key {
+        Some(key) => bound_to(purchase, key),
+        // A purchase made for a device is only worth something to a client that proves it is that device.
+        None => purchase.obfuscated_account_id.is_none(),
+    };
+    if !bound {
         return PlayVerdict::Rejected(PlayRejection::WrongDevice);
     }
     match live(purchase, now) {
