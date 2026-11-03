@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Peering: iPhone으로 쓰는 Mac 원격 데스크탑</title>
-<meta name="description" content="어디서든 iPhone으로 Mac을 제어하세요. 계정 없이 한 번만 페어링하고, 종단 간 암호화로 보호되며, 로컬 네트워크에서는 무료로 쓸 수 있습니다.">
+<meta name="description" content="어디서든 iPhone으로 Mac을 제어하세요. 계정 없이 한 번만 페어링하고, 종단 간 암호화로 보호되며, 로컬 네트워크에서는 무료로 쓸 수 있습니다. Android는 출시 예정, Windows는 베타입니다.">
 <link rel="canonical" href="https://getpeering.app/ko/">
 <link rel="alternate" hreflang="en" href="https://getpeering.app/">
 <link rel="alternate" hreflang="de" href="https://getpeering.app/de/">
@@ -24,27 +24,51 @@
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/styles.css">
 
-<!-- What a link to this page looks like when it is pasted into a message, and what a crawler
-     reads. og.png is a 1200x630 card rather than the app icon: every scraper crops to that shape,
-     and a square icon in it is a logo with a lot of nothing around it. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Peering">
 <meta property="og:locale" content="ko_KR">
 <meta property="og:url" content="https://getpeering.app/ko/">
 <meta property="og:title" content="Peering: iPhone으로 쓰는 Mac 원격 데스크탑">
 <meta property="og:description" content="Mac의 화면을 iPhone에서. 둘을 한 번만 페어링하면 어디서든 Mac에 접속할 수 있고, 연결은 종단 간 암호화됩니다.">
-<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image" content="https://getpeering.app/assets/og/home-ko.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Mac과 iPhone에서 실행 중인 Peering 원격 데스크탑과 문구: 내 Mac을. 내 iPhone에서. 어디서든.">
+<meta property="og:image:alt" content="Peering: iPhone으로 쓰는 Mac 원격 데스크탑">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Peering: iPhone으로 쓰는 Mac 원격 데스크탑">
 <meta name="twitter:description" content="Mac의 화면을 iPhone에서. 둘을 한 번만 페어링하면 어디서든 Mac에 접속할 수 있고, 연결은 종단 간 암호화됩니다.">
-<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
-<meta name="twitter:image:alt" content="Mac과 iPhone에서 실행 중인 Peering 원격 데스크탑과 문구: 내 Mac을. 내 iPhone에서. 어디서든.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/home-ko.png">
+<meta name="twitter:image:alt" content="Peering: iPhone으로 쓰는 Mac 원격 데스크탑">
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://getpeering.app/#organization",
+      "name": "Peering",
+      "url": "https://getpeering.app/",
+      "logo": "https://getpeering.app/assets/favicon-192.png",
+      "sameAs": [
+        "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://getpeering.app/ko/#website",
+      "name": "Peering",
+      "url": "https://getpeering.app/ko/",
+      "inLanguage": "ko",
+      "publisher": {
+        "@id": "https://getpeering.app/#organization"
+      }
+    }
+  ]
+}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -52,11 +76,11 @@
   "name": "Peering",
   "url": "https://getpeering.app/ko/",
   "applicationCategory": "UtilitiesApplication",
-  "operatingSystem": "iOS, macOS",
+  "operatingSystem": "iOS, iPadOS, macOS, Android, Windows",
   "description": "Mac의 화면을 iPhone에서. 내 네트워크에서 한 번만 페어링하면 어디서든 Mac에 접속할 수 있고, 연결은 종단 간 암호화되어 두 기기 사이를 직접 오갑니다.",
   "downloadUrl": "https://getpeering.app/ko/download",
   "installUrl": "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408",
-  "screenshot": "https://getpeering.app/assets/og.png",
+  "screenshot": "https://getpeering.app/assets/og/home-ko.png",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -139,7 +163,7 @@
       "name": "어떤 Mac과 iPhone에서 작동하나요?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "macOS 15(Sequoia) 이상이 설치된 모든 Mac(Apple 실리콘 또는 Intel)에서 작동합니다. iOS 18 이상이 설치된 모든 iPhone과 iPad에서 작동하며, iOS 26으로 업그레이드할 수 없는 구형 기기도 포함됩니다."
+        "text": "macOS 15(Sequoia) 이상이 설치된 모든 Mac(Apple 실리콘 또는 Intel)에서 작동합니다. iOS 18 이상이 설치된 모든 iPhone과 iPad에서 작동하며, iOS 26으로 업그레이드할 수 없는 구형 기기도 포함됩니다. Android 10 이상의 Android 휴대폰과 태블릿은 곧 Google Play에 출시되며, Windows용 초기 호스트는 베타입니다."
       }
     },
     {
@@ -200,7 +224,6 @@
 
 <main id="main">
 
-  <!-- Hero -->
   <section class="hero" id="top">
     <div class="glow" aria-hidden="true"></div>
     <div class="wrap hero-inner">
@@ -218,13 +241,6 @@
         </div>
       </div>
 
-      <!-- Two real screenshots, in drawn frames rather than rendered ones: the two ends of one
-           product, the Mac it reaches and the phone it reaches from.
-
-           app-mac.webp is the whole of this Mac's display at 1512 by 982, which is the proportion
-           the frame draws. A screen-shaped picture of a screen is what a screenshot is; the frame
-           supplies the machine around it, including the notch, which no screenshot can contain
-           because it is not something the display draws but something it is missing. -->
       <div class="hero-stage">
       <div class="stage">
         <div class="mac" aria-label="Mac에서 실행 중인 Peering 호스트 앱">
@@ -248,7 +264,6 @@
     </div>
   </section>
 
-  <!-- How it works -->
   <section class="section" id="how">
     <div class="wrap">
       <h2>한 번 페어링하면, 그다음부터는 그냥 됩니다.</h2>
@@ -289,7 +304,45 @@
     </div>
   </section>
 
-  <!-- Features -->
+  <section class="section" id="platforms">
+    <div class="wrap">
+      <h2>지원 기기</h2>
+      <p class="section-lede">손에 든 휴대폰이나 태블릿, 그리고 그것이 연결하는 컴퓨터, 두 가지입니다.</p>
+
+      <div class="grid platforms">
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.8" width="10" height="18.4" rx="2.4"/><path d="M10.6 5.4h2.8"/></svg>
+          <h3>iPhone과 iPad</h3>
+          <p>iOS 18 이상.</p>
+          <p><a href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">iPhone 앱 받기</a></p>
+        </div>
+
+        <div class="card feature">
+          <span class="feature-tag">출시 예정</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.4" y="3.2" width="15.2" height="17.6" rx="2.2"/><path d="M10.8 18.2h2.4"/></svg>
+          <h3>Android 휴대폰과 태블릿</h3>
+          <p>Android 10 이상. Google Play 출시 예정.</p>
+          <p>페어링도 요금제도 iPhone과 같습니다. 내 네트워크에서는 무료이고 릴레이는 하루 30분, Pro 월 구독이나 평생이면 무제한입니다.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="9.6" rx="1.6"/><path d="M2.8 18.4h18.4"/></svg>
+          <h3>Mac</h3>
+          <p>macOS 15(Sequoia) 이상, Apple silicon 또는 Intel. 화면을 공유하는 호스트입니다.</p>
+          <p><a href="/ko/download">Mac용 다운로드</a></p>
+        </div>
+
+        <div class="card feature">
+          <span class="feature-tag">베타</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="11.6" rx="1.8"/><path d="M8.4 19.6h7.2"/><path d="M12 16v3.6"/></svg>
+          <h3>Windows PC</h3>
+          <p>Windows용 Peering Host 초기 버전입니다. 디스플레이 또는 창 하나, 마우스와 키보드, 터미널, Claude Code 채팅을 지원합니다.</p>
+          <p>아직 실제 PC에서 실행해 본 적이 없고, Mac 호스트보다 기능이 적습니다. 얼리 액세스는 <a href="/ko/support">support@getpeering.app</a>로 이메일을 보내 주세요.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="section" id="features">
     <div class="wrap">
       <h2>기능</h2>
@@ -559,7 +612,6 @@
     </div>
   </section>
 
-  <!-- Privacy -->
   <section class="section" id="privacy">
     <div class="wrap">
       <h2>종단 간 암호화. 릴레이는 그 당사자가 아닙니다.</h2>
@@ -612,7 +664,6 @@
     </div>
   </section>
 
-  <!-- Pricing -->
   <section class="section" id="pricing">
     <div class="wrap">
       <h2>가격</h2>
@@ -814,7 +865,6 @@
     </div>
   </section>
 
-  <!-- FAQ -->
   <section class="section" id="faq">
     <div class="wrap">
       <h2>자주 묻는 질문</h2>
@@ -903,7 +953,7 @@
           <p>
             macOS 15(Sequoia) 이상이 설치된 모든 Mac(Apple 실리콘 또는 Intel)에서 작동합니다.
             iOS 18 이상이 설치된 모든 iPhone과 iPad에서 작동하며, iOS 26으로 업그레이드할 수
-            없는 구형 기기도 포함됩니다.
+            없는 구형 기기도 포함됩니다. Android 10 이상의 Android 휴대폰과 태블릿은 곧 Google Play에 출시되며, Windows용 초기 호스트는 베타입니다.
           </p>
         </details>
         <details>
@@ -943,16 +993,26 @@
     </div>
     <nav class="foot-links" aria-label="가이드, 법적 고지, 지원">
       <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
-      <a href="/ko/remote-desktop-for-mac">원격 데스크탑</a>
-      <a href="/ko/access-your-mac-from-anywhere">어디서든 접속</a>
-      <a href="/ko/keep-mac-awake-for-remote-access">집에 있는 Mac</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/keep-mac-awake-for-remote-access">집에 둔 Mac</a>
       <a href="/ko/coding-agent-notifications">코딩 에이전트</a>
       <a href="/ko/remote-desktop-apps-compared">앱 비교</a>
       <a href="/ko/screens-alternative">Screens 대안</a>
+      <a href="/ko/best-remote-desktop-app-for-ipad">iPad용 추천</a>
+      <a href="/ko/apple-remote-desktop-alternative">ARD 대안</a>
+      <a href="/ko/apple-remote-desktop-vs-screen-sharing">ARD와 화면 공유</a>
+      <a href="/ko/screens-vs-jump-desktop">Screens와 Jump</a>
+      <a href="/ko/rustdesk-alternative-for-mac">RustDesk 대안</a>
+      <a href="/ko/control-mac-from-android">안드로이드로 Mac 제어</a>
+      <a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a>
+      <a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱 대안</a>
+      <a href="/ko/teamviewer-alternative-for-mac">팀뷰어 대안</a>
+      <a href="/ko/control-windows-pc-from-phone">휴대폰으로 Windows 제어</a>
       <a href="/ko/download">다운로드</a>
       <a href="/ko/privacy">개인정보 처리방침</a>
       <a href="/ko/terms">이용약관</a>
-      <a href="mailto:support@getpeering.app">지원</a>
+      <a href="/ko/support">지원</a>
     </nav>
     <nav class="foot-links" aria-label="Languages">
       <a href="/" hreflang="en" lang="en">English</a>

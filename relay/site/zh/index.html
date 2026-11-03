@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Peering：用 iPhone 远程控制 Mac</title>
-<meta name="description" content="随时随地用 iPhone 控制你的 Mac。只需配对一次，无需账户，端到端加密，在本地网络中可免费使用。">
+<meta name="description" content="随时随地用 iPhone 控制你的 Mac。只需配对一次，无需账户，端到端加密，在本地网络中可免费使用。Android 即将推出，Windows 处于测试阶段。">
 <link rel="canonical" href="https://getpeering.app/zh/">
 <link rel="alternate" hreflang="en" href="https://getpeering.app/">
 <link rel="alternate" hreflang="de" href="https://getpeering.app/de/">
@@ -24,27 +24,51 @@
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/styles.css">
 
-<!-- What a link to this page looks like when it is pasted into a message, and what a crawler
-     reads. og.png is a 1200x630 card rather than the app icon: every scraper crops to that shape,
-     and a square icon in it is a logo with a lot of nothing around it. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Peering">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:url" content="https://getpeering.app/zh/">
 <meta property="og:title" content="Peering：用 iPhone 远程控制 Mac">
 <meta property="og:description" content="你的 Mac 屏幕，就在你的 iPhone 上。把两台设备配对一次，之后随时随地都能连上你的 Mac，全程端到端加密。">
-<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image" content="https://getpeering.app/assets/og/home-zh.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Peering 远程桌面运行在 Mac 和 iPhone 上，旁边写着：你的 Mac，在你的 iPhone 上，随时随地。">
+<meta property="og:image:alt" content="Peering：用 iPhone 远程控制 Mac">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Peering：用 iPhone 远程控制 Mac">
 <meta name="twitter:description" content="你的 Mac 屏幕，就在你的 iPhone 上。把两台设备配对一次，之后随时随地都能连上你的 Mac，全程端到端加密。">
-<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
-<meta name="twitter:image:alt" content="Peering 远程桌面运行在 Mac 和 iPhone 上，旁边写着：你的 Mac，在你的 iPhone 上，随时随地。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/home-zh.png">
+<meta name="twitter:image:alt" content="Peering：用 iPhone 远程控制 Mac">
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://getpeering.app/#organization",
+      "name": "Peering",
+      "url": "https://getpeering.app/",
+      "logo": "https://getpeering.app/assets/favicon-192.png",
+      "sameAs": [
+        "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://getpeering.app/zh/#website",
+      "name": "Peering",
+      "url": "https://getpeering.app/zh/",
+      "inLanguage": "zh-Hans",
+      "publisher": {
+        "@id": "https://getpeering.app/#organization"
+      }
+    }
+  ]
+}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -52,11 +76,11 @@
   "name": "Peering",
   "url": "https://getpeering.app/zh/",
   "applicationCategory": "UtilitiesApplication",
-  "operatingSystem": "iOS, macOS",
+  "operatingSystem": "iOS, iPadOS, macOS, Android, Windows",
   "description": "你的 Mac 屏幕，就在你的 iPhone 上。在自己的网络中把它们配对一次，之后随时随地都能连上你的 Mac，端到端加密，并且两台设备直接相连。",
   "downloadUrl": "https://getpeering.app/zh/download",
   "installUrl": "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408",
-  "screenshot": "https://getpeering.app/assets/og.png",
+  "screenshot": "https://getpeering.app/assets/og/home-zh.png",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -139,7 +163,7 @@
       "name": "支持哪些 Mac 和 iPhone？",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "任何运行 macOS 15 (Sequoia) 或更高版本的 Mac，无论是 Apple 芯片还是 Intel。任何运行 iOS 18 或更高版本的 iPhone 或 iPad，包括无法升级到 iOS 26 的旧设备。"
+        "text": "任何运行 macOS 15 (Sequoia) 或更高版本的 Mac，无论是 Apple 芯片还是 Intel。任何运行 iOS 18 或更高版本的 iPhone 或 iPad，包括无法升级到 iOS 26 的旧设备。运行 Android 10 或更高版本的 Android 手机和平板即将登陆 Google Play，Windows 早期主机目前为测试版。"
       }
     },
     {
@@ -200,7 +224,6 @@
 
 <main id="main">
 
-  <!-- Hero -->
   <section class="hero" id="top">
     <div class="glow" aria-hidden="true"></div>
     <div class="wrap hero-inner">
@@ -217,13 +240,6 @@
         </div>
       </div>
 
-      <!-- Two real screenshots, in drawn frames rather than rendered ones: the two ends of one
-           product, the Mac it reaches and the phone it reaches from.
-
-           app-mac.webp is the whole of this Mac's display at 1512 by 982, which is the proportion
-           the frame draws. A screen-shaped picture of a screen is what a screenshot is; the frame
-           supplies the machine around it, including the notch, which no screenshot can contain
-           because it is not something the display draws but something it is missing. -->
       <div class="hero-stage">
       <div class="stage">
         <div class="mac" aria-label="Mac 上的 Peering 主机应用">
@@ -247,7 +263,6 @@
     </div>
   </section>
 
-  <!-- How it works -->
   <section class="section" id="how">
     <div class="wrap">
       <h2>配对一次，之后随时都在。</h2>
@@ -285,7 +300,45 @@
     </div>
   </section>
 
-  <!-- Features -->
+  <section class="section" id="platforms">
+    <div class="wrap">
+      <h2>支持的设备</h2>
+      <p class="section-lede">两端：你手里的手机或平板，以及它连接的电脑。</p>
+
+      <div class="grid platforms">
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.8" width="10" height="18.4" rx="2.4"/><path d="M10.6 5.4h2.8"/></svg>
+          <h3>iPhone 和 iPad</h3>
+          <p>iOS 18 或更高版本。</p>
+          <p><a href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">获取 iPhone 版应用</a></p>
+        </div>
+
+        <div class="card feature">
+          <span class="feature-tag">即将推出</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.4" y="3.2" width="15.2" height="17.6" rx="2.2"/><path d="M10.8 18.2h2.4"/></svg>
+          <h3>Android 手机和平板</h3>
+          <p>Android 10 或更高版本。即将登陆 Google Play。</p>
+          <p>配对方式和套餐与 iPhone 相同：在你自己的网络中免费，每天含 30 分钟中继时间；Pro 按月订阅或终身版则不限时。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="9.6" rx="1.6"/><path d="M2.8 18.4h18.4"/></svg>
+          <h3>Mac</h3>
+          <p>macOS 15 (Sequoia) 或更高版本，Apple 芯片或 Intel。负责共享屏幕的主机端。</p>
+          <p><a href="/zh/download">下载 Mac 版</a></p>
+        </div>
+
+        <div class="card feature">
+          <span class="feature-tag">测试版</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="11.6" rx="1.8"/><path d="M8.4 19.6h7.2"/><path d="M12 16v3.6"/></svg>
+          <h3>Windows 电脑</h3>
+          <p>Windows 版 Peering Host 的早期版本：一个显示器或一个窗口、鼠标和键盘、终端，以及与 Claude Code 聊天。</p>
+          <p>它还没有在真实的电脑上运行过，功能也比 Mac 主机少。抢先体验请发邮件至 <a href="/zh/support">support@getpeering.app</a>。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="section" id="features">
     <div class="wrap">
       <h2>功能一览</h2>
@@ -555,7 +608,6 @@
     </div>
   </section>
 
-  <!-- Privacy -->
   <section class="section" id="privacy">
     <div class="wrap">
       <h2>端到端加密，中继不是其中的一方。</h2>
@@ -602,7 +654,6 @@
     </div>
   </section>
 
-  <!-- Pricing -->
   <section class="section" id="pricing">
     <div class="wrap">
       <h2>价格</h2>
@@ -804,7 +855,6 @@
     </div>
   </section>
 
-  <!-- FAQ -->
   <section class="section" id="faq">
     <div class="wrap">
       <h2>常见问题</h2>
@@ -873,7 +923,7 @@
         <details>
           <summary>支持哪些 Mac 和 iPhone？</summary>
           <p>
-            任何运行 macOS 15 (Sequoia) 或更高版本的 Mac，无论是 Apple 芯片还是 Intel。任何运行 iOS 18 或更高版本的 iPhone 或 iPad，包括无法升级到 iOS 26 的旧设备。
+            任何运行 macOS 15 (Sequoia) 或更高版本的 Mac，无论是 Apple 芯片还是 Intel。任何运行 iOS 18 或更高版本的 iPhone 或 iPad，包括无法升级到 iOS 26 的旧设备。运行 Android 10 或更高版本的 Android 手机和平板即将登陆 Google Play，Windows 早期主机目前为测试版。
           </p>
         </details>
         <details>
@@ -914,10 +964,20 @@
       <a href="/zh/coding-agent-notifications">编程代理</a>
       <a href="/zh/remote-desktop-apps-compared">应用对比</a>
       <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/best-remote-desktop-app-for-ipad">最佳 iPad 应用</a>
+      <a href="/zh/apple-remote-desktop-alternative">ARD 替代方案</a>
+      <a href="/zh/apple-remote-desktop-vs-screen-sharing">ARD 与屏幕共享</a>
+      <a href="/zh/screens-vs-jump-desktop">Screens 与 Jump</a>
+      <a href="/zh/rustdesk-alternative-for-mac">RustDesk 替代方案</a>
+      <a href="/zh/control-mac-from-android">安卓控制 Mac</a>
+      <a href="/zh/claude-code-on-android">安卓上的 Claude Code</a>
+      <a href="/zh/chrome-remote-desktop-alternative">Chrome 远程桌面替代方案</a>
+      <a href="/zh/teamviewer-alternative-for-mac">TeamViewer 替代方案</a>
+      <a href="/zh/control-windows-pc-from-phone">手机控制 Windows</a>
       <a href="/zh/download">下载</a>
       <a href="/zh/privacy">隐私</a>
       <a href="/zh/terms">条款</a>
-      <a href="mailto:support@getpeering.app">支持</a>
+      <a href="/zh/support">支持</a>
     </nav>
     <nav class="foot-links" aria-label="Languages">
       <a href="/" hreflang="en" lang="en">English</a>

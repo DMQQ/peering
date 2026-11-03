@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>맥 원격 제어, 안드로이드와 아이폰 차이 · Peering</title>
+<meta name="description" content="Peering으로 안드로이드나 iPhone에서 Mac을 제어할 때 같은 페어링, 요금제, 기능, 그리고 몇 가지 차이를 솔직하게 정리했습니다.">
+<link rel="canonical" href="https://getpeering.app/ko/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/mac-remote-android-vs-iphone">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/mac-remote-android-vs-iphone">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:url" content="https://getpeering.app/ko/mac-remote-android-vs-iphone">
+<meta property="og:title" content="맥 원격 제어, 안드로이드와 아이폰 차이 · Peering">
+<meta property="og:description" content="Peering으로 안드로이드나 iPhone에서 Mac을 제어할 때 같은 페어링, 요금제, 기능, 그리고 몇 가지 차이를 솔직하게 정리했습니다.">
+<meta property="og:image" content="https://getpeering.app/assets/og/mac-remote-android-vs-iphone.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="맥 원격 제어, 안드로이드와 아이폰 차이 · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="맥 원격 제어, 안드로이드와 아이폰 차이 · Peering">
+<meta name="twitter:description" content="Peering으로 안드로이드나 iPhone에서 Mac을 제어할 때 같은 페어링, 요금제, 기능, 그리고 몇 가지 차이를 솔직하게 정리했습니다.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/mac-remote-android-vs-iphone.png">
+<meta name="twitter:image:alt" content="맥 원격 제어, 안드로이드와 아이폰 차이 · Peering">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "inLanguage": "ko",
+  "name": "Peering",
+  "url": "https://getpeering.app/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android 10 이상, iOS 18 이상, macOS 15 이상",
+  "description": "Peering으로 안드로이드나 iPhone에서 Mac을 제어할 때 같은 페어링, 요금제, 기능, 그리고 몇 가지 차이를 솔직하게 정리했습니다.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ko",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "iPhone 대신 안드로이드 휴대폰으로 Mac을 제어할 수 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "네. Peering의 안드로이드 앱은 iPhone 앱과 같은 방식으로, 계정 없이 Mac과 페어링합니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "안드로이드 앱에 빠진 기능이 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "몇 가지 있습니다. 알림은 세션을 백그라운드에 열어 두는 동안에만 오고, 한 번에 Mac 하나만 연결되며, 위젯은 아직 없습니다. 나머지는 같습니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Pro 요금제가 안드로이드와 iPhone 사이에 이어지나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "아니요. 구매는 Google Play나 App Store를 통해 이루어지고 그 스토어에 속합니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "안드로이드 휴대폰과 iPhone을 같은 Mac에 둘 다 페어링할 수 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "네. Mac은 페어링한 기기를 원하는 만큼 받아들입니다."
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ko/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "안드로이드와 iPhone 비교",
+      "item": "https://getpeering.app/ko/mac-remote-android-vs-iphone"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ko/" aria-label="Peering, 홈">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="페이지">
+      <a href="/ko/">홈</a>
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/download">다운로드</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+    <h1>안드로이드와 iPhone으로 Mac 제어하기: 무엇이 다른가</h1>
+    <p class="updated">Peering을 만드는 사람들이 썼습니다. 2026년 11월, 앱의 실제 코드와 대조해 확인했습니다.</p>
+
+<div class="card callout">
+      <strong>요약하면.</strong> Mac을 제어하는 데 iPhone이 꼭 필요하지는 않습니다. Peering의 안드로이드 앱은 같은 방식으로
+      페어링하고, 같은 요금제를 쓰며, iPhone 앱이 하는 거의 모든 일을 합니다. 차이는 각 휴대폰이 백그라운드를 다루는 방식과,
+      iPhone에 먼저 들어온 몇 가지 기능입니다.
+    </div>
+
+    <h2>양쪽이 같은 것</h2>
+    <ul>
+      <li>여섯 자리 코드나 QR 코드로 페어링, 계정 없음.</li>
+      <li>종단 간 암호화, 가능하면 직접 경로, 세션을 읽을 수 없는 릴레이.</li>
+      <li>화면, 트랙패드 모드, 직접 터치와 조이스틱, 핀치 확대, 화질 설정.</li>
+      <li>Mac 키, 기능 키, 앱별 단축키, 매크로, 받아쓰기가 있는 키보드 바.</li>
+      <li>Mac 소리, 이미지까지 되는 클립보드, 파일, 터미널, SSH 서버.</li>
+      <li>디스플레이, 앱, 윈도우, 데스크톱을 공유 대상으로. Mac 화면 어둡게 하기와 잠그기.</li>
+      <li>Claude Code, Codex, OpenCode 채팅, 변경 검토, 검토 대기 받은편지함.</li>
+      <li>요금제: 내 네트워크에서 무료에 하루 30분 릴레이, Pro 월 구독 또는 평생.</li>
+    </ul>
+
+    <figure class="card doc-figure">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <img src="/assets/android/android-control-mac.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="안드로이드 휴대폰의 Peering에 Mac의 코드 편집기가 표시되고, 세션 바에 Mac 이름과 RELAY 배지가 보이는 화면.">
+      <img src="/assets/android/android-agents.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="안드로이드의 Peering 에이전트 화면. Mac에서 실행 중인 Claude Code, Codex, OpenCode 채팅 목록과 검토 대기 카드.">
+      </div>
+      <figcaption>안드로이드 앱: 세션 중인 Mac 화면, 그리고 Mac에서 실행 중인 에이전트 채팅.</figcaption>
+    </figure>
+
+    <h2>다른 점</h2>
+    <div class="doc-table-wrap">
+      <table class="doc-table">
+        <thead>
+          <tr><th></th><th>안드로이드</th><th>iPhone과 iPad</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>출시</td><td>Google Play 출시 예정</td><td>지금 App Store에서</td></tr>
+          <tr><td>최소 버전</td><td>Android 10</td><td>iOS 18</td></tr>
+          <tr><td>에이전트와 터미널 알림</td><td>백그라운드에서 세션을 열어 두는 동안, 알림에 허용과 거부</td><td>앱을 닫아도 푸시로, 잠금 화면에서도</td></tr>
+          <tr><td>백그라운드 세션</td><td>계속 유지, 진행 중 알림과 연결 끊기 버튼</td><td>PIP로 화면이 떠 있음</td></tr>
+          <tr><td>여러 Mac 동시 연결</td><td>한 번에 세션 하나</td><td>여러 개, 탭으로 전환</td></tr>
+          <tr><td>위젯과 실시간 현황</td><td>아직 없음</td><td>지원</td></tr>
+          <tr><td>세션 스크린샷</td><td>기본 차단, 화면 공유 버튼 제공</td><td>허용</td></tr>
+          <tr><td>Windows 호스트(베타)</td><td>PC가 지원하지 않는 컨트롤 숨김</td><td>일부 Mac 전용 컨트롤 표시</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>어느 쪽을 쓸까</h2>
+    <p>
+      이미 들고 다니는 휴대폰을 쓰세요. Mac은 어느 쪽이 연결하든 상관없고, 둘 다 페어링할 수도 있습니다. 한 가족이 안드로이드
+      휴대폰과 iPad를 같은 Mac에 쓸 수 있습니다. 요금제는 스토어마다 따로 구매하므로, Google Play에서 산 평생 이용권은 iPhone으로
+      넘어가지 않고 그 반대도 마찬가지입니다.
+    </p>
+    <p>
+      코딩 에이전트 때문에 쓰려는 것이고 앱을 완전히 닫아도 알림이 와야 한다면, 지금은 iPhone 앱이 앞서 있습니다. 안드로이드에서는
+      세션을 백그라운드에 두면 승인 요청이 알림창에 옵니다. <a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a>를 참고하세요.
+    </p>
+
+    <h2>시작하기</h2>
+    <p>
+      Mac 쪽은 어느 경우든 같습니다. <a href="/ko/download">Mac용 Peering을 다운로드</a>하고, 화면 기록과 손쉬운 사용을 허용한 뒤
+      집 네트워크에서 페어링하세요. 안드로이드의 단계별 안내는 <a href="/ko/control-mac-from-android">안드로이드로 Mac 제어하기</a>에,
+      iPhone은 <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>에 있습니다.
+    </p>
+
+    <h2>자주 묻는 질문</h2>
+    <h3>iPhone 대신 안드로이드 휴대폰으로 Mac을 제어할 수 있나요?</h3>
+    <p>네. Peering의 안드로이드 앱은 iPhone 앱과 같은 방식으로, 계정 없이 Mac과 페어링합니다.</p>
+    <h3>안드로이드 앱에 빠진 기능이 있나요?</h3>
+    <p>몇 가지 있습니다. 알림은 세션을 백그라운드에 열어 두는 동안에만 오고, 한 번에 Mac 하나만 연결되며, 위젯은 아직 없습니다. 나머지는 같습니다.</p>
+    <h3>Pro 요금제가 안드로이드와 iPhone 사이에 이어지나요?</h3>
+    <p>아니요. 구매는 Google Play나 App Store를 통해 이루어지고 그 스토어에 속합니다.</p>
+    <h3>안드로이드 휴대폰과 iPhone을 같은 Mac에 둘 다 페어링할 수 있나요?</h3>
+    <p>네. Mac은 페어링한 기기를 원하는 만큼 받아들입니다.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ko/download">Mac용 Peering 다운로드</a>
+      <a class="btn btn-quiet" href="https://play.google.com/store/apps/details?id=pl.dmq.peering">Google Play 출시 예정</a>
+      <a class="btn btn-quiet" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">iPhone 앱 받기</a>
+    </div>
+
+    <div class="related">
+      <h2>더 읽어 보기</h2>
+      <ul>
+      <li><a href="/ko/control-mac-from-android">안드로이드 휴대폰으로 Mac 제어하기</a></li>
+      <li><a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a></li>
+      <li><a href="/ko/android-tablet-remote-desktop">안드로이드 태블릿용 원격 데스크톱</a></li>
+      <li><a href="/ko/how-to-pair-iphone-mac">페어링은 이렇게 동작합니다</a></li>
+      <li><a href="/ko/best-remote-desktop-app-for-ipad">iPad용 최고의 원격 데스크톱 앱</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="가이드, 법적 고지, 지원">
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/keep-mac-awake-for-remote-access">집에 둔 Mac</a>
+      <a href="/ko/coding-agent-notifications">코딩 에이전트</a>
+      <a href="/ko/remote-desktop-apps-compared">앱 비교</a>
+      <a href="/ko/screens-alternative">Screens 대안</a>
+      <a href="/ko/best-remote-desktop-app-for-ipad">iPad용 추천</a>
+      <a href="/ko/apple-remote-desktop-alternative">ARD 대안</a>
+      <a href="/ko/apple-remote-desktop-vs-screen-sharing">ARD와 화면 공유</a>
+      <a href="/ko/screens-vs-jump-desktop">Screens와 Jump</a>
+      <a href="/ko/rustdesk-alternative-for-mac">RustDesk 대안</a>
+      <a href="/ko/control-mac-from-android">안드로이드로 Mac 제어</a>
+      <a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a>
+      <a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱 대안</a>
+      <a href="/ko/teamviewer-alternative-for-mac">팀뷰어 대안</a>
+      <a href="/ko/control-windows-pc-from-phone">휴대폰으로 Windows 제어</a>
+      <a href="/ko/download">다운로드</a>
+      <a href="/ko/privacy">개인정보 처리방침</a>
+      <a href="/ko/terms">이용약관</a>
+      <a href="/ko/support">지원</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/mac-remote-android-vs-iphone" hreflang="en" lang="en">English</a>
+      <a href="/de/mac-remote-android-vs-iphone" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/mac-remote-android-vs-iphone" hreflang="es" lang="es">Español</a>
+      <a href="/fr/mac-remote-android-vs-iphone" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/mac-remote-android-vs-iphone" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/mac-remote-android-vs-iphone" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/mac-remote-android-vs-iphone" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/mac-remote-android-vs-iphone" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/mac-remote-android-vs-iphone" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/mac-remote-android-vs-iphone" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone 및 Mac은 Apple Inc.의 상표입니다.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

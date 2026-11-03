@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>安卓上用 Claude Code：在 Mac 上运行</title>
+<meta name="description" content="从安卓在 Mac 上启动 Claude Code、Codex 或 OpenCode，在通知栏批准工具调用并审阅差异。在你的 Wi-Fi 上免费。">
+<link rel="canonical" href="https://getpeering.app/zh/claude-code-on-android">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/claude-code-on-android">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/claude-code-on-android">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/claude-code-on-android">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/claude-code-on-android">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/claude-code-on-android">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/claude-code-on-android">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/claude-code-on-android">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/claude-code-on-android">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/claude-code-on-android">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/claude-code-on-android">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/claude-code-on-android">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/claude-code-on-android">
+<meta property="og:title" content="安卓上用 Claude Code：在 Mac 上运行">
+<meta property="og:description" content="从安卓在 Mac 上启动 Claude Code、Codex 或 OpenCode，在通知栏批准工具调用并审阅差异。在你的 Wi-Fi 上免费。">
+<meta property="og:image" content="https://getpeering.app/assets/og/claude-code-on-android.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="安卓上用 Claude Code：在 Mac 上运行">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="安卓上用 Claude Code：在 Mac 上运行">
+<meta name="twitter:description" content="从安卓在 Mac 上启动 Claude Code、Codex 或 OpenCode，在通知栏批准工具调用并审阅差异。在你的 Wi-Fi 上免费。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/claude-code-on-android.png">
+<meta name="twitter:image:alt" content="安卓上用 Claude Code：在 Mac 上运行">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "inLanguage": "zh-Hans",
+  "name": "Peering",
+  "url": "https://getpeering.app/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android 10 或更高版本、iOS 18 或更高版本、macOS 15 或更高版本",
+  "description": "从安卓在 Mac 上启动 Claude Code、Codex 或 OpenCode，在通知栏批准工具调用并审阅差异。在你的 Wi-Fi 上免费。",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "zh-Hans",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "能在安卓上使用 Claude Code 吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Claude Code 运行在电脑上，而不是手机上。有了 Peering，它继续在你的 Mac 上运行，安卓应用显示它的对话，让你开启新对话、回答它的问题并批准命令。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "也支持 Codex 和 OpenCode 吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "支持。Peering 的智能体视图支持安装在 Mac 上的 Claude Code、Codex 和 OpenCode。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "不打开应用能批准命令吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "能。通知中有允许和拒绝按钮。在安卓上，只要 Peering 在后台保持会话打开，通知就会到达。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peering 会看到我的代码或 API 密钥吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "不会。智能体用你自己的凭据在你的 Mac 上运行，手机和 Mac 之间的连接是端到端加密的。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "有 Windows 版吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Windows 端程序处于早期测试阶段。它有 Claude Code 对话，但还没有改动审阅、提交或推送，而且尚未在真实电脑上运行过。"
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/zh/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "安卓上的 Claude Code",
+      "item": "https://getpeering.app/zh/claude-code-on-android"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/download">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>在安卓上使用 Claude Code，让它在你的 Mac 上运行</h1>
+    <p class="updated">由 Peering 的开发者撰写，并对照应用自身代码核实，2026 年 11 月。</p>
+
+<div class="card callout">
+      <strong>简而言之。</strong>你的编程智能体继续在 Mac 上运行，用着你的代码仓库、密钥和工具。
+      安卓版 Peering 把它的对话搬到手机上：开启对话、跟进进度、回答它的问题、审阅它改了什么，
+      在它请求运行命令时，直接在通知里点允许或拒绝。
+    </div>
+
+    <h2>为什么让智能体在 Mac 上运行，而不是在手机上</h2>
+    <p>
+      Claude Code、Codex 和 OpenCode 需要一台真正的电脑：代码检出、构建工具、测试套件、你的 git 凭据。
+      在手机终端应用里运行它们，意味着要把这些全都复制一份。Peering 让工作留在原处，只把手机变成它的遥控器。
+      你锁上手机，智能体照样继续干活。
+    </p>
+
+    <h2>在手机上能做什么</h2>
+    <ul>
+      <li><strong>一键启动智能体</strong>，可在 Mac 上的任意文件夹中。支持 Claude Code、Codex 和 OpenCode。</li>
+      <li><strong>以对话形式跟进</strong>，而不是滚动的终端：消息、工具调用、子智能体和它碰过的文件，多个对话同时运行时用标签页切换。</li>
+      <li><strong>回答它的问题。</strong>智能体给出几个选项提问时，点一个即可。包含多个部分的问题会逐个回答。</li>
+      <li><strong>在通知中允许或拒绝命令</strong>，无需打开应用。</li>
+      <li><strong>审阅改动</strong>：“待审阅”收件箱汇集完成了工作的对话，每个对话按文件显示差异。改动了文件的回合结束后，会出现后续操作按钮。</li>
+      <li><strong>带提示的输入</strong>：输入时会提示斜杠命令和用 @ 提及的文件，也可以直接口述提示词。</li>
+      <li><strong>需要时切到终端或屏幕</strong>。智能体的 Shell、普通终端和 Mac 的整个桌面都在同一个应用里。</li>
+    </ul>
+
+    <figure class="card doc-figure">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <img src="/assets/android/android-agents.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="安卓版 Peering 的智能体页面，列出在 Mac 上运行的 Claude Code、Codex 和 OpenCode 对话，并有一张待审阅卡片。">
+      <img src="/assets/android/android-approve-from-shade.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="安卓通知栏中 Peering 的通知，提示 Claude Code 需要批准，并带有允许和拒绝按钮。">
+      </div>
+      <figcaption>在 Mac 上运行的智能体对话，以及在安卓通知栏中处理的批准请求。</figcaption>
+    </figure>
+
+    <h2>在通知栏中批准</h2>
+    <p>
+      当 Claude Code 想运行一个你没有允许过的操作时，它会停下来等待。在安卓上，Peering 会发出一条通知，写明是哪个智能体、什么命令，
+      并附有允许和拒绝按钮。在通知栏或锁屏上就能回应。智能体完成一个回合，或 Mac 上的终端在等待密码时，也会这样通知你。
+    </p>
+    <p>
+      说清楚它何时有效：只有当 Peering 在后台保持会话打开时，安卓通知才会到达。一条常驻通知会写明 Mac 的名称，并带有断开按钮；
+      同时 Mac 会暂停画面，不会推送你看不到的内容。你可以在设置中关闭这项功能。如果安卓系统本身停止了应用，例如在严格的省电限制下，
+      提醒会中断，直到你再次打开应用。iPhone 应用在关闭状态下也能收到提醒，请参阅<a href="/zh/coding-agent-notifications">编程智能体通知</a>。
+    </p>
+
+    <h2>设置步骤</h2>
+    <p>
+      像平常一样安装 <a href="/zh/download">Mac 版 Peering</a> 和你使用的智能体。等 Peering 上架 Google Play 后在手机上安装，
+      用六位数字代码配对一次，然后打开“智能体”标签页。Peering 会找到 Mac 上已安装的智能体；它本身不附带也不付费购买任何智能体，
+      也从不接触你的 API 密钥或订阅。
+    </p>
+
+    <h2>放心让它一直运行</h2>
+    <p>
+      手机和 Mac 之间的一切都经过端到端加密，包括对话和批准。你外出时承载连接的中继无法读取其中内容。
+      安卓应用可以用指纹或面容锁定，借走你手机的人也无法批准命令。
+    </p>
+
+    <h2>费用</h2>
+    <p>
+      智能体、终端和提醒在所有方案中都有。在你自己的网络上免费，没有时间限制；另外每天有 30 分钟中继时间，可从其他网络访问电脑。Pro（每月 $2.99）或终身版（一次性 $24.99）取消每日限制。以上为美国价格，Google Play 会以你的当地货币显示价格。
+    </p>
+
+    <h2>常见问题</h2>
+    <h3>能在安卓上使用 Claude Code 吗？</h3>
+    <p>Claude Code 运行在电脑上，而不是手机上。有了 Peering，它继续在你的 Mac 上运行，安卓应用显示它的对话，让你开启新对话、回答它的问题并批准命令。</p>
+    <h3>也支持 Codex 和 OpenCode 吗？</h3>
+    <p>支持。Peering 的智能体视图支持安装在 Mac 上的 Claude Code、Codex 和 OpenCode。</p>
+    <h3>不打开应用能批准命令吗？</h3>
+    <p>能。通知中有允许和拒绝按钮。在安卓上，只要 Peering 在后台保持会话打开，通知就会到达。</p>
+    <h3>Peering 会看到我的代码或 API 密钥吗？</h3>
+    <p>不会。智能体用你自己的凭据在你的 Mac 上运行，手机和 Mac 之间的连接是端到端加密的。</p>
+    <h3>有 Windows 版吗？</h3>
+    <p>Windows 端程序处于早期测试阶段。它有 Claude Code 对话，但还没有改动审阅、提交或推送，而且尚未在真实电脑上运行过。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/zh/download">下载 Mac 版 Peering</a>
+      <a class="btn btn-quiet" href="https://play.google.com/store/apps/details?id=pl.dmq.peering">即将登陆 Google Play</a>
+      <a class="btn btn-quiet" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">获取 iPhone 版应用</a>
+    </div>
+
+    <div class="related">
+      <h2>继续阅读</h2>
+      <ul>
+      <li><a href="/zh/coding-agent-notifications">编程智能体通知</a></li>
+      <li><a href="/zh/control-mac-from-android">用安卓手机远程控制你的 Mac</a></li>
+      <li><a href="/zh/android-tablet-remote-desktop">安卓平板的远程桌面</a></li>
+      <li><a href="/zh/control-windows-pc-from-phone">用手机控制 Windows 电脑（测试版）</a></li>
+      <li><a href="/zh/access-your-mac-from-anywhere">随时随地访问你的 Mac</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/best-remote-desktop-app-for-ipad">最佳 iPad 应用</a>
+      <a href="/zh/apple-remote-desktop-alternative">ARD 替代方案</a>
+      <a href="/zh/apple-remote-desktop-vs-screen-sharing">ARD 与屏幕共享</a>
+      <a href="/zh/screens-vs-jump-desktop">Screens 与 Jump</a>
+      <a href="/zh/rustdesk-alternative-for-mac">RustDesk 替代方案</a>
+      <a href="/zh/control-mac-from-android">安卓控制 Mac</a>
+      <a href="/zh/claude-code-on-android">安卓上的 Claude Code</a>
+      <a href="/zh/chrome-remote-desktop-alternative">Chrome 远程桌面替代方案</a>
+      <a href="/zh/teamviewer-alternative-for-mac">TeamViewer 替代方案</a>
+      <a href="/zh/control-windows-pc-from-phone">手机控制 Windows</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/claude-code-on-android" hreflang="en" lang="en">English</a>
+      <a href="/de/claude-code-on-android" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/claude-code-on-android" hreflang="es" lang="es">Español</a>
+      <a href="/fr/claude-code-on-android" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/claude-code-on-android" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/claude-code-on-android" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/claude-code-on-android" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/claude-code-on-android" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/claude-code-on-android" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/claude-code-on-android" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Android 和 Google Play 是 Google LLC 的商标。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

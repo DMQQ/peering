@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Peering: Remote Desktop für den Mac, vom iPhone aus</title>
-<meta name="description" content="Steuere deinen Mac von überall mit dem iPhone. Einmal koppeln, ohne Konto, Ende-zu-Ende-verschlüsselt und kostenlos im eigenen Netzwerk.">
+<meta name="description" content="Steuere deinen Mac von überall mit dem iPhone. Einmal koppeln, ohne Konto, Ende-zu-Ende-verschlüsselt und kostenlos im eigenen Netzwerk. Android kommt bald, Windows ist in der Beta.">
 <link rel="canonical" href="https://getpeering.app/de/">
 <link rel="alternate" hreflang="en" href="https://getpeering.app/">
 <link rel="alternate" hreflang="de" href="https://getpeering.app/de/">
@@ -24,27 +24,51 @@
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/styles.css">
 
-<!-- What a link to this page looks like when it is pasted into a message, and what a crawler
-     reads. og.png is a 1200x630 card rather than the app icon: every scraper crops to that shape,
-     and a square icon in it is a logo with a lot of nothing around it. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Peering">
 <meta property="og:locale" content="de_DE">
 <meta property="og:url" content="https://getpeering.app/de/">
 <meta property="og:title" content="Peering: Remote Desktop für den Mac, vom iPhone aus">
 <meta property="og:description" content="Der Bildschirm deines Mac, auf deinem iPhone. Koppele die beiden einmal, dann erreichst du deinen Mac von überall, Ende-zu-Ende-verschlüsselt.">
-<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image" content="https://getpeering.app/assets/og/home-de.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Peering Remote Desktop auf einem Mac und iPhone neben der Botschaft: Dein Mac. Auf deinem iPhone. Überall.">
+<meta property="og:image:alt" content="Peering: Remote Desktop für den Mac, vom iPhone aus">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Peering: Remote Desktop für den Mac, vom iPhone aus">
 <meta name="twitter:description" content="Der Bildschirm deines Mac, auf deinem iPhone. Koppele die beiden einmal, dann erreichst du deinen Mac von überall, Ende-zu-Ende-verschlüsselt.">
-<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
-<meta name="twitter:image:alt" content="Peering Remote Desktop auf einem Mac und iPhone neben der Botschaft: Dein Mac. Auf deinem iPhone. Überall.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/home-de.png">
+<meta name="twitter:image:alt" content="Peering: Remote Desktop für den Mac, vom iPhone aus">
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://getpeering.app/#organization",
+      "name": "Peering",
+      "url": "https://getpeering.app/",
+      "logo": "https://getpeering.app/assets/favicon-192.png",
+      "sameAs": [
+        "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://getpeering.app/de/#website",
+      "name": "Peering",
+      "url": "https://getpeering.app/de/",
+      "inLanguage": "de",
+      "publisher": {
+        "@id": "https://getpeering.app/#organization"
+      }
+    }
+  ]
+}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -53,11 +77,11 @@
   "name": "Peering",
   "url": "https://getpeering.app/de/",
   "applicationCategory": "UtilitiesApplication",
-  "operatingSystem": "iOS, macOS",
+  "operatingSystem": "iOS, iPadOS, macOS, Android, Windows",
   "description": "Der Bildschirm deines Mac, auf deinem iPhone. Koppele sie einmal in deinem eigenen Netzwerk, dann erreichst du deinen Mac von überall, Ende-zu-Ende-verschlüsselt und direkt zwischen den beiden.",
   "downloadUrl": "https://getpeering.app/download",
   "installUrl": "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408",
-  "screenshot": "https://getpeering.app/assets/og.png",
+  "screenshot": "https://getpeering.app/assets/og/home-de.png",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -141,7 +165,7 @@
       "name": "Auf welchen Macs und iPhones läuft es?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Auf jedem Mac mit macOS 15 (Sequoia) oder neuer, mit Apple Silicon oder Intel. Auf jedem iPhone oder iPad mit iOS 18 oder neuer, auch auf älteren Geräten, die nicht auf iOS 26 aktualisiert werden können."
+        "text": "Auf jedem Mac mit macOS 15 (Sequoia) oder neuer, mit Apple Silicon oder Intel. Auf jedem iPhone oder iPad mit iOS 18 oder neuer, auch auf älteren Geräten, die nicht auf iOS 26 aktualisiert werden können. Android-Telefone und -Tablets ab Android 10 kommen bald zu Google Play, und ein früher Host für Windows ist in der Beta."
       }
     },
     {
@@ -202,7 +226,6 @@
 
 <main id="main">
 
-  <!-- Hero -->
   <section class="hero" id="top">
     <div class="glow" aria-hidden="true"></div>
     <div class="wrap hero-inner">
@@ -220,13 +243,6 @@
         </div>
       </div>
 
-      <!-- Two real screenshots, in drawn frames rather than rendered ones: the two ends of one
-           product, the Mac it reaches and the phone it reaches from.
-
-           app-mac.webp is the whole of this Mac's display at 1512 by 982, which is the proportion
-           the frame draws. A screen-shaped picture of a screen is what a screenshot is; the frame
-           supplies the machine around it, including the notch, which no screenshot can contain
-           because it is not something the display draws but something it is missing. -->
       <div class="hero-stage">
       <div class="stage">
         <div class="mac" aria-label="Die Peering-Host-App auf einem Mac">
@@ -250,7 +266,6 @@
     </div>
   </section>
 
-  <!-- How it works -->
   <section class="section" id="how">
     <div class="wrap">
       <h2>Einmal koppeln. Danach ist es einfach da.</h2>
@@ -291,7 +306,45 @@
     </div>
   </section>
 
-  <!-- Features -->
+  <section class="section" id="platforms">
+    <div class="wrap">
+      <h2>Wo es läuft</h2>
+      <p class="section-lede">Zwei Seiten: das Telefon oder Tablet in deiner Hand und der Computer, den es erreicht.</p>
+
+      <div class="grid platforms">
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.8" width="10" height="18.4" rx="2.4"/><path d="M10.6 5.4h2.8"/></svg>
+          <h3>iPhone und iPad</h3>
+          <p>iOS 18 oder neuer.</p>
+          <p><a href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">Die iPhone-App holen</a></p>
+        </div>
+
+        <div class="card feature">
+          <span class="feature-tag">Bald verfügbar</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.4" y="3.2" width="15.2" height="17.6" rx="2.2"/><path d="M10.8 18.2h2.4"/></svg>
+          <h3>Android-Telefone und -Tablets</h3>
+          <p>Android 10 oder neuer. Bald bei Google Play.</p>
+          <p>Dieselbe Kopplung und dieselben Tarife wie auf dem iPhone: kostenlos im eigenen Netzwerk mit 30 Minuten Relay-Zeit am Tag, oder Pro monatlich oder Lebenslang ohne Grenze.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="9.6" rx="1.6"/><path d="M2.8 18.4h18.4"/></svg>
+          <h3>Mac</h3>
+          <p>macOS 15 (Sequoia) oder neuer, Apple Silicon oder Intel. Der Host, der den Bildschirm teilt.</p>
+          <p><a href="/de/download">Für den Mac laden</a></p>
+        </div>
+
+        <div class="card feature">
+          <span class="feature-tag">Beta</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="11.6" rx="1.8"/><path d="M8.4 19.6h7.2"/><path d="M12 16v3.6"/></svg>
+          <h3>Windows-PC</h3>
+          <p>Ein früher Peering Host für Windows: ein Bildschirm oder ein Fenster, Maus und Tastatur, Terminals und Chat mit Claude Code.</p>
+          <p>Er lief noch auf keinem echten PC und kann weniger als der Mac-Host. Früher Zugang per E-Mail an <a href="/de/support">support@getpeering.app</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="section" id="features">
     <div class="wrap">
       <h2>Was es kann</h2>
@@ -561,7 +614,6 @@
     </div>
   </section>
 
-  <!-- Privacy -->
   <section class="section" id="privacy">
     <div class="wrap">
       <h2>Ende-zu-Ende-verschlüsselt. Das Relay ist nicht beteiligt.</h2>
@@ -614,7 +666,6 @@
     </div>
   </section>
 
-  <!-- Pricing -->
   <section class="section" id="pricing">
     <div class="wrap">
       <h2>Preise</h2>
@@ -816,7 +867,6 @@
     </div>
   </section>
 
-  <!-- FAQ -->
   <section class="section" id="faq">
     <div class="wrap">
       <h2>Fragen</h2>
@@ -905,7 +955,7 @@
           <summary>Auf welchen Macs und iPhones läuft es?</summary>
           <p>
             Auf jedem Mac mit macOS 15 (Sequoia) oder neuer, mit Apple Silicon oder Intel. Auf jedem iPhone oder
-            iPad mit iOS 18 oder neuer, auch auf älteren Geräten, die nicht auf iOS 26 aktualisiert werden können.
+            iPad mit iOS 18 oder neuer, auch auf älteren Geräten, die nicht auf iOS 26 aktualisiert werden können. Android-Telefone und -Tablets ab Android 10 kommen bald zu Google Play, und ein früher Host für Windows ist in der Beta.
           </p>
         </details>
         <details>
@@ -951,10 +1001,20 @@
       <a href="/de/coding-agent-notifications">Coding-Agenten</a>
       <a href="/de/remote-desktop-apps-compared">Apps im Vergleich</a>
       <a href="/de/screens-alternative">Screens-Alternative</a>
+      <a href="/de/best-remote-desktop-app-for-ipad">Beste App fürs iPad</a>
+      <a href="/de/apple-remote-desktop-alternative">ARD-Alternativen</a>
+      <a href="/de/apple-remote-desktop-vs-screen-sharing">ARD vs. Bildschirmfreigabe</a>
+      <a href="/de/screens-vs-jump-desktop">Screens vs. Jump</a>
+      <a href="/de/rustdesk-alternative-for-mac">RustDesk-Alternative</a>
+      <a href="/de/control-mac-from-android">Mac mit Android steuern</a>
+      <a href="/de/claude-code-on-android">Claude Code auf Android</a>
+      <a href="/de/chrome-remote-desktop-alternative">Chrome-Remote-Desktop-Alternative</a>
+      <a href="/de/teamviewer-alternative-for-mac">TeamViewer-Alternative</a>
+      <a href="/de/control-windows-pc-from-phone">Windows vom Handy</a>
       <a href="/de/download">Download</a>
       <a href="/de/privacy">Datenschutz</a>
       <a href="/de/terms">Nutzungsbedingungen</a>
-      <a href="mailto:support@getpeering.app">Support</a>
+      <a href="/de/support">Support</a>
     </nav>
     <nav class="foot-links" aria-label="Languages">
       <a href="/" hreflang="en" lang="en">English</a>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Windows-PC vom Handy aus steuern (Beta) · Peering</title>
+<meta name="description" content="Peering Host für Windows ist eine frühe Beta: Bildschirm, Maus, Tastatur, Terminals und Claude-Code-Chat auf dem Handy. Was geht und was nicht.">
+<link rel="canonical" href="https://getpeering.app/de/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/control-windows-pc-from-phone">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/control-windows-pc-from-phone">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="de_DE">
+<meta property="og:url" content="https://getpeering.app/de/control-windows-pc-from-phone">
+<meta property="og:title" content="Windows-PC vom Handy aus steuern (Beta) · Peering">
+<meta property="og:description" content="Peering Host für Windows ist eine frühe Beta: Bildschirm, Maus, Tastatur, Terminals und Claude-Code-Chat auf dem Handy. Was geht und was nicht.">
+<meta property="og:image" content="https://getpeering.app/assets/og/remote-desktop-windows-from-phone.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Windows-PC vom Handy aus steuern (Beta) · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Windows-PC vom Handy aus steuern (Beta) · Peering">
+<meta name="twitter:description" content="Peering Host für Windows ist eine frühe Beta: Bildschirm, Maus, Tastatur, Terminals und Claude-Code-Chat auf dem Handy. Was geht und was nicht.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/remote-desktop-windows-from-phone.png">
+<meta name="twitter:image:alt" content="Windows-PC vom Handy aus steuern (Beta) · Peering">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Peering",
+  "url": "https://getpeering.app/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Android 10 oder neuer, iOS 18 oder neuer, macOS 15 oder neuer",
+  "description": "Peering Host für Windows ist eine frühe Beta: Bildschirm, Maus, Tastatur, Terminals und Claude-Code-Chat auf dem Handy. Was geht und was nicht.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "inLanguage": "de"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "de",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Kann ich mit Peering einen Windows-PC vom Handy aus steuern?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In einer frühen Beta. Der Windows-Host ist gebaut und im Code getestet, lief aber noch nie auf einem echten PC. Frühen Zugang bekommst du über support@getpeering.app."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Welche Handys können den Windows-Host steuern?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Die Peering-Apps für Android, bald in Google Play, und für iPhone und iPad."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Warum warnt Windows mich beim Starten?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Das Installationsprogramm der Beta ist noch nicht codesigniert, deshalb erkennt SmartScreen den Herausgeber nicht. Wähle „Weitere Informationen“ und dann „Trotzdem ausführen“, wenn du der Quelle vertraust."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Braucht der Windows-Host Administratorrechte?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nein. Das Installationsprogramm installiert nur für den aktuellen Benutzer."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Kann er Claude Code vom Handy aus ausführen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja, der Windows-Host hat den Claude-Code-Chat mit Freigaben auf dem Handy, aber noch keine Änderungsprüfung, kein Commit und kein Push."
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/de/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Windows-PC vom Handy aus steuern",
+      "item": "https://getpeering.app/de/control-windows-pc-from-phone"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/de/" aria-label="Peering, Startseite">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Seiten">
+      <a href="/de/">Start</a>
+      <a href="/de/how-to-pair-iphone-mac">Kopplungsanleitung</a>
+      <a href="/de/access-your-mac-from-anywhere">Von überall</a>
+      <a href="/de/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Windows-PC vom Handy aus steuern: eine frühe Beta</h1>
+    <p class="updated">Geschrieben von den Leuten, die Peering bauen, November 2026. Lies zuerst den folgenden Kasten.</p>
+
+    <div class="card callout">
+      <strong>Ganz offen:</strong> Peering Host für Windows ist gebaut und besteht seine Tests, lief
+      aber noch nie auf einem echten Windows-PC. Er steht nicht auf der Download-Seite. Willst du ihn
+      früh ausprobieren und uns sagen, was kaputtgeht, schreib an
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a>. Brauchst du etwas, das
+      heute unter Windows funktioniert, sagen dir die Seiten zu
+      <a href="/de/chrome-remote-desktop-alternative">Chrome Remote Desktop</a> und
+      <a href="/de/teamviewer-alternative-for-mac">TeamViewer</a>, was du stattdessen nutzen kannst.
+    </div>
+
+    <h2>Was der Windows-Host ist</h2>
+    <p>
+      Dieselben Peering-Apps fürs Handy, die einen Mac steuern, können sich mit einem Windows-PC
+      koppeln, auf dem Peering Host läuft. Er sitzt im Infobereich der Taskleiste, zeigt in seinem
+      Fenster einen sechsstelligen Kopplungscode, nimmt gekoppelte Handys in deinem Netzwerk und über
+      das Relay an und lässt den Schlüssel jedes Geräts von Windows schützen. Das Handy zeigt den PC
+      in seiner Liste mit dem Hinweis Beta.
+    </p>
+
+    <h2>Was gebaut ist</h2>
+    <ul>
+      <li><strong>Das Bild</strong>: ein Display oder ein Fenster, als hardwarekodiertes H.264 mit 15, 30 oder 60 Bildern pro Sekunde, mit eingezeichnetem Zeiger.</li>
+      <li><strong>Eingabe</strong>: Maus, Tastatur und Text, samt Trackpad-Modus und Mehrfinger-Gesten vom Handy.</li>
+      <li><strong>Ton</strong> vom PC und eine gemeinsame Zwischenablage.</li>
+      <li><strong>Terminals</strong>: Shells auf dem PC in der Handy-App.</li>
+      <li><strong>Claude-Code-Chat</strong>, mit Freigaben und beendeten Runden als Hinweis aufs Handy.</li>
+      <li><strong>Dateien</strong>: die Ordner des PCs durchsuchen und Dateien laden, Ordner als ZIP.</li>
+      <li><strong>Erreichbarkeit</strong>: dieselbe verschlüsselte Kopplung, LAN-Erkennung und dasselbe Relay wie beim Mac.</li>
+    </ul>
+
+    <h2>Was nicht gebaut ist</h2>
+    <ul>
+      <li>App-Quellen, Vorschaubilder und die Fensterübersicht als Mosaik.</li>
+      <li>Virtuelle Desktops, virtuelle Displays und ein Sichtschutz.</li>
+      <li>Den PC wach halten und Weckzeitpläne.</li>
+      <li>Die Änderungen eines Agenten prüfen, Commit und Push vom Handy.</li>
+      <li>Codesignatur. Windows SmartScreen warnt beim ersten Start des Hosts, weil der Herausgeber noch nicht verifiziert ist.</li>
+    </ul>
+
+    <figure class="card doc-figure" style="max-width: 340px; margin-left: auto; margin-right: auto;">
+      <img src="/assets/android/android-pair.webp" width="540" height="960" loading="lazy" decoding="async"
+        alt="Peering auf Android mit der Liste vertrauenswürdiger Computer, einem MacBook Pro und einem als Beta markierten Windows-PC, und einem Feld für den sechsstelligen Kopplungscode.">
+      <figcaption>Die Liste der vertrauenswürdigen Computer, mit einem als Beta markierten Windows-PC neben einem Mac.</figcaption>
+    </figure>
+
+    <h2>Wer es jetzt ausprobieren sollte</h2>
+    <p>
+      Wer mit einer Beta umgehen kann: wer ein unsigniertes Installationsprogramm ausführt, eine
+      Logdatei liest, wenn etwas nicht erscheint, und uns schickt, was er sieht. Das
+      Installationsprogramm installiert pro Benutzer, braucht keine Administratorrechte und kann den
+      Host bei der Anmeldung starten. Der Quellcode liegt im Repository, falls du ihn lieber selbst
+      baust.
+    </p>
+
+    <h2>Die Seite des Handys</h2>
+    <p>
+      Nutze die <a href="/de/control-mac-from-android">Android-App</a> (bald in Google Play) oder
+      die iPhone-App. Android blendet die Bedienelemente aus, die ein Windows-Host nicht unterstützt.
+      Die iPhone-App zeigt derzeit noch einige Mac-Bedienelemente, die der Windows-Host ignoriert.
+    </p>
+
+    <h2>Preise</h2>
+    <p>
+      Wie beim Mac: kostenlos im eigenen Netzwerk, 30 Minuten Relay-Zeit pro Tag aus anderen
+      Netzwerken und Pro oder Lifetime für unbegrenzt. Der Tarif gehört zum Handy und gilt deshalb
+      für jeden Computer, den du koppelst.
+    </p>
+
+    <h2>Fragen</h2>
+    <h3>Kann ich mit Peering einen Windows-PC vom Handy aus steuern?</h3>
+    <p>In einer frühen Beta. Der Windows-Host ist gebaut und im Code getestet, lief aber noch nie auf einem echten PC. Frühen Zugang bekommst du über support@getpeering.app.</p>
+    <h3>Welche Handys können den Windows-Host steuern?</h3>
+    <p>Die Peering-Apps für Android, bald in Google Play, und für iPhone und iPad.</p>
+    <h3>Warum warnt Windows mich beim Starten?</h3>
+    <p>Das Installationsprogramm der Beta ist noch nicht codesigniert, deshalb erkennt SmartScreen den Herausgeber nicht. Wähle „Weitere Informationen“ und dann „Trotzdem ausführen“, wenn du der Quelle vertraust.</p>
+    <h3>Braucht der Windows-Host Administratorrechte?</h3>
+    <p>Nein. Das Installationsprogramm installiert nur für den aktuellen Benutzer.</p>
+    <h3>Kann er Claude Code vom Handy aus ausführen?</h3>
+    <p>Ja, der Windows-Host hat den Claude-Code-Chat mit Freigaben auf dem Handy, aber noch keine Änderungsprüfung, kein Commit und kein Push.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/de/download">Peering für Mac laden</a>
+      <a class="btn btn-quiet" href="https://play.google.com/store/apps/details?id=pl.dmq.peering">Google Play, bald verfügbar</a>
+      <a class="btn btn-quiet" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">iPhone-App laden</a>
+    </div>
+
+    <div class="related">
+      <h2>Weiterlesen</h2>
+      <ul>
+      <li><a href="/de/control-mac-from-android">Mac mit dem Android-Handy fernsteuern</a></li>
+      <li><a href="/de/claude-code-on-android">Claude Code auf Android</a></li>
+      <li><a href="/de/chrome-remote-desktop-alternative">Eine Alternative zu Chrome Remote Desktop</a></li>
+      <li><a href="/de/teamviewer-alternative-for-mac">Eine TeamViewer-Alternative für deinen eigenen Mac</a></li>
+      <li><a href="/de/remote-desktop-apps-compared">Remote-Desktop-Apps im Vergleich</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Anleitungen, Rechtliches und Support">
+      <a href="/de/how-to-pair-iphone-mac">Kopplungsanleitung</a>
+      <a href="/de/remote-desktop-for-mac">Remote-Desktop</a>
+      <a href="/de/access-your-mac-from-anywhere">Von überall</a>
+      <a href="/de/keep-mac-awake-for-remote-access">Mac zu Hause</a>
+      <a href="/de/coding-agent-notifications">Coding-Agenten</a>
+      <a href="/de/remote-desktop-apps-compared">Apps im Vergleich</a>
+      <a href="/de/screens-alternative">Screens-Alternative</a>
+      <a href="/de/best-remote-desktop-app-for-ipad">Beste App fürs iPad</a>
+      <a href="/de/apple-remote-desktop-alternative">ARD-Alternativen</a>
+      <a href="/de/apple-remote-desktop-vs-screen-sharing">ARD vs. Bildschirmfreigabe</a>
+      <a href="/de/screens-vs-jump-desktop">Screens vs. Jump</a>
+      <a href="/de/rustdesk-alternative-for-mac">RustDesk-Alternative</a>
+      <a href="/de/control-mac-from-android">Mac mit Android steuern</a>
+      <a href="/de/claude-code-on-android">Claude Code auf Android</a>
+      <a href="/de/chrome-remote-desktop-alternative">Chrome-Remote-Desktop-Alternative</a>
+      <a href="/de/teamviewer-alternative-for-mac">TeamViewer-Alternative</a>
+      <a href="/de/control-windows-pc-from-phone">Windows vom Handy</a>
+      <a href="/de/download">Download</a>
+      <a href="/de/privacy">Datenschutz</a>
+      <a href="/de/terms">Nutzungsbedingungen</a>
+      <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/control-windows-pc-from-phone" hreflang="en" lang="en">English</a>
+      <a href="/de/control-windows-pc-from-phone" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/control-windows-pc-from-phone" hreflang="es" lang="es">Español</a>
+      <a href="/fr/control-windows-pc-from-phone" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/control-windows-pc-from-phone" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/control-windows-pc-from-phone" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/control-windows-pc-from-phone" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/control-windows-pc-from-phone" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/control-windows-pc-from-phone" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/control-windows-pc-from-phone" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Android und Google Play sind Marken der Google LLC. Apple, iPhone und Mac sind Marken der Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>
