@@ -169,8 +169,8 @@ def set_price(token, sub_id, pid):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--issuer-id", default=os.environ.get("ASC_ISSUER_ID"))
-    parser.add_argument("--key-id",    default=os.environ.get("ASC_KEY_ID",    "YFJNLCD96P"))
-    parser.add_argument("--key-path",  default=os.environ.get("ASC_KEY_PATH",  "/Users/dmq/Downloads/AuthKey_YFJNLCD96P.p8"))
+    parser.add_argument("--key-id",    default=os.environ.get("ASC_KEY_ID"))
+    parser.add_argument("--key-path",  default=os.environ.get("ASC_KEY_PATH"))
     parser.add_argument("--app-id",    default=os.environ.get("ASC_APP_ID",    "6812658408"))
     parser.add_argument("--group-id",  default=os.environ.get("ASC_GROUP_ID"),
                         help="Reuse an existing group ID instead of creating a new one")

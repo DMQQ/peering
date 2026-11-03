@@ -45,7 +45,7 @@ build phases.
 ```bash
 # Build the iOS client for the physical device
 xcodebuild -project Peering.xcodeproj -scheme Peering \
-  -destination 'id=8A51FAD5-A897-57CD-9C09-395D9F2C258A' build
+  -destination 'id=<device-id>' build
 
 # Build/run the host
 xcodebuild -project Peering.xcodeproj -scheme PeeringHost -configuration Debug build
@@ -62,9 +62,9 @@ cd RemoteCore && swift test
 # build from some *earlier* session, which looks exactly like your changes not being there. Check
 # `ls -l` on the product before installing if in doubt. (`devicectl list devices` for the current
 # UDID; it is per-machine and does change.)
-xcrun devicectl device install app --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
+xcrun devicectl device install app --device <device-id> \
   ~/Library/Developer/Xcode/DerivedData/Peering-*/Build/Products/Release-iphoneos/Peering.app
-xcrun devicectl device process launch --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
+xcrun devicectl device process launch --device <device-id> \
   pl.dmq.peering
 
 # Read the host log  (NOTE: /usr/bin/log explicitly: see trap #1)
@@ -525,11 +525,6 @@ recent commits/notes for the outcome before re-investigating from scratch.
 
 ## 9. Reference
 
-- Approved plan: `/Users/dmq/.claude/plans/partitioned-dancing-lightning.md`, contains the full
-  design rationale and a list of **verified defects in the original spec's sample code**
-  (message framing missing entirely, three `CGEvent` calls that don't compile, a `CGSize`/`Data`
-  mismatch, a leaked connection, etc.). Worth reading before assuming the spec is correct.
-- iOS device id (iPhone 15 Pro Max): `8A51FAD5-A897-57CD-9C09-395D9F2C258A`
 - Bundle ids: `pl.dmq.peering` (iOS), `pl.dmq.peering.host` (Mac). Keychain pin services are
   `pl.dmq.peering.client.pins` (client) and `pl.dmq.peering.pins` (host). The repo, the targets
   and the schemes are all named Peering.
