@@ -332,11 +332,9 @@ mod tests {
     #[test]
     fn the_picture_of_a_window_that_is_gone_is_dropped() {
         let mut service = CatalogueService::new();
-        let displays = [display(1, true, 1920)];
         let picture = serde_json::json!({ "width": 1, "height": 1, "jpegData": "AQI=" });
         service.set_picture("window:7", picture.clone());
         service.keep_pictures_of(&std::collections::HashSet::new());
         assert!(service.set_picture("window:7", picture));
-        let _ = displays;
     }
 }

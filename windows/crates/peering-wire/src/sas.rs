@@ -8,6 +8,9 @@ pub const COMMITMENT_DOMAIN: &[u8] = b"MacCast-Pairing-commit-v1";
 pub const SAS_DOMAIN: &[u8] = b"MacCast-Pairing-SAS-v1";
 pub const PROOF_DOMAIN: &[u8] = b"MacCast-Pairing-proof-v1";
 pub const DIGIT_COUNT: usize = 6;
+/// The QR secret is 16 bytes. Anything shorter means the host's generator failed, and an HMAC under an empty key
+/// is one anyone can compute.
+pub const MIN_SECRET_BYTES: usize = 16;
 
 pub fn commitment(ephemeral_public_key: &[u8], nonce: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
@@ -69,6 +72,9 @@ impl PairingTranscript {
     }
 
     pub fn verify_proof(&self, proof: &[u8], secret: &[u8]) -> bool {
+        if secret.len() < MIN_SECRET_BYTES {
+            return false;
+        }
         proof.ct_eq(&self.proof(secret)).into()
     }
 }
@@ -122,6 +128,14 @@ mod tests {
         assert_eq!(t.proof(&secret), proof);
         assert!(t.verify_proof(&proof, &secret));
         assert!(!t.verify_proof(&proof, b"another secret!!"));
+    }
+
+    #[test]
+    fn proof_under_an_empty_or_short_secret_is_rejected() {
+        let (t, _) = from_vector();
+        assert!(!t.verify_proof(&t.proof(b""), b""));
+        assert!(!t.verify_proof(&t.proof(&[7u8; 15]), &[7u8; 15]));
+        assert!(t.verify_proof(&t.proof(&[7u8; 16]), &[7u8; 16]));
     }
 
     #[test]
