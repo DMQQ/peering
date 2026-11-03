@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,11 +30,14 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.remote.KeyboardPresenter
+import pl.dmq.peering.feature.remote.SoftKeyboardEdit
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.kit.tappable
@@ -45,7 +49,9 @@ import pl.dmq.peering.ui.theme.PillShape
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RemoteDockTypingField(keyboard: KeyboardPresenter, onDone: () -> Unit, modifier: Modifier = Modifier) {
-    var typed by remember { mutableStateOf("") }
+    var field by remember { mutableStateOf(fieldOf("")) }
+    val typed = field.text.removePrefix(SoftKeyboardEdit.SENTINEL)
+    val preview by keyboard.typedPreview.collectAsState()
     val focus = remember { FocusRequester() }
     val ime = LocalSoftwareKeyboardController.current
     val imeShown = WindowInsets.isImeVisible
@@ -53,6 +59,10 @@ fun RemoteDockTypingField(keyboard: KeyboardPresenter, onDone: () -> Unit, modif
     LaunchedEffect(Unit) {
         focus.requestFocus()
         ime?.show()
+    }
+    // The line follows the computer: a delete from the dock's own key, or the field's text read back from the Mac.
+    LaunchedEffect(preview) {
+        if (preview != typed) field = fieldOf(preview)
     }
     LaunchedEffect(imeShown) {
         if (imeWasShown && !imeShown) onDone()
@@ -65,18 +75,18 @@ fun RemoteDockTypingField(keyboard: KeyboardPresenter, onDone: () -> Unit, modif
         Box(Modifier.weight(1f)) {
             if (typed.isEmpty()) Text(stringResource(R.string.dock_type_hint), style = PeeringText.body, color = PeeringColors.muted, maxLines = 1)
             BasicTextField(
-                value = typed,
+                value = field,
                 onValueChange = { next ->
-                    send(keyboard, TypedDiff.of(typed, next))
-                    typed = if (next.length > MAX_KEPT) "" else next
+                    send(keyboard, SoftKeyboardEdit.between(field.text, next.text))
+                    field = if (next.text.startsWith(SoftKeyboardEdit.SENTINEL)) next else fieldOf(next.text)
                 },
                 singleLine = true,
                 textStyle = PeeringText.body.copy(color = PeeringColors.ink),
                 cursorBrush = SolidColor(PeeringColors.ink),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = {
-                    keyboard.sendKey(RETURN)
-                    typed = ""
+                    keyboard.pressEnter()
+                    field = fieldOf("")
                 }),
                 modifier = Modifier.fillMaxWidth().focusRequester(focus),
             )
@@ -85,9 +95,15 @@ fun RemoteDockTypingField(keyboard: KeyboardPresenter, onDone: () -> Unit, modif
     }
 }
 
+/** Starts with [SoftKeyboardEdit.SENTINEL] so a delete on an empty line still reaches the computer. */
+private fun fieldOf(text: String): TextFieldValue {
+    val withSentinel = SoftKeyboardEdit.SENTINEL + text.removePrefix(SoftKeyboardEdit.SENTINEL)
+    return TextFieldValue(withSentinel, selection = TextRange(withSentinel.length))
+}
+
 private fun send(keyboard: KeyboardPresenter, diff: TypedDiff) {
-    repeat(diff.deleted) { keyboard.sendKey(DELETE) }
-    if (diff.appended.isNotEmpty()) keyboard.onSoftKeyboardText(diff.appended)
+    repeat(diff.deleted) { keyboard.onSoftKeyboardDelete() }
+    keyboard.onSoftKeyboardText(diff.appended)
 }
 
 @Composable
@@ -101,6 +117,3 @@ private fun HideKeyboardButton(onClick: () -> Unit) {
     }
 }
 
-private const val RETURN = 36
-private const val DELETE = 51
-private const val MAX_KEPT = 200

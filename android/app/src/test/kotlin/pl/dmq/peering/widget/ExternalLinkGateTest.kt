@@ -19,11 +19,14 @@ class ExternalLinkGateTest {
     }
 
     @Test
-    fun `a connect or chat link runs at once when the app is open`() {
-        val gate = open()
+    fun `a connect, chat or pairing link asks first and runs only on a yes`() {
+        for (link in listOf(connect, WidgetLink.Chat("c", "h"), WidgetLink.Device("h"))) {
+            val gate = open()
 
-        assertEquals(connect, gate.submit(connect, hasLiveSession = true))
-        assertEquals(WidgetLink.Chat("c", "h"), gate.submit(WidgetLink.Chat("c", "h"), hasLiveSession = true))
+            assertNull(gate.submit(link, hasLiveSession = false))
+            assertEquals(link, gate.confirming)
+            assertEquals(link, gate.confirm())
+        }
     }
 
     @Test

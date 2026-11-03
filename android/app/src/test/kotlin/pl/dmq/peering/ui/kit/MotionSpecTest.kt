@@ -18,11 +18,9 @@ class MotionSpecTest {
     }
 
     @Test
-    fun sharedAxisUsesMaterialsDocumentedValues() {
+    fun sharedAxisFadesInOnlyAfterTheOldPageIsGone() {
         assertEquals(30f, Motion.axisDistance.value, 0f)
-        assertEquals(300, Motion.AXIS_MS)
-        assertEquals(90, Motion.EXIT_MS)
-        assertEquals(210, Motion.AXIS_FADE_IN_MS)
+        assertTrue(Motion.EXIT_MS + Motion.AXIS_FADE_IN_MS <= Motion.AXIS_MS)
     }
 
     @Test

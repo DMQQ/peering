@@ -250,6 +250,27 @@ class ClientStateMachineTest {
     }
 
     @Test
+    fun aHostDialledByAddressWhoseKeyIsPinnedIsGreetedAsKnown() {
+        val pins = FakePinStore(mapOf(HostFrames.HOST_ID to HostFrames.hostKey))
+
+        val actions = machine(pins).start()
+
+        val hello = WireJson.decodeFromString(ClientHello.serializer(), actions[1].sentFrame().payload.decodeToString())
+        assertFalse(hello.wantsPairing)
+    }
+
+    @Test
+    fun aRecognisedKeyAnsweringForAnotherIdFails() {
+        val pins = FakePinStore(mapOf(HostFrames.HOST_ID to HostFrames.hostKey))
+        val machine = machine(pins)
+        machine.start()
+
+        val actions = machine.onFrame(HostFrames.serverHello(serverId = "OTHER-ID"))
+
+        assertEquals(listOf(ClientAction.Failed(FailureReason.HostIdMismatch(HostFrames.HOST_ID, "OTHER-ID"))), actions)
+    }
+
+    @Test
     fun aPinnedKeyThatDiffersFromTheTransportKeyFails() {
         val pins = FakePinStore(mapOf(HostFrames.HOST_ID to ByteArray(65) { 0x9 }))
         val machine = machine(pins)

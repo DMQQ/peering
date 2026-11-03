@@ -84,4 +84,11 @@ class ApprovalNoticeTest {
         assertNull(ApprovalNotice.answerFor("choose.x", listOf("A")))
         assertNull(ApprovalNotice.answerFor("open", listOf("A")))
     }
+
+    @Test
+    fun allowIsLeftOffWhenTheSystemCannotRequireAnUnlock() {
+        val notice = ApprovalNotice.of("c1", ask())
+        assertEquals(listOf("deny"), notice.actionsShown(unlockEnforced = false).map { it.id })
+        assertEquals(listOf("deny", "allow"), notice.actionsShown(unlockEnforced = true).map { it.id })
+    }
 }

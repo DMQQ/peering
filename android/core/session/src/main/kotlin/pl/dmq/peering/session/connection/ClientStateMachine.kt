@@ -34,10 +34,14 @@ class ClientStateMachine(
     private var remoteCommitment: ByteArray? = null
     private var transcript: PairingTranscript? = null
 
+    /** The paired host whose key answered a dial by address alone; its hello must then name it. */
+    private var recognisedHostId: String? = null
+
     /**
      * Sends the connection role and the client hello. Call once, before any frame. The hello carries this device's name
      * and resume source and the host only answers a hello, so it cannot wait for the host's id; but when the dialled
-     * host is already pinned its key can be checked first, and a different key gets nothing.
+     * host is already pinned its key can be checked first, and a different key gets nothing. A host dialled by address
+     * alone is known when its key matches a pin; any other key is a new host, and pairing needs the hello.
      */
     fun start(): List<ClientAction> {
         check(state == ClientHandshakeState.Idle) { "the handshake was already started" }
@@ -46,7 +50,10 @@ class ClientStateMachine(
         if (dialled != null && pinned != null && !MessageDigest.isEqual(pinned, config.serverKey)) {
             return fail(FailureReason.PinMismatch(dialled))
         }
-        val knowsHost = pinned != null
+        if (dialled == null) recognisedHostId = pins.hostIds().firstOrNull { id ->
+            pins.pin(id)?.let { MessageDigest.isEqual(it, config.serverKey) } == true
+        }
+        val knowsHost = pinned != null || recognisedHostId != null
         state = ClientHandshakeState.AwaitingServerHello
         return listOf(
             ClientAction.Send(HandshakeFrames.connectionRole()),
@@ -104,7 +111,7 @@ class ClientStateMachine(
         if (hello.protocolVersion != PROTOCOL_VERSION) {
             return fail(FailureReason.ProtocolMismatch(PROTOCOL_VERSION, hello.protocolVersion))
         }
-        val dialled = config.dialledHostId
+        val dialled = config.dialledHostId ?: recognisedHostId
         if (dialled != null && hello.serverID != dialled) {
             return fail(FailureReason.HostIdMismatch(dialled, hello.serverID))
         }

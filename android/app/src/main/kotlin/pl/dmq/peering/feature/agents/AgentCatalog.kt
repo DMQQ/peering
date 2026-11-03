@@ -8,6 +8,8 @@ object AgentCatalog {
         "claude" to "Claude Code",
         "codex" to "Codex",
         "opencode" to "OpenCode",
+        "gemini" to "Gemini CLI",
+        "cursor-agent" to "Cursor",
     )
 
     fun name(id: String): String = names[id] ?: id

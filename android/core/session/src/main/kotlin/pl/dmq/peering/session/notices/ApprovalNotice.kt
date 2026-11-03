@@ -38,6 +38,12 @@ data class ApprovalNotice(
 
     val actions: List<Action> get() = actionsFor(layout)
 
+    /**
+     * The buttons a notification may carry. Before Android 12 the system ignores an action's unlock requirement, so a
+     * button that needs one is left off and only the app can give that answer.
+     */
+    fun actionsShown(unlockEnforced: Boolean): List<Action> = if (unlockEnforced) actions else actions.filterNot { it.requiresAuthentication }
+
     /** The full labels of a question's options, which the action ids index into. */
     val answers: List<String> get() = (layout as? Layout.Options)?.labels.orEmpty()
 

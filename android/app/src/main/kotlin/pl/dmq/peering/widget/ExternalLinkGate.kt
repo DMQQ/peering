@@ -2,7 +2,7 @@ package pl.dmq.peering.widget
 
 /**
  * What a `peering://` link from outside the app may do. Any page or app can open one, so nothing runs behind the app
- * lock, and ending a live session asks a person first. A link held for the lock waits for the unlock; locking drops a
+ * lock, and anything that connects, pairs or ends a live session asks a person first. A link held for the lock waits for the unlock; locking drops a
  * pending question, so a dialog left on screen cannot be accepted behind the lock.
  */
 class ExternalLinkGate {
@@ -10,7 +10,7 @@ class ExternalLinkGate {
     var isLocked: Boolean = true
         private set
 
-    /** The ending link waiting for an answer; the dialog reads it. */
+    /** The link waiting for an answer; the dialog reads it. */
     var confirming: WidgetLink? = null
         private set
 
@@ -22,11 +22,9 @@ class ExternalLinkGate {
             held = link
             return null
         }
-        if (link is WidgetLink.Disconnect && hasLiveSession) {
-            confirming = link
-            return null
-        }
-        return link
+        if (link is WidgetLink.Disconnect && !hasLiveSession) return link
+        confirming = link
+        return null
     }
 
     /** A link held while locked, to be submitted again now that the lock is open. */

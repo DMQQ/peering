@@ -12,7 +12,10 @@ import android.speech.SpeechRecognizer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+
 import pl.dmq.peering.DebugLog
+
+private const val LOG_TAG = "PeeringDictation"
 
 /**
  * Listens through the microphone and turns speech into text, on the device when the recogniser allows it. Used from the
@@ -79,7 +82,7 @@ class VoiceDictation(
             speech.startListening(listenIntent())
             state = State.Listening
         } catch (failure: RuntimeException) {
-            DebugLog.w("PeeringDictation", { "could not start listening" }, failure)
+            DebugLog.w(LOG_TAG, { "could not start listening" }, failure)
             tearDown()
             state = State.Unavailable
         }
@@ -154,7 +157,7 @@ class VoiceDictation(
         try {
             recogniser?.startListening(listenIntent())
         } catch (failure: RuntimeException) {
-            DebugLog.w("PeeringDictation", { "could not listen again" }, failure)
+            DebugLog.w(LOG_TAG, { "could not listen again" }, failure)
             failed(RecogniserError.Unavailable)
         }
     }

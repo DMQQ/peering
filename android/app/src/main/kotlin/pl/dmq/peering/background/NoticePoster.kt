@@ -2,6 +2,7 @@ package pl.dmq.peering.background
 
 import android.app.Notification
 import android.content.Context
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import pl.dmq.peering.DebugLog
@@ -95,7 +96,7 @@ internal class NoticePoster(private val context: Context) : NoticeSink {
     }
 
     private fun actions(notice: Notice, approval: ApprovalNotice): List<NotificationCompat.Action> =
-        approval.actions.map { action ->
+        approval.actionsShown(unlockEnforced = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S).map { action ->
             val title = when (val title = action.title) {
                 ApprovalNotice.Title.Allow -> context.getString(R.string.bg_allow)
                 ApprovalNotice.Title.Deny -> context.getString(R.string.bg_deny)

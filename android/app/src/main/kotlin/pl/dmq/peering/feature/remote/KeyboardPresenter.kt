@@ -85,6 +85,12 @@ class KeyboardPresenter(
 
     /** Presses [macKeyCode] with [modifiers] and whatever is latched, as the dock's keys and the shortcuts do. */
     fun sendKey(macKeyCode: Int, modifiers: Long = 0L) {
+        if (modifiers == 0L && !sticky.hasActive()) {
+            when (macKeyCode) {
+                BACKSPACE_KEY -> preview.value = preview.value.dropLast(1)
+                RETURN_KEY -> preview.value = ""
+            }
+        }
         pressKeyWithoutRelease(macKeyCode, modifiers)
         endKeyPress()
     }

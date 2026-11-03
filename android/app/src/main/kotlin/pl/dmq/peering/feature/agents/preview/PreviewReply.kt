@@ -30,7 +30,7 @@ class PreviewReply(
                 status in REDIRECT_RANGE -> OK
                 else -> status
             }
-            return PreviewReply(shown, reasonPhrase(shown), mime, charset, merged(headers), body)
+            return PreviewReply(shown, reasonPhrase(shown), mime, charset, PreviewShield.withPolicy(merged(headers)), body)
         }
 
         /** A short plain-text answer for a request that could not be carried. */

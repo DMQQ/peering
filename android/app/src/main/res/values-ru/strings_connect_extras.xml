@@ -17,4 +17,8 @@
     <string name="link_end_title">Завершить этот сеанс?</string>
     <string name="link_end_message">Ссылка вне Peering запросила отключение от вашего компьютера.</string>
     <string name="link_end_confirm">Завершить сеанс</string>
+    <string name="link_open_title">Открыть эту ссылку?</string>
+    <string name="link_open_message">Ссылка извне Peering хочет подключиться к одному из ваших компьютеров. Продолжайте, только если открыли её сами.</string>
+    <string name="link_pair_message">Ссылка извне Peering хочет создать пару с компьютером. Продолжайте, только если открыли её сами.</string>
+    <string name="link_open_confirm">Продолжить</string>
 </resources>

@@ -26,7 +26,7 @@ import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.debug.DebugPreview
 import pl.dmq.peering.ui.debug.PREVIEW_EXTRA
 import pl.dmq.peering.ui.nav.PeeringScaffold
-import pl.dmq.peering.ui.EndSessionPrompt
+import pl.dmq.peering.ui.OutsideLinkPrompt
 import pl.dmq.peering.ui.hasLiveSession
 import pl.dmq.peering.ui.openFromWidget
 import pl.dmq.peering.ui.theme.PeeringTheme
@@ -93,7 +93,7 @@ class MainActivity : FragmentActivity(), PermissionHost {
                     else -> PeeringScaffold(connectRequests)
                 }
                 if (!locked) notificationPermission?.let { NotificationExplanation(it) }
-                confirmingLink?.let { EndSessionPrompt(onConfirm = ::confirmLink, onCancel = ::cancelLink) }
+                confirmingLink?.let { OutsideLinkPrompt(it, onConfirm = ::confirmLink, onCancel = ::cancelLink) }
             }
         }
     }
