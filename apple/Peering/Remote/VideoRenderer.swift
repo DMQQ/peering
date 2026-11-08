@@ -192,18 +192,20 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
 
         // No keyframe yet means nothing to decode against: an inter frame here gives a decode error and a flush that costs frames that would have worked.
         let awaitingKeyframe = self.lock.withLock { self.snapshot.awaitingKeyframe }
-        if awaitingKeyframe && !frame.isKeyframe {
+        switch VideoFrameGate.admit(isKeyframe: frame.isKeyframe, awaitingKeyframe: awaitingKeyframe, rendererReady: renderer.isReadyForMoreMediaData) {
+        case .drop:
             self.lock.withLock { self.snapshot.framesDropped += 1 }
             return
-        }
-
-        if !renderer.isReadyForMoreMediaData {
-            // Backpressure: a keyframe is worth flushing for, dropping it extends the wait for a recovery point; an inter frame costs one picture.
-            guard frame.isKeyframe else {
-                self.lock.withLock { self.snapshot.framesDropped += 1 }
-                return
+        case .dropAndAwaitKeyframe:
+            self.lock.withLock {
+                self.snapshot.framesDropped += 1
+                self.snapshot.awaitingKeyframe = true
             }
+            return
+        case .flushThenEnqueue:
             renderer.flush()
+        case .enqueue:
+            break
         }
 
         guard let sample = Self.makeSampleBuffer(frame, format: format) else {
