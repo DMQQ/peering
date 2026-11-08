@@ -63,11 +63,12 @@ final class StreamPacer: @unchecked Sendable {
 
     private func applyPending() async {
         let work = lock.withLock { () -> (stream: SCStream, update: SCStreamConfiguration, rate: Int)? in
-            let refreshing = refreshPending
-            refreshPending = false
             guard let current = attached else { return nil }
             let rate = StreamPacing.streamRate(requested: requested, base: current.baseRate)
-            guard rate != current.appliedRate || refreshing, let copy = current.configuration.copy() as? SCStreamConfiguration else { return nil }
+            let refreshing = refreshPending
+            guard StreamPacing.needsUpdate(applied: current.appliedRate, wanted: rate, redrawRequested: refreshing),
+                  let copy = current.configuration.copy() as? SCStreamConfiguration else { return nil }
+            refreshPending = false
             copy.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(rate))
             return (current.stream, copy, rate)
         }

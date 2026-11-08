@@ -9,6 +9,11 @@ public enum StreamPacing {
         return min(requested, base)
     }
 
+    /// Whether the running stream needs a configuration update: its rate is not the one asked for, or a redraw was requested. A redraw sends the settings unchanged, since a still screen draws nothing and an updated stream draws a frame.
+    public static func needsUpdate(applied: Int, wanted: Int, redrawRequested: Bool) -> Bool {
+        applied != wanted || redrawRequested
+    }
+
     /// Frames per second a stream's `minimumFrameInterval` (value over timescale) asks for, or nil when it sets none.
     public static func rate(intervalValue: Int64, intervalTimescale: Int32) -> Int? {
         guard intervalValue > 0, intervalTimescale > 0 else { return nil }

@@ -37,7 +37,7 @@ public struct KeyframeWait: Sendable {
         }
         guard let askedAt else { return nil }
         let waited = now - askedAt
-        let milliseconds = Int(waited.components.seconds) * 1_000 + Int(waited.components.attoseconds / 1_000_000_000_000_000)
+        let milliseconds = Int(waited / .milliseconds(1))
         return Delivered(waitedMilliseconds: milliseconds, nudged: nudged)
     }
 }
