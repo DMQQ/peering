@@ -179,7 +179,6 @@ extension TerminalHubScreen {
         MacFilesScreen(
             path: nil,
             embedded: true,
-            push: { path.append(.files($0)) },
             close: {},
             preview: { path.append(.filePreview($0)) }
         )

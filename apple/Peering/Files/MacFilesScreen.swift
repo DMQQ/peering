@@ -3,12 +3,13 @@ import RemoteCore
 import SwiftUI
 
 /// The Mac's folders with no shell: the same browser as the terminal's, on a browsing scope. No shell keys or Run button, since there is no shell.
-/// One page per folder, so the swipe back is one level up. The first page has no path of its own and opens where the Mac last left it.
+/// In the hub's Files tab a folder opens in place and only a file opens a page of its own, the preview. As a page on the stack (`embedded` false) it is one page per folder, so the swipe back is one level up. A screen with no path of its own opens where the Mac last left it.
 struct MacFilesScreen: View {
     let path: String?
     /// Living inside the hub's Files tab, which owns the title, the back button and the way out.
     var embedded = false
-    let push: (String) -> Void
+    /// Opens a folder as a new page. Only a screen that is itself a stacked page needs one; an embedded one navigates in place.
+    var push: ((String) -> Void)?
     let close: () -> Void
     let preview: (String) -> Void
 
@@ -16,7 +17,7 @@ struct MacFilesScreen: View {
 
     @State var showsHiddenFiles = false
     @State private var restoredPath: String?
-    /// The folder the first page settled on, so pages pushed above it do not drag it along through the shared browser path.
+    /// The folder shown when this screen has no path of its own: where it opened, then wherever the person has navigated in place. Kept here so pages pushed above it do not drag it along through the shared browser path.
     @State private var home: String?
 
     private var shownPath: String? { path ?? home }
@@ -37,7 +38,7 @@ struct MacFilesScreen: View {
             }
         }
         .background(ColorPalette.backdrop)
-        .modifier(PushedFolderChrome(enabled: !embedded, path: shownPath, floor: floor, push: push, close: close))
+        .modifier(PushedFolderChrome(enabled: !embedded, path: shownPath, floor: floor, push: { push?($0) }, close: close))
         .onAppear {
             guard let id = model.browserID else { return }
             // The scope first: the Mac keeps one only for the connection that made it, and the listing that follows travels after it on the same connection.
@@ -94,7 +95,7 @@ struct MacFilesScreen: View {
                 progress: model.downloadProgress(sessionID: id) ?? model.folderProgress(sessionID: id),
                 onCancelProgress: model.isUploading(sessionID: id) ? { model.cancelUpload(sessionID: id) } : nil,
                 onOpen: { open($0, in: id) },
-                onNavigate: { push($0) },
+                onNavigate: { navigate(to: $0, in: id) },
                 floor: floor,
                 onRevealPath: nil,
                 onReload: { model.listDirectory(shownPath, sessionID: id) },
@@ -133,10 +134,21 @@ struct MacFilesScreen: View {
     private func open(_ entry: RemoteDirectoryEntry, in id: UUID) {
         let path = childPath(entry.name, of: shownPath)
         if entry.isDirectory {
-            push(path)
+            navigate(to: path, in: id)
         } else {
             preview(path)
         }
+    }
+
+    /// In place when embedded: the list below changes folder and nothing is pushed.
+    private func navigate(to target: String, in id: UUID) {
+        guard embedded else {
+            push?(target)
+            return
+        }
+        home = target
+        model.setBrowserPath(target)
+        model.listDirectory(target, sessionID: id)
     }
 }
 
