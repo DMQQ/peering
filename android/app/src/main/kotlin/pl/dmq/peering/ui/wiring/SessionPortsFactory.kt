@@ -54,7 +54,7 @@ internal class SessionPortsFactory(
             quality = quality,
             videoCodecs = codecSupport(),
             log = { message -> DebugLog.d(TAG) { message } },
-            timing = { line -> Log.i("PeeringTiming", line) },
+            timing = { line -> Log.i(TIMING_TAG, line) },
             lanReached = lanAddresses::remember,
             clipboardHistory = clipboardHistory,
             readerContext = Dispatchers.Default,
@@ -74,5 +74,8 @@ internal class SessionPortsFactory(
 }
 
 private const val TAG = "PeeringSession"
+
+/** What `adb logcat -s PeeringTiming` reads: the connect timeline, on release builds too. */
+private const val TIMING_TAG = "PeeringTiming"
 
 private fun ConnectTarget.mayUseRelay(): Boolean = this is ConnectTarget.Relay || (this is ConnectTarget.Paired && relayAllowed)

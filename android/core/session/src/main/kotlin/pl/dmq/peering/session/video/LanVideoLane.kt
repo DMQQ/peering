@@ -84,20 +84,21 @@ internal class LanVideoLane(
             tally.addSent(hello.size)
             mark("video lane role frame sent")
             val decoder = FrameDecoder()
-            var firstBytes = true
-            var firstConfig = true
-            var firstFrame = true
+            val announced = mutableSetOf<String>()
+            fun markOnce(event: String) {
+                if (announced.add(event)) mark(event)
+            }
             transport.received.collect { chunk ->
-                if (firstBytes) mark("video lane first bytes")
-                firstBytes = false
+                markOnce("video lane first bytes")
                 tally.addReceived(chunk.size)
                 decoder.push(chunk)
                 while (true) {
                     val frame: Frame = decoder.next() ?: break
-                    if (frame.kind == MessageKind.VideoConfig && firstConfig) mark("video config received")
-                    if (frame.kind == MessageKind.VideoConfig) firstConfig = false
-                    if (frame.kind == MessageKind.VideoFrame && firstFrame) mark("first video frame received")
-                    if (frame.kind == MessageKind.VideoFrame) firstFrame = false
+                    when (frame.kind) {
+                        MessageKind.VideoConfig -> markOnce("video config received")
+                        MessageKind.VideoFrame -> markOnce("first video frame received")
+                        else -> Unit
+                    }
                     if (router.deliver(frame)) ladder.reset()
                 }
             }

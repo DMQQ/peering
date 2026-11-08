@@ -50,6 +50,9 @@ class ControllerRig(
 
     /** What the controller reported to its debug log. */
     val logged = mutableListOf<String>()
+
+    /** What the controller sent to the timing port, which a release build also reads. */
+    val timed = mutableListOf<String>()
     val remainingReported = mutableListOf<Long>()
 
     /** The local addresses the controller reported reaching hosts at. */
@@ -118,6 +121,7 @@ class ControllerRig(
             override fun powerSaving(): Boolean = powerSaving
         },
         log = { logged += it },
+        timing = { timed += it },
         lanReached = { hostId, address -> reachedOnLan[hostId] = address },
     )
 
