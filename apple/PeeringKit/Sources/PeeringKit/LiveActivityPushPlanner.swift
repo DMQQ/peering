@@ -85,13 +85,20 @@ public struct LiveActivityPushPlanner: Sendable {
     }
 
     /// When an update held back for the rate limit should go, or a card about finished work should come down.
+    ///
+    /// A channel with no push token has no card to end, so its linger clocks are not a deadline: counting them left a past instant that nothing could clear, and the host re-planned in a tight loop.
     public var nextDue: ContinuousClock.Instant? {
         let lingering = channels.values.compactMap { channel -> ContinuousClock.Instant? in
-            guard let due = channel.settledSince?.advanced(by: .seconds(Self.finishedLinger)) else { return nil }
-            guard let token = channel.tokens?.pushToken, let last = lastPushAt[token] else { return due }
+            guard let token = channel.tokens?.pushToken,
+                  let due = channel.settledSince?.advanced(by: .seconds(Self.finishedLinger))
+            else { return nil }
+            guard let last = lastPushAt[token] else { return due }
             return max(due, last.advanced(by: .seconds(Self.minimumGap)))
         }
-        let gone = channels.values.compactMap { $0.droppedSince?.advanced(by: .seconds(Self.droppedLinger)) }
+        let gone = channels.values.compactMap { channel -> ContinuousClock.Instant? in
+            guard channel.tokens?.pushToken != nil else { return nil }
+            return channel.droppedSince?.advanced(by: .seconds(Self.droppedLinger))
+        }
         let gap = held ? lastPushAt.values.map { $0.advanced(by: .seconds(Self.minimumGap)) } : []
         return (lingering + gone + gap).min()
     }

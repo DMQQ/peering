@@ -34,6 +34,16 @@ struct LiveActivityChatTrackerTests {
         #expect(Set(chats.map(\.state)) == [.finished, .failed])
     }
 
+    @Test("a chat that leaves the hold for another state no longer asks to be looked at again", arguments: [AgentSessionState.awaitingApproval, .failed, .exited])
+    func holdEndsWithTheState(next: AgentSessionState) {
+        var tracker = LiveActivityChatTracker()
+        _ = observe(&tracker, [("a", .working)])
+        _ = observe(&tracker, [("a", .idle)], at: 1)
+        #expect(tracker.nextDue != nil)
+        _ = observe(&tracker, [("a", next)], at: 2)
+        #expect(tracker.nextDue == nil)
+    }
+
     @Test("the one that stopped last is listed first")
     func newestFirst() {
         var tracker = LiveActivityChatTracker()

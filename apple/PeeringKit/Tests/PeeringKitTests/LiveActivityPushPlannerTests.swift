@@ -129,6 +129,17 @@ struct LiveActivityPushPlannerTests {
         #expect(ended.first?.event == .end)
     }
 
+    @Test("once the dropped card has ended there is nothing left to wait for")
+    func droppedCardLeavesNoDeadline() {
+        var planner = planner()
+        _ = planner.observe(truth(), presence: .background, now: t0)
+        _ = planner.observe(truth(.dropped), presence: .gone, now: t0.addingTimeInterval(5))
+        let endAt = t0.addingTimeInterval(5 + LiveActivityPushPlanner.droppedLinger)
+        #expect(planner.due(now: endAt).first?.event == .end)
+        #expect(planner.observe(truth(.dropped), presence: .gone, now: endAt.addingTimeInterval(1)).isEmpty)
+        #expect(planner.nextDue == nil)
+    }
+
     @Test("a phone that comes back inside the linger keeps its card")
     func droppedCardSurvivesAReturn() {
         var planner = planner()
