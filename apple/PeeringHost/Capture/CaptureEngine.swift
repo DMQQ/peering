@@ -178,6 +178,11 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         try await stream.updateConfiguration(configuration)
     }
 
+    /// Makes the stream draw a frame even though nothing on screen changed.
+    func refreshFrame() {
+        pacer.refresh()
+    }
+
     /// Nil, or a rate at or above the one the stream started at, restores it.
     func limitFrameRate(to framesPerSecond: Int?) {
         pacer.limit(to: framesPerSecond)

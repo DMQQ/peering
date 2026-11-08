@@ -47,6 +47,8 @@ final class CapturePipeline: @unchecked Sendable {
     /// Held here, not only in the encoder: the encoder can be replaced mid-flight, and a request that dies with the old session leaves the client on a picture that never resolves.
     var awaitsKeyframe = false
     /// Guarded by ``lock``.
+    var keyframeWait = KeyframeWait()
+    /// Guarded by ``lock``.
     var failureLogGate = FailureLogGate()
 
     var _onFrame: (@Sendable (EncodedFrame, CaptureSource) -> Void)?

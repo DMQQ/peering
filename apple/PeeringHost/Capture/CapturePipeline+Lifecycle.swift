@@ -1,6 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
+import PeeringKit
 import RemoteCore
 import ScreenCaptureKit
 import os
@@ -152,6 +153,7 @@ extension CapturePipeline {
             self.source = source
             self.encoder = encoder
             self.awaitsKeyframe = true
+            self.keyframeWait.asked(at: .now)
             self.runningEngine = engine
         }
         encoder.onFrame = { [weak self] encoded in self?.deliver(encoded, source: source) }
