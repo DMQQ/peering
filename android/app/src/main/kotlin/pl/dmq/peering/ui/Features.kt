@@ -50,6 +50,10 @@ import pl.dmq.peering.feature.paywall.RelayAllowanceTracker
 import pl.dmq.peering.ui.wiring.PeeringQualitySource
 import pl.dmq.peering.ui.wiring.PreferencesRelayUsageStore
 import pl.dmq.peering.ui.wiring.relayInUse
+import pl.dmq.peering.ui.wiring.sessionPhases
+import pl.dmq.peering.ui.wiring.WifiLatencyKeeper
+import pl.dmq.peering.platform.net.WifiLatencyLock
+import android.net.wifi.WifiManager
 import pl.dmq.peering.ui.wiring.SessionPortsFactory
 import pl.dmq.peering.ui.wiring.SessionPresence
 import pl.dmq.peering.ui.wiring.SurfacePicture
@@ -120,9 +124,11 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         hostMacs,
     )
     val background = BackgroundWiring(graph.applicationContext, scope, preferences, holder.active, devicePrefs)
+    private val wifiLatency = WifiLatencyLock(graph.applicationContext.getSystemService(WifiManager::class.java))
 
     init {
         scope.launch { relayAllowance.trackSessions(relayInUse(holder.active)) }
+        WifiLatencyKeeper(sessionPhases(holder.active), wifiLatency::acquire, wifiLatency::release).start(scope)
         scope.launch {
             power.saving.drop(1).collect { holder.active.value?.controller?.powerSavingChanged() }
         }
