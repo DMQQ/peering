@@ -116,9 +116,10 @@ private suspend fun PointerInputScope.joystickGestures(
     onLongPress: (Boolean) -> Unit,
 ) {
     val taps = JoystickTapResolver(scope, actions)
+    val tapDistance = TAP_MAX_DISPLACEMENT_DP.dp.toPx()
     awaitEachGesture {
         awaitFirstDown(requireUnconsumed = false)
-        val gesture = JoystickGesture(radius, pointWidth, pointHeight, actions, onKnob, onLongPress)
+        val gesture = JoystickGesture(radius, tapDistance, pointWidth, pointHeight, actions, onKnob, onLongPress)
         val hold = scope.launch {
             delay(LONG_PRESS_MS)
             if (gesture.holdElapsed()) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -138,13 +139,14 @@ private suspend fun PointerInputScope.joystickGestures(
         hold.cancel()
         drain.cancel()
         gesture.release()
-        if (gesture.travelled < TAP_MAX_DISPLACEMENT_PX) taps.resolve(gesture.held)
+        if (gesture.travelled < tapDistance) taps.resolve(gesture.held)
     }
 }
 
 /** One touch: the travel not yet sent, and whether it has become a hold or a drag. */
 private class JoystickGesture(
     private val radius: Float,
+    private val tapDistance: Float,
     private val pointWidth: Double,
     private val pointHeight: Double,
     private val actions: JoystickActions,
@@ -178,7 +180,7 @@ private class JoystickGesture(
     /** True once the finger has gone past tap distance, so the hold timer should stop. */
     fun drag(position: Offset): Boolean {
         val raw = position - Offset(radius, radius)
-        val pastTap = hypot(raw.x, raw.y) > TAP_MAX_DISPLACEMENT_PX
+        val pastTap = hypot(raw.x, raw.y) > tapDistance
         if (pastTap) {
             moved = true
             held = false
@@ -236,5 +238,6 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.awa
 private const val LONG_PRESS_MS = 450L
 private const val SEND_INTERVAL_MS = 16L
 private const val DOUBLE_TAP_MS = 300L
-private const val TAP_MAX_DISPLACEMENT_PX = 8f
+/** In dp, as the iPhone's is in points: 8 raw pixels is under 3 dp on a dense screen, so a tap read as a drag. */
+private const val TAP_MAX_DISPLACEMENT_DP = 8
 private const val MILLIS = 1000.0

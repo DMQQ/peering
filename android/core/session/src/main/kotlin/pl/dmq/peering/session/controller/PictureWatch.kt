@@ -32,6 +32,9 @@ internal class PictureWatch(private val clock: Clock, private val lane: LanVideo
         pausedOnPurpose = paused
     }
 
+    /** Whether a picture has arrived since the watch started or was last restarted. */
+    val hasSeenPicture: Boolean get() = seen
+
     fun noteSeen() {
         seen = true
         automaticNudges = 0

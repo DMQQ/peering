@@ -15,9 +15,10 @@ import pl.dmq.peering.session.history.SessionRecord
 class WifiLatencyKeeperTest {
     private val events = mutableListOf<String>()
     private val phases = MutableStateFlow<SessionPhase?>(null)
+    private val onScreen = MutableStateFlow(true)
     private val connecting = SessionPhase.Connecting(SessionRecord.Path.LAN)
 
-    private fun keeper() = WifiLatencyKeeper(phases, acquire = { events += "acquire" }, release = { events += "release" })
+    private fun keeper() = WifiLatencyKeeper(phases, onScreen, acquire = { events += "acquire" }, release = { events += "release" })
 
     @Test
     fun theLockIsHeldFromTheFirstConnectAttemptAndLetGoWhenTheSessionEnds() = runTest {
@@ -59,6 +60,29 @@ class WifiLatencyKeeperTest {
     fun typingAPairingCodeDoesNotKeepTheRadioAwake() = runTest {
         keeper().start(backgroundScope)
         phases.value = SessionPhase.EnteringPairingCode(attempts = 0)
+        runCurrent()
+
+        assertEquals(listOf("release"), events)
+    }
+
+    @Test
+    fun leavingTheAppLetsTheRadioSleepAndComingBackHoldsItAgain() = runTest {
+        keeper().start(backgroundScope)
+        phases.value = connecting
+        runCurrent()
+        onScreen.value = false
+        runCurrent()
+        onScreen.value = true
+        runCurrent()
+
+        assertEquals(listOf("acquire", "release", "acquire"), events)
+    }
+
+    @Test
+    fun aSessionStartedWhileTheAppIsAwayDoesNotHoldTheLock() = runTest {
+        onScreen.value = false
+        keeper().start(backgroundScope)
+        phases.value = connecting
         runCurrent()
 
         assertEquals(listOf("release"), events)

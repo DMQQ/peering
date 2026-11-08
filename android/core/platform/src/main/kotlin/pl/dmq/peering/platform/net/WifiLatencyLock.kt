@@ -1,6 +1,7 @@
 package pl.dmq.peering.platform.net
 
 import android.net.wifi.WifiManager
+import pl.dmq.peering.platform.PlatformLog
 
 /**
  * Asks the Wi-Fi radio to stay awake for latency while held. Without it an idle radio sleeps between packets, and a
@@ -11,7 +12,12 @@ class WifiLatencyLock(wifi: WifiManager) {
     private val lock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, TAG).apply { setReferenceCounted(false) }
 
     fun acquire() {
-        if (!lock.isHeld) lock.acquire()
+        if (lock.isHeld) return
+        try {
+            lock.acquire()
+        } catch (refused: SecurityException) {
+            PlatformLog.w(TAG, { "the Wi-Fi lock was refused" }, refused)
+        }
     }
 
     fun release() {

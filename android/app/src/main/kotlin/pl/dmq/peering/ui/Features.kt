@@ -128,7 +128,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
 
     init {
         scope.launch { relayAllowance.trackSessions(relayInUse(holder.active)) }
-        WifiLatencyKeeper(sessionPhases(holder.active), wifiLatency::acquire, wifiLatency::release).start(scope)
+        WifiLatencyKeeper(sessionPhases(holder.active), processForeground(), wifiLatency::acquire, wifiLatency::release).start(scope)
         scope.launch {
             power.saving.drop(1).collect { holder.active.value?.controller?.powerSavingChanged() }
         }

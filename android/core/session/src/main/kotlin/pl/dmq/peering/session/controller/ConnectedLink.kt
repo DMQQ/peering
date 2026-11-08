@@ -77,8 +77,10 @@ internal class ConnectedLink(
             firstPictureMarked = true
             mark("first picture frame reached the decoder")
         }
+        // Told once per picture that starts, not per frame: publishing copies the whole session state, and the tick publishes the rest within a quarter of a second.
+        val first = !picture.hasSeenPicture
         noteSeen()
-        onPicture()
+        if (first) onPicture()
     }
     private val streamRecord = StreamRecord(sink)
     private val lanes = VideoLanes(PictureSink(streamRecord, onPicture = seen), clock, route.videoPeer, route.videoToken)
