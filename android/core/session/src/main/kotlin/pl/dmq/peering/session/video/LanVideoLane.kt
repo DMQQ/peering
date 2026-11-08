@@ -27,6 +27,7 @@ internal class LanVideoLane(
     private val expectedPeerKey: ByteArray?,
     sink: VideoSink,
     private val tally: ByteTally,
+    private val mark: (String) -> Unit = {},
 ) {
     private val router = VideoPictureRouter(sink)
     private var ladder = VideoReconnectLadder()
@@ -55,19 +56,23 @@ internal class LanVideoLane(
                 failure = if (opened) PictureFailure.Dropped else PictureFailure.CouldNotOpen
                 return
             }
+            mark("video lane ${if (opened) "closed" else "did not open"}, trying again in $wait")
             delay(wait)
         }
     }
 
     /** One connection from dial to end. True when it opened, whatever ended it. */
     private suspend fun attempt(): Boolean {
+        mark("video lane dialling")
         val transport = try {
             connector.open(ControlRoute.Video(address))
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
+            mark("video lane dial failed: ${error::class.simpleName}")
             return false
         }
+        mark("video lane open")
         val observed = transport.peerPublicKey()
         if (expectedPeerKey == null || observed == null || !observed.contentEquals(expectedPeerKey)) {
             transport.close()
@@ -77,12 +82,22 @@ internal class LanVideoLane(
             val hello = FrameEncoder.encode(MessageKind.ConnectionRole, byteArrayOf(ConnectionRole.Video.byte.toByte()))
             transport.send(hello)
             tally.addSent(hello.size)
+            mark("video lane role frame sent")
             val decoder = FrameDecoder()
+            var firstBytes = true
+            var firstConfig = true
+            var firstFrame = true
             transport.received.collect { chunk ->
+                if (firstBytes) mark("video lane first bytes")
+                firstBytes = false
                 tally.addReceived(chunk.size)
                 decoder.push(chunk)
                 while (true) {
                     val frame: Frame = decoder.next() ?: break
+                    if (frame.kind == MessageKind.VideoConfig && firstConfig) mark("video config received")
+                    if (frame.kind == MessageKind.VideoConfig) firstConfig = false
+                    if (frame.kind == MessageKind.VideoFrame && firstFrame) mark("first video frame received")
+                    if (frame.kind == MessageKind.VideoFrame) firstFrame = false
                     if (router.deliver(frame)) ladder.reset()
                 }
             }

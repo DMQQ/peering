@@ -67,10 +67,16 @@ internal class ConnectedLink(
     private val tally: ByteTally,
     private val note: (String) -> Unit,
     lanPeerKey: ByteArray?,
+    private val mark: (String) -> Unit = {},
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
+    private var firstPictureMarked = false
     private val seen: () -> Unit = {
+        if (!firstPictureMarked) {
+            firstPictureMarked = true
+            mark("first picture frame reached the decoder")
+        }
         noteSeen()
         onPicture()
     }
@@ -80,7 +86,7 @@ internal class ConnectedLink(
     private val picture: PictureWatch = PictureWatch(
         clock,
         lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {
-            LanVideoLane(videoConnector, route.videoPeer, lanPeerKey, PictureSink(streamRecord, selection::onVideoConfig, seen), tally)
+            LanVideoLane(videoConnector, route.videoPeer, lanPeerKey, PictureSink(streamRecord, selection::onVideoConfig, seen), tally, mark)
         },
     )
     private var automatic: AutoQualityPolicy? = null
@@ -214,9 +220,18 @@ internal class ConnectedLink(
                 steerAutomatic()
                 when (picture.takeEscalation()) {
                     PictureEscalation.NONE -> Unit
-                    PictureEscalation.KEYFRAME -> requestKeyframe()
-                    PictureEscalation.REOPEN -> reopenPicture(automatic = true)
-                    PictureEscalation.RECONNECT -> ended.complete(LinkEnd.Lost)
+                    PictureEscalation.KEYFRAME -> {
+                        mark("no picture yet, asking the computer for a keyframe")
+                        requestKeyframe()
+                    }
+                    PictureEscalation.REOPEN -> {
+                        mark("still no picture, reopening it")
+                        reopenPicture(automatic = true)
+                    }
+                    PictureEscalation.RECONNECT -> {
+                        mark("still no picture, replacing the connection")
+                        ended.complete(LinkEnd.Lost)
+                    }
                 }
                 if (liveness.isSilent(clock.monotonicSeconds(), SilencePolicy.limitSeconds(backgrounded))) ended.complete(LinkEnd.Lost)
                 onTick()

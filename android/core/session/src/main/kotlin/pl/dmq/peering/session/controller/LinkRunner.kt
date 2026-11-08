@@ -90,6 +90,7 @@ internal class LinkRunner(
             }
         }
         recorder.note("control connection open over ${route.path}")
+        recorder.mark("dial finished")
         update { if (it.phase is SessionPhase.Connecting) it.copy(phase = SessionPhase.Connecting(route.path)) else it }
         try {
             serveRoute(route)
@@ -201,6 +202,7 @@ internal class LinkRunner(
         onReady()
         if (phoneBackgrounded()) live.reportBackground(true)
         recorder.note("session ready with ${hello.hostName} over ${route.path}")
+        recorder.mark("handshake done")
         if (route.path == SessionRecord.Path.LAN) ports.lanReached(hello.serverID, route.videoPeer)
         recorder.begin(hello, route.path)
         update {
@@ -242,6 +244,7 @@ internal class LinkRunner(
         clipboard = ports.clipboardHistory,
         tally = recorder.tally,
         note = recorder::note,
+        mark = recorder::mark,
         lanPeerKey = ports.pins.pin(hello.serverID) ?: route.transport.peerPublicKey(),
     )
 

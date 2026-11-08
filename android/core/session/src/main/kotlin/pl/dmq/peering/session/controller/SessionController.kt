@@ -82,6 +82,8 @@ class SessionController(
         if (job?.isActive == true) return
         runner.forgetReadiness()
         reconnect = ReconnectSupervisor(ports.clock)
+        recorder.restartTiming()
+        recorder.mark("connect requested")
         update { it.copy(phase = SessionPhase.Connecting(target.path)) }
         job = scope.launch { lifecycle() }
         handoverJob?.cancel()

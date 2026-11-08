@@ -11,6 +11,20 @@ internal class SessionRecorder(private val ports: SessionPorts, private val hist
     val tally = ByteTally()
     private val trail = SessionTrail(beganAtMillis = nowMillis())
     private var historyId: Long? = null
+    private var timingOrigin = ports.clock.monotonicSeconds()
+
+    /** Starts the clock the [mark]s are read against, so each reads as time since the person asked to connect. */
+    fun restartTiming() {
+        timingOrigin = ports.clock.monotonicSeconds()
+    }
+
+    /** A note that says how long after [restartTiming] it happened, to find which step of a connect is the slow one. It also goes to [SessionPorts.timing], so a release build can be read over adb: marks name steps, never addresses. */
+    fun mark(event: String) {
+        val elapsedMillis = ((ports.clock.monotonicSeconds() - timingOrigin) * MILLIS_PER_SECOND).toLong()
+        val line = "+$elapsedMillis ms $event"
+        note(line)
+        ports.timing.log(line)
+    }
 
     fun note(message: String) {
         ports.log.log(message)

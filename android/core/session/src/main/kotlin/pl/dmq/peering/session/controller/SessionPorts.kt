@@ -34,6 +34,7 @@ class SessionPorts(
     val quality: QualitySource = QualitySource.Default,
     val videoCodecs: List<String>? = null,
     val log: SessionLog = SessionLog.None,
+    val timing: SessionLog = SessionLog.None,
     val lanReached: (hostId: String, address: PeerAddress) -> Unit = { _, _ -> },
     val clipboardHistory: ClipboardHistory = ClipboardHistory(),
     val readerContext: CoroutineContext = EmptyCoroutineContext,
