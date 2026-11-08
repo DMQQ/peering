@@ -118,10 +118,26 @@ class KeyboardPresenter(
     private fun routeKeyEvent(route: KeyRoute.Key, isDown: Boolean) {
         val modifiers = Modifiers(route.modifiers or sticky.activeModifiers().bits)
         if (isDown) {
+            followOnLine(route.macKeyCode, modifiers.bits)
             sink.send(KeyDown(route.macKeyCode, modifiers))
             if (route.macKeyCode !in MODIFIER_KEY_CODES) endKeyPress()
         } else {
             sink.send(KeyUp(route.macKeyCode, modifiers))
+        }
+    }
+
+    /** A Backspace or Return that arrives as a key event, as a soft keyboard sends it, edits the line the same way a typed one does. */
+    private fun followOnLine(macKeyCode: Int, modifierBits: Long) {
+        if (modifierBits != 0L) return
+        when (macKeyCode) {
+            BACKSPACE_KEY -> {
+                mirror.onLocalEdit(nowMillis())
+                preview.value = preview.value.dropLast(1)
+            }
+            RETURN_KEY -> {
+                mirror.onLocalEdit(nowMillis())
+                preview.value = ""
+            }
         }
     }
 
