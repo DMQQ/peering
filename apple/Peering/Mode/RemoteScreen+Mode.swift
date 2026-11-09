@@ -25,7 +25,12 @@ extension RemoteScreen {
                     modes: availableModes,
                     hostName: model.shownHostName ?? String(localized: "this Mac"),
                     onChoose: { chooseMode($0, source: "picker") },
-                    onCancel: session.modeResolved ? { showsModePicker = false } : nil
+    private func cancelModePicker(in session: MacSession) {
+        showsModePicker = false
+        if session.mode == .workspace, route.isEmpty { route = [.hub] }
+    }
+
+                    onCancel: session.modeResolved ? { cancelModePicker(in: session) } : nil
                 )
                 .transition(.opacity)
             }
@@ -91,7 +96,7 @@ extension RemoteScreen {
         }
     }
 
-    /// Backing out of the hub in workspace mode is going back to the screen.
+    /// Backing out of the hub goes back to the picker it was opened from. Going straight to the screen showed a picture still paused by the mode, blank until the Mac sent a new keyframe.
     func leaveWorkspaceIfClosed(_ route: [RemoteRoute]) {
         guard route.isEmpty, model.activeSession?.mode == .workspace else { return }
         chooseMode(.screen, source: "picker")

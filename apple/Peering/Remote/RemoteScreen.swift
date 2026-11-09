@@ -182,6 +182,14 @@ struct RemoteScreen: View {
                     )
                 }
 
+                // Ready is the handshake, not the picture: the first keyframe follows, and a bare black screen in between reads as broken.
+                if model.phase == .ready, model.frameArrived == 0, !showsModePicker,
+                   model.activeSession?.mode != .workspace {
+                    ProgressOverlay(title: String(localized: "Waiting for the picture…"), detail: model.shownHostName)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+
                 if showsLandscapeHint, !isLandscape {
                     LandscapeHint(
                         rotationRefused: rotationRefused,

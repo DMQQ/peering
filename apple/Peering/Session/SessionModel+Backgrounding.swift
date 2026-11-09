@@ -26,7 +26,8 @@ extension SessionModel {
 
         // Started here, not left to `canStartPictureInPictureAutomaticallyFromInline`: iOS never takes the hint, since an `AVAudioPlayer` running silence does not count as playing.
         // The moment matters: as the app leaves the screen, `startPictureInPicture` still has a view hierarchy to lift the layer from.
-        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession)
+        // Not from the Agents workspace: there is no picture there to keep, and a floating window is only in the way.
+        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession && activeSession?.mode != .workspace)
 
         beginBackgroundGrace()
     }
