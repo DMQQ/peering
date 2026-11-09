@@ -10,6 +10,7 @@ extension TerminalSessionManager {
         id: UUID,
         path: String,
         totalBytes: Int,
+        md5: String?,
         ownerClientID: String,
         sink: @escaping Sink
     ) {
@@ -44,6 +45,7 @@ extension TerminalSessionManager {
                     ownerClientID: ownerClientID,
                     path: url.path,
                     expected: totalBytes,
+                    expectedMD5: md5?.lowercased(),
                     target: target,
                     staging: staging
                 ),
@@ -175,6 +177,7 @@ extension TerminalSessionManager {
 
         do {
             try pending.handle?.write(contentsOf: piece)
+            pending.checksum.update(piece)
         } catch {
             Analytics.failed(error, in: .fileTransfer)
             pending.failure = FileReplacement.message(for: error)
@@ -190,6 +193,11 @@ extension TerminalSessionManager {
         }
         try? pending.handle?.close()
         pending.handle = nil
+        if let expected = pending.expectedMD5, pending.checksum.finalized() != expected {
+            pending.discard()
+            report(.failure("The file arrived damaged (its checksum did not match), so it was not saved. Send it again."))
+            return
+        }
         // The move itself lives in ``FileReplacement``, with tests, because it is a rule that is
         // wrong silently: a replacement that has quietly become a copy across volumes works until
         // the moment it does not.

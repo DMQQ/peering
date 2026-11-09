@@ -126,17 +126,7 @@ extension HostSession {
         ))
     }
 
-    /// Read here, not assumed: both ends speak the same protocol version, so these flags are the
-    /// only thing that tells a client too old to read a picture apart from one that can.
     private func adoptCapabilities(of hello: ClientHello) {
-        clientSupportsClipboardImages = hello.supportsClipboardImages
-        clientSupportsTextFocus = hello.supportsTextFocus
-        clientSupportsFieldState = hello.supportsFieldState
-        clientSupportsPointerReport = hello.supportsPointerReport
-        clientSupportsAgentChat = hello.supportsAgentChat
-        clientSupportsAgentPermissionModes = hello.supportsAgentPermissionModes
-        clientSupportsAgentUsage = hello.supportsAgentUsage
-        clientSupportsAgentQueue = hello.supportsAgentQueue
         onVideoCodecsDeclared?(hello.videoCodecs)
     }
 
@@ -151,43 +141,10 @@ extension HostSession {
             // server hello precedes first-pairing confirmation: exposing them here would let any
             // device on the LAN collect them without being accepted.
             macAddresses: alreadyPaired ? NetworkInterfaceInfo.hardwareMACAddresses() : nil,
-            // Declared to everyone, trusted or not: this is the version of this Mac's software,
-            // not anything about the user. A client that sends the pause command to a Mac which
-            // has not said this gets a decode failure mid-session instead of honest degradation.
-            supportsVideoPause: true,
-            supportsClipboardImages: true,
-            // Same terms again: a client that has not seen this may not send a mosaic, because the
-            // request is a capture source an older Mac cannot decode.
-            supportsMosaic: true,
-            supportsSourceThumbnails: true,
-            // Same terms once more: a virtual display rotates only for a client that has said it
-            // will report its orientation, so an older phone gets the display shape it always had.
-            supportsDeviceOrientation: true,
-            // Not an unconditional `true` like the flags above: this one names whether the Mac's
-            // system software has the private API at all, not just whether this build understands
-            // the command, so a Mac that could never make a display does not advertise a row that
-            // can only fail.
             supportsVirtualDisplayManagement: VirtualDisplay.isAvailable,
             pushesTerminalAlertsWhileConnected: true,
-            supportsAgentList: true,
-            // The other half of the pair: this Mac can run a chat with an installed coding agent,
-            // and the phone asks only after reading this.
-            supportsAgentChat: true,
-            supportsFileBrowser: true,
-            supportsAgentModelPicker: true,
             // Which agents, since the set grows and a phone cannot guess it from the version.
             agentChatAgents: AgentSessionManager.chatAgents.keys.sorted(),
-            supportsAgentPermissionModes: true,
-            supportsAgentUsage: true,
-            supportsAgentSessionImport: true,
-            supportsAgentSessionPeek: true,
-            supportsAgentPause: true,
-            supportsAgentQueue: true,
-            supportsAgentAwayControls: true,
-            supportsAgentGitHub: true,
-            supportsAgentRoutines: true,
-            supportsClientState: true,
-            supportsLiveActivityPush: true,
             hostPlatform: "macos"
         )
     }

@@ -14,11 +14,6 @@ extension MacSession {
         switch event {
         case .snapshot(let infos):
             // Transcripts already read are kept: the listing says which sessions exist and the conversation arrives in the replay after each top-up.
-            if !hasAgentListing, !hostSupportsAgentQueue, let hostID {
-                // What was waiting when the app last closed, for the chats the Mac still has.
-                let ids = Set(infos.map(\.id))
-                agentQueues = AgentQueueStore.load(hostKey: hostID).filter { ids.contains($0.key) }
-            }
             hasAgentListing = true
             hostAgentQueues = [:]
             let previous = agentSessions
@@ -36,10 +31,6 @@ extension MacSession {
             }
             for session in agentSessions where session.isLoaded {
                 loadAgentHistory(session.id, since: session.transcript.lastIndex)
-            }
-            // A turn may have ended while the phone was away, so no event is coming to release what waited behind it.
-            for session in agentSessions where agentQueues[session.id] != nil {
-                flushAgentQueue(session.id, state: session.state)
             }
             // The chat on screen may have asked before this list existed, and that ask is gone with the set cleared above.
             if let selectedAgentSessionID { ensureAgentHistory(selectedAgentSessionID) }
@@ -61,7 +52,6 @@ extension MacSession {
             if case .approvalResolved(let approvalID, _) = streamEvent.payload { resolvedApprovalIDs.insert(approvalID) }
             agentSessions[index].transcript.apply(streamEvent)
             announceAgentChange(at: index, from: before)
-            flushAgentQueue(id, state: agentSessions[index].transcript.state)
             // Events on a chat never read are the tail of a conversation, not the conversation: it is loaded when its replay lands.
             if !agentSessions[index].isLoaded { ensureAgentHistory(id) }
             agentSessions[index].infoState = agentSessions[index].transcript.state
@@ -96,8 +86,6 @@ extension MacSession {
             }
             agentSessions[index].isLoaded = true
             agentHistoryRequests.markAnswered(id)
-            // A turn can end while the phone is away, and the replay is the only news of it.
-            flushAgentQueue(id, state: agentSessions[index].transcript.state)
 
         case .directory(let path, let entries, _):
             agentPicker = AgentPickerState(
@@ -130,7 +118,6 @@ extension MacSession {
         case .github(let id, let report):
             agentGitHub[id] = report
 
-            RoutineWidgetPublisher.publish(routines)
         case .githubResult(let id, let result):
             agentGitHubBusy[id] = nil
             agentGitHubResults[id] = result
@@ -143,6 +130,7 @@ extension MacSession {
 
         case .routines(let routines):
             agentRoutines = routines
+            RoutineWidgetPublisher.publish(routines)
             agentRoutinesAwaiting = false
 
         case .resumablePeek(let cliSessionID, let events):

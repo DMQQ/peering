@@ -16,6 +16,7 @@ extension SessionModel {
     }
 
     var hostPlatform: HostPlatform { activeSession?.hostPlatform ?? .mac }
+    var shellDialect: ShellDialect { hostPlatform == .windows ? .powershell : .posix }
 
     /// ``hostName`` as the user renamed it, for anything drawn on screen.
     var shownHostName: String? { activeSession?.shownName }
@@ -69,12 +70,6 @@ extension SessionModel {
 
     /// The screen needs the ask as well as the answer: what the user just did is about the arrangement asked for, what is drawn on the picture is about the one that arrived.
     var isAskingForMosaic: Bool { activeSession?.isAskingForMosaic ?? false }
-
-    var hostSupportsMosaic: Bool { activeSession?.hostSupportsMosaic ?? false }
-
-    var hostSupportsSourceThumbnails: Bool { activeSession?.hostSupportsSourceThumbnails ?? false }
-
-    var hostSupportsDeviceOrientation: Bool { activeSession?.hostSupportsDeviceOrientation ?? false }
 
     var hostSupportsVirtualDisplayManagement: Bool {
         activeSession?.hostSupportsVirtualDisplayManagement ?? false

@@ -72,14 +72,13 @@ struct TerminalHubScreen: View {
                 terminalsSection
                 terminalHistorySection
             }
-            if isBuilt(.files), model.hostSupportsFileBrowser { filesPage.transition(.identity) }
+            if isBuilt(.files) { filesPage.transition(.identity) }
         }
         .animation(Self.tabFade, value: tab)
         .onChange(of: tab) { old, tab in
             visitedTabs.formUnion([old, tab])
             tabChanged(to: tab)
         }
-        .onAppear { restoreTab() }
         .analyticsScreen(.terminals)
         .scrollBounceBehavior(.basedOnSize)
         .navigationTitle(model.shownHostName ?? String(localized: "Your Mac"))
@@ -116,8 +115,6 @@ struct TerminalHubScreen: View {
         .task { await refreshOnceSettled() }
         .task(id: model.isAwaitingAgentsPage) { await settleAgentsPage() }
         .task(id: tab) { await keepResumableSessionsFresh() }
-        // The section draws nothing until the list arrives, so it cannot ask for it itself: an onAppear on an empty view never fires.
-        .onChange(of: model.hostSupportsAgentSessionImport) { _, _ in model.refreshResumableSessions() }
         .onChange(of: model.agentCards.map(\.id)) { _, _ in model.ensureAgentPreviews() }
     }
 
@@ -147,12 +144,6 @@ struct TerminalHubScreen: View {
         Analytics.panelOpened(panel)
     }
 
-    /// A remembered Files tab on a Mac that cannot browse falls back to Agents.
-    private func restoreTab() {
-        guard tab == .files else { return }
-        if !model.hostSupportsFileBrowser { tab = .agents }
-    }
-
     func isBuilt(_ page: HubTab) -> Bool { tab == page || visitedTabs.contains(page) }
 
     /// The hub is pushed onto the remote screen's stack. Every request below answers by changing observed state, and a re-render in the middle of the slide is the stutter, so they wait for it to land.
@@ -170,7 +161,7 @@ struct TerminalHubScreen: View {
 
     static let pushSettle = Duration.milliseconds(400)
     static let settleHold = Duration.milliseconds(300)
-    /// An older Mac never sends some of the answers waited for: the page shows what it has rather than a placeholder for good.
+    /// The answers waited for may never come: the page shows what it has rather than a placeholder for good.
     static let settleTimeout = Duration.seconds(4)
     static let resumableRefresh = Duration.seconds(10)
 

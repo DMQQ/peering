@@ -334,7 +334,7 @@ struct RemoteCommandTests {
         }
     }
 
-    /// Pinned: a Mac that does not know this command fails on it, so a client may send it only to one that declared ``ServerHello/supportsVideoPause``.
+    /// Pinned: the exact shape other platforms must write.
     @Test("the video switch encodes as one keyed payload")
     func videoSwitchEncoding() throws {
         let encoded = try JSONEncoder().encode(RemoteCommand.setVideoEnabled(false))
@@ -551,21 +551,4 @@ struct MosaicWireTests {
         #expect(right.contains(NormalizedPoint(x: 0.5, y: 0.5)))
     }
 
-    @Test("an older Mac's hello still decodes, and reads as no")
-    func capabilityIsAdditive() throws {
-        // Optional so a Mac built before it sends a hello this build reads as no mosaic.
-        let older = """
-            {"serverID":"mac","hostName":"Studio","protocolVersion":17,"alreadyPaired":true}
-            """
-        let decoded = try JSONDecoder().decode(ServerHello.self, from: Data(older.utf8))
-        #expect(decoded.supportsMosaic == nil)
-        #expect(decoded.supportsMosaic != true)
-
-        let hello = ServerHello(
-            serverID: "mac", hostName: "Studio", protocolVersion: 17,
-            alreadyPaired: true, supportsMosaic: true
-        )
-        let encoded = try JSONEncoder().encode(hello)
-        #expect(try JSONDecoder().decode(ServerHello.self, from: encoded).supportsMosaic == true)
-    }
 }

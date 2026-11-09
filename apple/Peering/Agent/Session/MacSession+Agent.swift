@@ -18,7 +18,6 @@ extension MacSession {
     // MARK: - Requests
 
     func refreshAgentSessions() {
-        guard hostSupportsAgentChat else { return }
         wire?.sendAgent(.list)
     }
 
@@ -41,17 +40,14 @@ extension MacSession {
     }
 
     func refreshResumableSessions() {
-        guard hostSupportsAgentChat, hostSupportsAgentSessionImport else { return }
-        wire?.sendAgent(.listResumable)
+                wire?.sendAgent(.listResumable)
     }
 
     func peekResumableSession(_ session: AgentResumableSession) {
-        guard hostSupportsAgentSessionPeek else { return }
         wire?.sendAgent(.peekResumable(cliSessionID: session.cliSessionID))
     }
 
     func resumeAgentSession(_ session: AgentResumableSession) {
-        guard hostSupportsAgentSessionImport else { return }
         AgentFolderHistory.record(directory: session.directory, agentID: session.agentID, macName: model.hostName)
         wire?.sendAgent(.resume(agentID: session.agentID, cliSessionID: session.cliSessionID))
     }
@@ -79,23 +75,11 @@ extension MacSession {
             agentSessions[index].failure = nil
             state = agentSessions[index].transcript.state
         }
-        if hostSupportsAgentQueue {
-            // The Mac decides whether it goes now or waits, and keeps it waiting through a closed app.
-            if state != .working, state != .awaitingApproval, let index = agentSessions.firstIndex(where: { $0.id == id }) {
-                agentSessions[index].transcript.markPromptSent()
-            }
-            wire?.sendAgent(.queue(sessionID: id, text: trimmed))
-            return
+        // The Mac decides whether it goes now or waits, and keeps it waiting through a closed app.
+        if state != .working, state != .awaitingApproval, let index = agentSessions.firstIndex(where: { $0.id == id }) {
+            agentSessions[index].transcript.markPromptSent()
         }
-        var queue = agentQueues[id] ?? AgentPromptQueue()
-        let submission = queue.submit(trimmed, sessionState: state)
-        agentQueues[id] = queue.prompts.isEmpty ? nil : queue
-        if submission == .send {
-            if let index = agentSessions.firstIndex(where: { $0.id == id }) {
-                agentSessions[index].transcript.markPromptSent()
-            }
-            wire?.sendAgent(.prompt(sessionID: id, text: trimmed))
-        }
+        wire?.sendAgent(.queue(sessionID: id, text: trimmed))
     }
 
     func refreshAgentCards() {
@@ -124,33 +108,16 @@ extension MacSession {
         }
     }
 
-    /// What is waiting behind the chat's running turn, wherever it is held.
+    /// What is waiting behind the chat's running turn, held by the Mac.
     func waitingAgentPrompts(for id: UUID) -> [String] {
-        hostSupportsAgentQueue ? hostAgentQueues[id] ?? [] : agentQueues[id]?.prompts ?? []
+        hostAgentQueues[id] ?? []
     }
 
     func removeQueuedAgentPrompt(at offset: Int, in id: UUID) {
-        if hostSupportsAgentQueue {
-            guard var waiting = hostAgentQueues[id], waiting.indices.contains(offset) else { return }
-            let text = waiting.remove(at: offset)
-            hostAgentQueues[id] = waiting.isEmpty ? nil : waiting
-            wire?.sendAgent(.unqueue(sessionID: id, index: offset, text: text))
-            return
-        }
-        guard var queue = agentQueues[id] else { return }
-        queue.remove(at: offset)
-        agentQueues[id] = queue.prompts.isEmpty ? nil : queue
-    }
-
-    func flushAgentQueue(_ id: UUID, state: AgentSessionState) {
-        guard var queue = agentQueues[id] else { return }
-        let usage = agentSessions.first { $0.id == id }?.usage
-        if state == .idle, AgentSpendingGuard.holdsQueue(cap: agentSpendingCaps[id], usage: usage) { return }
-        let release = queue.release(state: state)
-        agentQueues[id] = queue.prompts.isEmpty ? nil : queue
-        if case .send(let text) = release {
-            wire?.sendAgent(.prompt(sessionID: id, text: text))
-        }
+        guard var waiting = hostAgentQueues[id], waiting.indices.contains(offset) else { return }
+        let text = waiting.remove(at: offset)
+        hostAgentQueues[id] = waiting.isEmpty ? nil : waiting
+        wire?.sendAgent(.unqueue(sessionID: id, index: offset, text: text))
     }
 
     /// - Returns: whether the answer went onto a ready connection; the Mac confirming it is a separate fact (``resolvedApprovalIDs``).
@@ -175,13 +142,11 @@ extension MacSession {
 
     /// How freely the session may act from now on. The mode shown changes when the Mac confirms it.
     func setAgentPermissionMode(_ mode: AgentPermissionMode, in id: UUID) {
-        guard hostSupportsAgentPermissionModes else { return }
         wire?.sendAgent(.setPermissionMode(sessionID: id, mode: mode))
     }
 
     /// Stops the chat's process and keeps the conversation, which then moves to History until a message picks it up again.
     func pauseAgentSession(_ id: UUID) {
-        guard hostSupportsAgentPause else { return }
         wire?.sendAgent(.pause(sessionID: id))
     }
 
@@ -192,7 +157,7 @@ extension MacSession {
     /// A chat left before anything was said is closed rather than listed: nothing happened in it.
     func closeAgentSessionIfUnused(_ id: UUID) {
         guard let session = agentSessions.first(where: { $0.id == id }),
-              session.isLoaded, session.transcript.isEmpty, agentQueues[id] == nil
+              session.isLoaded, session.transcript.isEmpty, hostAgentQueues[id] == nil
         else { return }
         closeAgentSession(id)
     }

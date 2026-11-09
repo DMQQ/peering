@@ -149,7 +149,6 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         }
     }
 
-    ///
     public func setDirectPeer(host: String, port: UInt16) throws {
         try onQueue {
             guard let resolved = Self.resolvePeer(host: host, port: port, family: family) else {

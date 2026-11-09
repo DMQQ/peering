@@ -13,13 +13,3 @@ public struct AgentSpendingCap: Codable, Equatable, Sendable {
 
     public var isEmpty: Bool { costUSD == nil && contextPercent == nil }
 }
-
-/// Whether a client may send the away-from-the-Mac requests: ``AgentRequest/setAlertPreference(decisionsOnly:)``,
-/// ``AgentRequest/setSpendingCap(sessionID:cap:)``, ``AgentRequest/releaseHeld(sessionID:)`` and
-/// ``AgentRequest/approvePlan(sessionID:approvalID:acceptEditsForTurn:)``. They came without a protocol bump, so
-/// only an explicit `true` in ``ServerHello/supportsAgentAwayControls`` counts.
-public enum AgentAwayControlsSupport {
-    public static func maySend(toHostDeclared declared: Bool?) -> Bool {
-        declared == true
-    }
-}

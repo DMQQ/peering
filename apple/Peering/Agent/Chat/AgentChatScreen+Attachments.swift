@@ -5,7 +5,7 @@ import SwiftUI
 
 extension AgentChatScreen {
     var attachAvailable: Bool {
-        model.browserID != nil && model.hostSupportsFileBrowser
+        model.browserID != nil
     }
 
     /// Re-encoded as JPEG: a library photo is usually HEIC, which the agents cannot read.

@@ -23,17 +23,17 @@ extension HostSession {
     }
 
     func sendTextFocus(_ focus: TextFocus) {
-        guard isAuthorized, clientSupportsTextFocus == true else { return }
+        guard isAuthorized else { return }
         send(MessageKind.textFocus, focus)
     }
 
     func sendFieldState(_ state: FieldState) {
-        guard isAuthorized, clientSupportsFieldState == true else { return }
+        guard isAuthorized else { return }
         send(MessageKind.fieldState, state)
     }
 
     func sendPointer(_ point: NormalizedPoint) {
-        guard isAuthorized, clientSupportsPointerReport == true else { return }
+        guard isAuthorized else { return }
         send(MessageKind.pointerReport, point)
     }
 

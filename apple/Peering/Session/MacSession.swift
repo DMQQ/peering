@@ -131,33 +131,14 @@ final class MacSession: Identifiable {
 
     // MARK: - Asking this Mac for the picture, and for silence
 
-    /// Never assumed: `false` is a Mac too old to have been asked, where the command means a dropped session rather than a stopped picture. See ``PicturePause/mayAsk(hostDeclared:)``.
-    var hostSupportsVideoPause = false
-
     /// How this session is being used, kept here so a screen that is rebuilt for the same Mac does not ask again or forget that it stopped the picture. See ``SessionMode``.
     var mode = SessionMode.screen
     var modeResolved = false
     var picturePausedByMode = false
 
-    /// `nil` is not yet answered, or a Mac that cannot; either way every agent is shown.
-    var hostSupportsAgentList = false
+    /// `nil` until the Mac has answered; every agent is shown meanwhile.
     var installedAgents: Set<String>?
 
-    /// Never assumed: an older Mac cannot decode the request and would end the session. See ``AgentChatSupport/maySend(toHostDeclared:)``.
-    var hostSupportsAgentChat = false
-
-    var hostSupportsFileBrowser = false
-
-    var hostSupportsAgentModelPicker = false
-    var hostSupportsAgentPermissionModes = false
-    var hostSupportsAgentUsage = false
-    var hostSupportsAgentSessionImport = false
-    var hostSupportsAgentSessionPeek = false
-    var hostSupportsAgentPause = false
-    var hostSupportsAgentQueue = false
-    var hostSupportsAgentAwayControls = false
-    var hostSupportsAgentGitHub = false
-    var hostSupportsAgentRoutines = false
     /// Nil until the Mac has answered a routine request.
     var agentRoutines: [AgentRoutine]?
     var agentRoutinesAwaiting = false
@@ -166,16 +147,13 @@ final class MacSession: Identifiable {
     /// Mirrors ``AgentGuardStore`` so a chat's banner redraws when its cap changes.
     var agentSpendingCaps: [UUID: AgentSpendingCap] = [:]
 
-    /// A Mac from before the list chats with the first two.
+    /// Until the Mac lists its agents, the first two.
     var hostChatAgents: Set<String> = ["claude", "codex"]
 
     /// Made once per Mac connection and reused: every path, preview and upload is keyed by it as a terminal's browsing is keyed by the terminal's id, and a reconnect re-announces the same id.
     let browserID = UUID()
 
-    /// Never assumed: an older Mac cannot decode the command, so sending it is a mid-session failure. See ``ClipboardImages/maySend(toHostDeclared:)``.
-    var hostSupportsClipboardImages = false
-
-    /// False for an older host, where the local banner remains required.
+    /// False where the Mac does not push alerts itself, so the local banner remains required.
     var hostPushesTerminalAlertsWhileConnected = false
 
     /// The intent rather than rectangles, which go stale when the phone rotates (see ``MosaicGrid``). Per Mac: a session that comes back to a different one must not offer a mosaic of windows that are not there.
@@ -203,14 +181,6 @@ final class MacSession: Identifiable {
 
     /// Frozen because ``mosaicLayout`` is rebuilt from the live screen and catalogue on every read, so reading it when the Mac answers could record an arrangement it never built. Set by ``SessionModel/selectSource(_:)``.
     var askedMosaicLayout: MosaicLayout?
-
-    /// Never assumed, more than anywhere else: an un-updated Mac cannot decode a capture source and sending it ends the session. See ``MosaicSupport/maySend(hostDeclared:)``.
-    var hostSupportsMosaic = false
-
-    /// Gated: the request goes out when the Apps panel opens, and a Mac that cannot decode it ends the session. See ``SourceThumbnailSupport/maySend(hostDeclared:)``.
-    var hostSupportsSourceThumbnails = false
-
-    var hostSupportsDeviceOrientation = false
 
     var hostSupportsVirtualDisplayManagement = false
 
@@ -275,15 +245,8 @@ final class MacSession: Identifiable {
     var agentSessions: [RemoteAgentSession] = []
     /// False until the Mac has sent its first chat listing, so an empty list can be told from one not yet asked for.
     var hasAgentListing = false
-    /// The queues a Mac that holds them has reported, which is the whole truth about them: the phone keeps no copy of its own for such a Mac.
+    /// The queues the Mac has reported, which is the whole truth about them: the phone keeps no copy of its own.
     var hostAgentQueues: [UUID: [String]] = [:]
-    /// Messages typed while a turn runs: the CLIs take one question at a time, so the rest wait here and go as each turn ends.
-    var agentQueues: [UUID: AgentPromptQueue] = [:] {
-        didSet {
-            guard let hostID else { return }
-            AgentQueueStore.save(agentQueues, hostKey: hostID)
-        }
-    }
     /// Approvals the Mac has reported resolved on this connection; an answer is delivered only once its id is here. See ``ApprovalAnswerPolicy``.
     @ObservationIgnored var resolvedApprovalIDs: Set<String> = []
     /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.

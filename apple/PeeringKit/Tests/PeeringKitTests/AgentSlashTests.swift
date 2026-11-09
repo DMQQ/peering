@@ -29,16 +29,16 @@ struct AgentSlashTests {
         ])
     }
 
-    @Test func appCommandsAreOfferedByWhatTheHostSupports() {
+    @Test func theModelCommandIsOfferedOnlyWhereTheAgentHasAPicker() {
         let names = AgentSlash.suggestions(
-            for: "", agentID: "codex", project: "/p", offersUsage: false, offersModel: true, listing: { _ in nil }
+            for: "", agentID: "codex", project: "/p", offersModel: false, listing: { _ in nil }
         ).map(\.name)
-        #expect(names == ["model", "rename"])
+        #expect(names == ["rename", "usage"])
     }
 
     @Test func claudeAddsItsBuiltInsAndReadsCommandsAndSkills() {
         let found = AgentSlash.suggestions(
-            for: "", agentID: "claude", project: "/Users/me/app", offersUsage: true, offersModel: true,
+            for: "", agentID: "claude", project: "/Users/me/app", offersModel: true,
             listing: { path in
                 switch path {
                 case "/Users/me/app/.claude/commands": [entry("ship.md"), entry("notes.txt"), entry(".hidden.md")]
@@ -60,18 +60,18 @@ struct AgentSlashTests {
 
     @Test func appFirstThenBuiltInsAndTypedPrefixLeads() {
         let all = AgentSlash.suggestions(
-            for: "", agentID: "claude", project: "/p", offersUsage: true, offersModel: true, listing: { _ in nil }
+            for: "", agentID: "claude", project: "/p", offersModel: true, listing: { _ in nil }
         ).map(\.name)
         #expect(all == ["model", "rename", "usage", "clear", "compact"])
         let narrowed = AgentSlash.suggestions(
-            for: "c", agentID: "claude", project: "/p", offersUsage: true, offersModel: true, listing: { _ in nil }
+            for: "c", agentID: "claude", project: "/p", offersModel: true, listing: { _ in nil }
         ).map(\.name)
         #expect(narrowed == ["clear", "compact"])
     }
 
     @Test func aProjectCommandShadowsAUserOneOfTheSameName() {
         let found = AgentSlash.suggestions(
-            for: "ship", agentID: "claude", project: "/Users/me/app", offersUsage: false, offersModel: false,
+            for: "ship", agentID: "claude", project: "/Users/me/app", offersModel: false,
             listing: { path in
                 path.hasSuffix("/commands") ? [entry("ship.md")] : nil
             }

@@ -167,15 +167,8 @@ extension HostSession {
         }
     }
 
-    /// The restraint is on this side: a chat's events travel to the client that started it, and a
-    /// client that has not said it can read an `agentEvent` frame must never be sent one, because
-    /// an unknown frame kind ends its session rather than being dropped.
     func sendAgentEvent(_ event: AgentEvent) {
-        guard isAuthorized, AgentChatSupport.mayReceive(clientDeclared: clientSupportsAgentChat) else { return }
-        // A frame kind an older phone cannot decode ends its session, so it is withheld from one.
-        if case .permissionModeChanged = event, clientSupportsAgentPermissionModes != true { return }
-        if case .usageChanged = event, clientSupportsAgentUsage != true { return }
-        if case .queueChanged = event, clientSupportsAgentQueue != true { return }
+        guard isAuthorized else { return }
         if outputGate.holdsAgentEvent(event, cost: (try? MessageCodec.encode(event))?.count ?? 1024) { return }
         send(.agentEvent, event)
     }
@@ -187,10 +180,6 @@ extension HostSession {
 
     func sendClipboard(_ payload: ClipboardPayload) {
         guard isAuthorized else { return }
-        if payload.kind == .image, !ClipboardImages.mayReceive(clientDeclared: clientSupportsClipboardImages) {
-            hostSessionLog.notice("not sending a clipboard picture to a client that cannot read one")
-            return
-        }
         guard let encoded = try? MessageCodec.encode(payload) else { return }
         clipboardFrameID &+= 1
         for frame in ClipboardTransfer.frames(

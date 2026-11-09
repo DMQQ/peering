@@ -10,35 +10,10 @@ extension MacSession {
         hostPlatform = HostPlatform(wireName: hello.hostPlatform)
         HostPlatformMemory().remember(hostPlatform, forHostID: hello.serverID)
         logHello(hello)
-        // Recorded once at the door rather than guessed each time. See ``PicturePause/mayAsk(hostDeclared:)``.
-        hostSupportsVideoPause = PicturePause.mayAsk(hostDeclared: hello.supportsVideoPause)
-        hostSupportsAgentList = hello.supportsAgentList == true
-        // A chat is a request an older Mac cannot decode, so it is sent only to a Mac that said it can. See ``AgentChatSupport``.
-        hostSupportsAgentChat = AgentChatSupport.maySend(toHostDeclared: hello.supportsAgentChat)
-        hostSupportsClipboardImages = ClipboardImages.maySend(toHostDeclared: hello.supportsClipboardImages)
-        // Compositing is the first request this client can make that an older Mac cannot decode at all. See ``MosaicSupport``.
-        hostSupportsMosaic = MosaicSupport.maySend(hostDeclared: hello.supportsMosaic)
-        hostSupportsSourceThumbnails = SourceThumbnailSupport.maySend(
-            hostDeclared: hello.supportsSourceThumbnails
-        )
-        hostSupportsDeviceOrientation = DeviceOrientationSupport.maySend(
-            hostDeclared: hello.supportsDeviceOrientation
-        )
         hostSupportsVirtualDisplayManagement = VirtualDisplayManagementSupport.maySend(
             hostDeclared: hello.supportsVirtualDisplayManagement
         )
         hostPushesTerminalAlertsWhileConnected = hello.pushesTerminalAlertsWhileConnected == true
-        hostSupportsFileBrowser = hello.supportsFileBrowser == true
-        hostSupportsAgentModelPicker = hello.supportsAgentModelPicker == true
-        hostSupportsAgentPermissionModes = hello.supportsAgentPermissionModes == true
-        hostSupportsAgentUsage = hello.supportsAgentUsage == true
-        hostSupportsAgentSessionImport = hello.supportsAgentSessionImport == true
-        hostSupportsAgentSessionPeek = hello.supportsAgentSessionPeek == true
-        hostSupportsAgentPause = hello.supportsAgentPause == true
-        hostSupportsAgentQueue = hello.supportsAgentQueue == true
-        hostSupportsAgentAwayControls = AgentAwayControlsSupport.maySend(toHostDeclared: hello.supportsAgentAwayControls)
-        hostSupportsAgentGitHub = hello.supportsAgentGitHub == true
-        hostSupportsAgentRoutines = hello.supportsAgentRoutines == true
         hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
         UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
         // Also the name the widget and Lock Screen card show, as the only one that came from the Mac itself; a first pairing by ID knows no name until this arrives.

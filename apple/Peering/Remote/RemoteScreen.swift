@@ -256,11 +256,7 @@ struct RemoteScreen: View {
         // window, and a second ask from here would rebuild the arrangement already being built.
         .onChange(of: deviceIsLandscape) { _, isLandscape in
             model.refreshMosaicForViewport()
-            // Gated the same way the Apps panel's thumbnail request is: an unrecognised command
-            // ends the session on a Mac built before it existed. See ``DeviceOrientationSupport``.
-            if model.hostSupportsDeviceOrientation {
-                model.send(.reportDeviceOrientation(isLandscape: isLandscape))
-            }
+            model.send(.reportDeviceOrientation(isLandscape: isLandscape))
         }
         // Here rather than on the pill: the pill is built in each orientation's own layout, so a
         // task on it restarted on every rotation and opened the pill again.

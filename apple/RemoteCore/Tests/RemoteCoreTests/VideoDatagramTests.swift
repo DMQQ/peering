@@ -442,6 +442,6 @@ struct VideoKeyMessageTests {
     /// A mixed pair must fail at the door, so the version is read back and a bump has to be deliberate.
     @Test("the two ends of the exchange agree about the protocol version")
     func theVersionWasBumped() {
-        #expect(ProtocolInfo.version == 20)
+        #expect(ProtocolInfo.version == 21)
     }
 }

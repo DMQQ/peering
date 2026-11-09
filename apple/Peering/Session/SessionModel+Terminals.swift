@@ -42,15 +42,13 @@ extension SessionModel {
 
     func refreshAgents() { activeSession?.refreshAgents() }
 
-    /// Before the Mac has said, what it said last time, else nothing for a Mac that will answer: a list of all that then shrank was a blink. A Mac that cannot say gets every agent.
+    /// Before the Mac has said, what it said last time, else nothing for a Mac that will answer: a list of all that then shrank was a blink.
     var availableAgents: [TerminalAgent] {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "Peering.showAllAgents") { return TerminalAgent.all }
         #endif
         guard let session = activeSession else { return TerminalAgent.all }
-        guard let installed = session.knownInstalledAgents else {
-            return session.hostSupportsAgentList ? [] : TerminalAgent.all
-        }
+        guard let installed = session.knownInstalledAgents else { return [] }
         return TerminalAgent.all.filter { installed.contains($0.command) }
     }
 
@@ -59,12 +57,12 @@ extension SessionModel {
         guard let session = activeSession else { return false }
         return isAwaitingAgentList
             || !session.hasAgentListing
-            || (session.hostSupportsAgentSessionImport && session.resumableSessions == nil)
+            || session.resumableSessions == nil
     }
 
     var isAwaitingAgentList: Bool {
         guard let session = activeSession else { return false }
-        return session.hostSupportsAgentList && session.knownInstalledAgents == nil
+        return session.knownInstalledAgents == nil
     }
 
     /// Written back to nil when taken, so the same arrival is not opened twice.

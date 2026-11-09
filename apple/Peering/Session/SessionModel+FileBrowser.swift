@@ -10,8 +10,6 @@ import os
 extension SessionModel {
     // MARK: - The active Mac's file browser
 
-    var hostSupportsFileBrowser: Bool { activeSession?.hostSupportsFileBrowser ?? false }
-
     var browserID: UUID? { activeSession?.browserID }
 
     func openFileScope() { activeSession?.openFileScope() }

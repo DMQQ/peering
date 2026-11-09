@@ -118,7 +118,7 @@ extension ClientSession {
 }
 
 extension ClientSession {
-    /// Tells the Mac the app left or returned to the foreground, so it stops encoding for a phone iOS is about to freeze. Only to a Mac that declared it, and only once per change.
+    /// Tells the Mac the app left or returned to the foreground, so it stops encoding for a phone iOS is about to freeze. Only once per change.
     /// Remembered when the session is not ready yet, and sent the moment it is.
     public func sendClientState(background: Bool) {
         lock.withLock { clientNotice.want(background) }
@@ -127,7 +127,7 @@ extension ClientSession {
 
     func sendPendingClientState() {
         let pending = lock.withLock { () -> Bool? in
-            guard let background = clientNotice.takePending(isReady: state == .ready, hostDeclared: _serverHello?.supportsClientState) else { return nil }
+            guard let background = clientNotice.takePending(isReady: state == .ready) else { return nil }
             // The picture was stopped on purpose; the timer for "no picture" starts when it is asked back.
             if !background { lastPictureAt = Self.monotonicNow() }
             return background
@@ -138,11 +138,11 @@ extension ClientSession {
 }
 
 extension ClientSession {
-    /// Hands the host the Live Activity tokens it needs to push for a suspended phone. Only to a host that declared it and only once the session is ready; returns whether it went out, so the caller can try again when the session comes up.
+    /// Hands the host the Live Activity tokens it needs to push for a suspended phone. Only once the session is ready; returns whether it went out, so the caller can try again when the session comes up.
     @discardableResult
     public func sendActivityToken(_ payload: ActivityTokenPayload) -> Bool {
         let allowed = lock.withLock {
-            state == .ready && LiveActivityPushSupport.maySend(toHostDeclared: _serverHello?.supportsLiveActivityPush)
+            state == .ready
         }
         guard allowed, let connection = connection() else { return false }
         connection.send(.activityToken, payload)

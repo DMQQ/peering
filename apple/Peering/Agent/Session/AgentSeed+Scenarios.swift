@@ -146,16 +146,11 @@ extension MacSession {
         filePreview = RemoteFilePreview(terminalID: id, path: path, totalBytes: data.count, data: data, isComplete: true)
     }
 
-    /// A Mac that is only a name and a set of capabilities.
+    /// A Mac that is only a name.
     func becomeSeededMac() {
         phase = .ready
         hasBeenReady = true
         hostName = "Demo Mac"
-        hostSupportsAgentList = true
-        hostSupportsFileBrowser = true
-        hostSupportsAgentChat = true
-        hostSupportsAgentModelPicker = true
-        hostSupportsAgentPermissionModes = true
         refreshAgentCards()
     }
 }

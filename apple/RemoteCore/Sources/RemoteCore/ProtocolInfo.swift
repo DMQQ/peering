@@ -23,10 +23,8 @@ public enum ProtocolInfo {
     /// 19: `performWindowAction` and `openNewWindow`, the title-bar buttons and ⌘N from the phone.
     /// 20: `watchSourceThumbnails`, the picker telling the host it is open so the host pushes
     /// changed thumbnails instead of the phone asking.
-    ///
-    /// The mosaic feature itself did not consume a protocol version: `CaptureSource` gained a case an
-    /// older host cannot decode, but it is only sent after that host advertises `supportsMosaic`.
-    public static let version: UInt16 = 20
+    /// 21: file transfers carry an MD5 (`fileRange.md5`, `beginWrite.md5`) that the receiving end verifies.
+    public static let version: UInt16 = 21
 
     /// Enforced on the receiving side only: nothing refuses to produce an oversized command, which is why the video fallback cuts payloads up.
     public static let maxControlPayload = 64 * 1024

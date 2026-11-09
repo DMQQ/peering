@@ -132,14 +132,6 @@ final class HostSession: @unchecked Sendable {
     /// Pieces of one oversized payload from the client, put back as they arrive.
     var clipboardChunks = ClipboardTransfer.reassembler()
     var clipboardFrameID: UInt32 = 0
-    var clientSupportsClipboardImages: Bool?
-    var clientSupportsTextFocus: Bool?
-    var clientSupportsFieldState: Bool?
-    var clientSupportsPointerReport: Bool?
-    var clientSupportsAgentChat: Bool?
-    var clientSupportsAgentPermissionModes: Bool?
-    var clientSupportsAgentUsage: Bool?
-    var clientSupportsAgentQueue: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
     var lastHeard = DispatchTime.now()

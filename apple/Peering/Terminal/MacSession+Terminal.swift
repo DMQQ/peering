@@ -9,19 +9,17 @@ extension MacSession {
 
     var knownInstalledAgents: Set<String>? {
         if let installedAgents { return installedAgents }
-        guard hostSupportsAgentList, let hostName,
+        guard let hostName,
               let saved = UserDefaults.standard.stringArray(forKey: Self.installedAgentsKey(hostName))
         else { return nil }
         return Set(saved)
     }
 
     func refreshAgents() {
-        guard hostSupportsAgentList else { return }
         wire?.sendTerminal(.agents)
     }
 
     func openFileScope() {
-        guard hostSupportsFileBrowser else { return }
         wire?.sendTerminal(.startBrowser(id: browserID))
     }
 

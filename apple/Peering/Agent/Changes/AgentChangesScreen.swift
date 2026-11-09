@@ -58,7 +58,7 @@ struct AgentChangesScreen: View {
                             ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                     }
                     Spacer()
-                    if model.hostSupportsAgentGitHub, report?.isRepository == true {
+                    if report?.isRepository == true {
                         Button { showsGitHub = true } label: {
                             Label("GitHub", systemImage: "arrow.triangle.pull")
                         }

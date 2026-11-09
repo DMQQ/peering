@@ -5,7 +5,7 @@ import SwiftUI
 extension AgentChatScreen {
     /// A mention is only offered where the Mac's folders can be read: the same door the attachments use.
     func mentionQuery(_ session: RemoteAgentSession) -> MentionQuery? {
-        guard model.browserID != nil, model.hostSupportsFileBrowser else { return nil }
+        guard model.browserID != nil else { return nil }
         return MentionQuery(draft: drafts[session.id] ?? "")
     }
 
@@ -16,7 +16,6 @@ extension AgentChatScreen {
             for: typed,
             agentID: session.agentID,
             project: session.directory,
-            offersUsage: model.hostSupportsAgentUsage,
             offersModel: offersModelPicker(session),
             listing: { path in model.browserID.flatMap { model.directory(path, sessionID: $0) }?.entries }
         )

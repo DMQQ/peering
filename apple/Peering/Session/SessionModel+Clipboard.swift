@@ -29,7 +29,7 @@ extension SessionModel {
         guard phase == .ready else { return .failed }
         let board = UIPasteboard.general
 
-        if activeSession?.hostSupportsClipboardImages == true, let png = clipboardImage(from: board) {
+        if let png = clipboardImage(from: board) {
             guard png.count <= ClipboardLimits.maxImageBytes else { return .imageTooLarge(bytes: png.count) }
             guard session?.pushClipboardImage(png) == true else { return .failed }
             hostClipboard = .image(png)

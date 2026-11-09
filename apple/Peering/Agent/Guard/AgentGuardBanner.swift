@@ -11,7 +11,6 @@ struct AgentGuardBanner: View {
     @State private var dismissed = AgentGuardStore().dismissedWarnings
 
     private var overrun: AgentSpendingGuard.Overrun? {
-        guard model.agentSpendingCapsAvailable else { return nil }
         return AgentSpendingGuard.overrun(cap: model.agentSpendingCap(for: session.id), usage: session.usage)
     }
 

@@ -91,8 +91,7 @@ public enum RemoteFileOperation: Codable, Equatable, Sendable {
 
 public enum TerminalRequest: Codable, Equatable, Sendable {
     case list
-    /// Which coding-agent commands this Mac has installed. Sent only to a Mac that declared
-    /// ``ServerHello/supportsAgentList``. Answered with ``TerminalEvent/agents(installed:)``.
+    /// Which coding-agent commands this Mac has installed. Answered with ``TerminalEvent/agents(installed:)``.
     case agents
     case create
     case input(sessionID: UUID, data: Data)
@@ -102,7 +101,6 @@ public enum TerminalRequest: Codable, Equatable, Sendable {
     /// this once the terminal has been named by hand.
     case retitle(sessionID: UUID, command: String)
     case close(sessionID: UUID)
-    /// Sent only to a Mac that declared ``ServerHello/supportsFileBrowser``: an older host cannot decode it.
     case startBrowser(id: UUID)
     /// One folder's contents, for the file browser. `nil` means the Mac's home folder, the one path
     /// the phone cannot work out for itself; the answer carries the path it resolved to.
@@ -116,7 +114,9 @@ public enum TerminalRequest: Codable, Equatable, Sendable {
     /// The size is declared up front, so a Mac that will not take a file that large can say so
     /// cheaply, and the file is not replaced until ``writeChunk(sessionID:path:data:isLast:)`` says
     /// the last piece arrived.
-    case beginWrite(sessionID: UUID, path: String, totalBytes: Int)
+    /// `md5` is the whole file's checksum, lowercase hex; a Mac that predates it ignores the field, and a
+    /// client that omits it gets no verification.
+    case beginWrite(sessionID: UUID, path: String, totalBytes: Int, md5: String? = nil)
     case writeChunk(sessionID: UUID, path: String, data: Data, isLast: Bool)
     case changeFile(sessionID: UUID, operation: RemoteFileOperation)
     /// The phone's APNs device token, sent once when the session becomes ready and again if it
@@ -162,7 +162,8 @@ public enum TerminalEvent: Codable, Equatable, Sendable {
         isLast: Bool
     )
     /// One piece of a download. `totalBytes` is the file's size, so the client knows how many more to ask for; pieces may arrive out of order, which is why each names its offset.
-    case fileRange(sessionID: UUID, path: String, offset: Int64, totalBytes: Int64, data: Data)
+    /// `md5` is the whole file's checksum, carried by the piece at offset 0 only (the pieces may arrive in any order, and hashing the file once is enough).
+    case fileRange(sessionID: UUID, path: String, offset: Int64, totalBytes: Int64, data: Data, md5: String? = nil)
     /// The folder is zipped at `archivePath`, ready to be read with ``TerminalRequest/readRange(sessionID:path:offset:)``. The Mac deletes it once the last piece has been read.
     case archiveReady(sessionID: UUID, folder: String, archivePath: String, totalBytes: Int64)
     /// A download or a zip that could not be made. `path` is the one the client asked about.

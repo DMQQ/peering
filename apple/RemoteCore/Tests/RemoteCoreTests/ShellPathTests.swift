@@ -238,4 +238,26 @@ struct PathContainsTests {
         #expect(pathContains("/Users/alex/notes.txt", "/Users/alex/"))
         #expect(pathContains("/Users/alex/", "/Users/alex"))
     }
+
+    @Test("a wire path becomes a Windows path")
+    func windowsPath() {
+        #expect(ShellPath.windowsPath(fromWire: "/C:/Users/me") == "C:\\Users\\me")
+        #expect(ShellPath.windowsPath(fromWire: "/D:") == "D:\\")
+    }
+
+    @Test("PowerShell changes folder by literal path and doubles a single quote")
+    func powershellChange() {
+        #expect(ShellPath.changeDirectoryLine(to: "/C:/Users/me", dialect: .powershell) == "Set-Location -LiteralPath 'C:\\Users\\me'\r")
+        #expect(ShellPath.changeDirectoryLine(to: "/C:/Dan's", dialect: .powershell) == "Set-Location -LiteralPath 'C:\\Dan''s'\r")
+    }
+
+    @Test("the POSIX line is unchanged")
+    func posixChange() {
+        #expect(ShellPath.changeDirectoryLine(to: "/tmp/a b", dialect: .posix) == "cd -- '/tmp/a b'\r")
+    }
+
+    @Test("PowerShell runs a file from its own folder")
+    func powershellRun() {
+        #expect(ShellPath.runCommand(for: "/C:/src/run.ps1", dialect: .powershell) == "Set-Location -LiteralPath 'C:\\src'; & 'C:\\src\\run.ps1'")
+    }
 }

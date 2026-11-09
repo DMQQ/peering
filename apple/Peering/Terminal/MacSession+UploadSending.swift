@@ -6,21 +6,24 @@ extension MacSession {
     /// Reads as it goes rather than whole: a 2 GB file held in memory gets the app killed.
     func send(contentsOf url: URL, totalBytes: Int, to path: String, sessionID id: UUID) async {
         let handle: FileHandle
+        let md5: String
         do {
+            md5 = try await Task.detached { try FileChecksum.ofFile(at: url) }.value
             handle = try FileHandle(forReadingFrom: url)
         } catch {
             failTransfer(error, stage: .read, bytes: totalBytes, path: path, sessionID: id)
             return
         }
         defer { try? handle.close() }
-        await transfer(to: path, totalBytes: totalBytes, sessionID: id) {
+        await transfer(to: path, totalBytes: totalBytes, md5: md5, sessionID: id) {
             try handle.read(upToCount: Self.writeChunkBytes)
         }
     }
 
     func send(_ data: Data, to path: String, sessionID id: UUID) async {
         var offset = 0
-        await transfer(to: path, totalBytes: data.count, sessionID: id) {
+        let md5 = await Task.detached { FileChecksum.of(data) }.value
+        await transfer(to: path, totalBytes: data.count, md5: md5, sessionID: id) {
             let end = min(offset + Self.writeChunkBytes, data.count)
             defer { offset = end }
             return data.subdata(in: offset..<end)
@@ -32,6 +35,7 @@ extension MacSession {
     private func transfer(
         to path: String,
         totalBytes: Int,
+        md5: String,
         sessionID id: UUID,
         nextPiece: () async throws -> Data?
     ) async {
@@ -42,7 +46,7 @@ extension MacSession {
 
         var isFinished = false
         do {
-            try await wire.sendPaced(.beginWrite(sessionID: id, path: path, totalBytes: totalBytes), weight: 1, through: window)
+            try await wire.sendPaced(.beginWrite(sessionID: id, path: path, totalBytes: totalBytes, md5: md5), weight: 1, through: window)
             var sent = 0
             while !isFinished {
                 let piece = sent < totalBytes ? try await nextPiece() ?? Data() : Data()

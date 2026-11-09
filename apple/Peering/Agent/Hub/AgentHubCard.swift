@@ -143,7 +143,6 @@ struct HubDock: View {
     let canChat: Bool
     let chat: () -> Void
     let terminal: () -> Void
-    let offersFiles: Bool
     let files: () -> Void
     let newTerminal: () -> Void
 
@@ -151,7 +150,7 @@ struct HubDock: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if tab == .terminals, offersFiles {
+            if tab == .terminals {
                 DockIconButton(symbol: "folder", title: "Files", action: files)
                     .accessibilityLabel("This Mac's files")
                     .transition(.blurReplace)

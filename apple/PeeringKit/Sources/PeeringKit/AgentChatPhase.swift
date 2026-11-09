@@ -6,7 +6,7 @@ public enum AgentChatPhase: Equatable {
     case empty
     case conversation
 
-    /// A chat whose history never arrived (an older Mac) gives up loading and reads as empty.
+    /// A chat whose history never arrived (the Mac never answered) gives up loading and reads as empty.
     public static func of(transcriptIsEmpty: Bool, isLoaded: Bool, gaveUpLoading: Bool) -> AgentChatPhase {
         guard transcriptIsEmpty else { return .conversation }
         return !isLoaded && !gaveUpLoading ? .loading : .empty

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Same rule as ``MosaicSupport``: ask only a Mac that said it can.
+/// Phone-created displays are offered only by a Mac that said its system software can make them.
 public enum VirtualDisplayManagementSupport {
     /// An explicit `true` and nothing else. ``ServerHello/supportsVirtualDisplayManagement`` is an
     /// optional additive field, so `nil` is a Mac built before it existed and `false` is a Mac that

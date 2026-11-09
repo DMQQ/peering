@@ -15,7 +15,6 @@ extension MacSession {
             Analytics.failed(error, in: .agent)
         }
         agentSpendingCaps = store.caps()
-        guard hostSupportsAgentAwayControls else { return }
         sendAgentAlertPreference()
         for (id, cap) in store.caps() where ids.contains(id) {
             wire?.sendAgent(.setSpendingCap(sessionID: id, cap: cap))
@@ -23,7 +22,6 @@ extension MacSession {
     }
 
     func sendAgentAlertPreference() {
-        guard hostSupportsAgentAwayControls else { return }
         let decisionsOnly = UserDefaults.standard.bool(forKey: PreferenceKeys.agentDecisionsOnly)
         wire?.sendAgent(.setAlertPreference(decisionsOnly: decisionsOnly))
     }
@@ -33,33 +31,15 @@ extension MacSession {
             Analytics.failed(error, in: .agent)
         }
         agentSpendingCaps[id] = cap?.isEmpty == false ? cap : nil
-        guard hostSupportsAgentAwayControls else { return }
         wire?.sendAgent(.setSpendingCap(sessionID: id, cap: cap?.isEmpty == true ? nil : cap))
     }
 
-    /// Sends on the first message a cap held, wherever the queue is kept.
+    /// Sends on the first message a cap held.
     func releaseHeldAgentPrompt(_ id: UUID) {
-        if hostSupportsAgentQueue {
-            guard hostSupportsAgentAwayControls else { return }
-            wire?.sendAgent(.releaseHeld(sessionID: id))
-            return
-        }
-        guard var queue = agentQueues[id], let index = agentSessions.firstIndex(where: { $0.id == id }) else { return }
-        guard case .send(let text) = queue.release(state: agentSessions[index].transcript.state) else { return }
-        agentQueues[id] = queue.prompts.isEmpty ? nil : queue
-        agentSessions[index].transcript.markPromptSent()
-        wire?.sendAgent(.prompt(sessionID: id, text: text))
+        wire?.sendAgent(.releaseHeld(sessionID: id))
     }
 
-    /// A Mac that queues prompts itself but cannot be told caps holds nothing the phone could send on.
-    var agentSpendingCapsAvailable: Bool { hostSupportsAgentAwayControls || !hostSupportsAgentQueue }
-
-    /// A Mac without the request gets a plain allow, which approves the plan and leaves the mode as it was.
     func approveAgentPlan(_ approvalID: String, acceptEditsForTurn: Bool, in id: UUID) {
-        guard hostSupportsAgentAwayControls else {
-            respondToAgentApproval(approvalID, decision: .allow, in: id)
-            return
-        }
         wire?.sendAgent(.approvePlan(sessionID: id, approvalID: approvalID, acceptEditsForTurn: acceptEditsForTurn))
     }
 
