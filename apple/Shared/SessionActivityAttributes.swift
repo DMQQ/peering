@@ -57,6 +57,29 @@ nonisolated enum SharedStore {
         }
     }
 
+    /// One scheduled routine as the Routines widget draws it: plain values, since the widget does not link RemoteCore.
+    struct RoutineSummary: Codable, Identifiable, Hashable {
+        enum Outcome: String, Codable, Hashable { case neverRun, running, succeeded, failed, stopped, skipped }
+        let id: String
+        let name: String
+        let outcome: Outcome
+        let lastRunAt: Date?
+        let nextRunAt: Date?
+        let isEnabled: Bool
+    }
+
+    /// Routines of the Mac the phone last looked at, running ones first.
+    static var routines: [RoutineSummary] {
+        get {
+            guard let data = defaults?.data(forKey: "routines") else { return [] }
+            return (try? JSONDecoder().decode([RoutineSummary].self, from: data)) ?? []
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            defaults?.set(data, forKey: "routines")
+        }
+    }
+
     /// One SSH server the phone knows about, mirrored for the widget and for Siri, which resolves "open a shell on prod" while the app is not running. Strings, not `SSHHost`: the widget does not link `SSHCore`.
     struct KnownServer: Codable, Identifiable, Hashable {
         let id: String

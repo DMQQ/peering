@@ -119,7 +119,7 @@ private struct QuickConnectEntryView: View {
                             Spacer(minLength: 0)
                             if entry.connectedMacIDs.contains(mac.id) {
                                 Circle()
-                                    .fill(entry.activeMacID == mac.id ? Color.green : Color.green.opacity(0.35))
+                                    .fill(entry.activeMacID == mac.id ? WidgetTint.state : WidgetTint.state.opacity(0.35))
                                     .frame(width: 7, height: 7)
                             } else {
                                 Image(systemName: "chevron.right")

@@ -47,8 +47,13 @@ private struct ApprovalRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+            Text(approval.postedAt, style: .relative)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text("Opens the answer options"))
     }
 }
 

@@ -130,6 +130,7 @@ extension MacSession {
         case .github(let id, let report):
             agentGitHub[id] = report
 
+            RoutineWidgetPublisher.publish(routines)
         case .githubResult(let id, let result):
             agentGitHubBusy[id] = nil
             agentGitHubResults[id] = result
