@@ -22,14 +22,13 @@ extension CapturePipeline {
         encode(frame, source: source)
     }
 
-    /// Runs on the refresh queue once the picture has been still: the same buffer again, the first time as a keyframe, so what the last motion left behind is replaced by a clean picture.
-    func refreshStillPicture(_ frame: CapturedFrame, at time: CMTime, asKeyframe: Bool) {
+    /// Runs on the refresh queue once the picture has been still: the same buffer again, so the encoder refines what the last motion left coarse.
+    func refreshStillPicture(_ frame: CapturedFrame, at time: CMTime) {
         let (encoder, running) = lock.withLock { (self.encoder, self.source) }
         guard let encoder, running != nil, !encoder.hasFailed else { return }
         guard encoder.pixelSize == VideoEncoder.encodedSize(
             for: CGSize(width: CVPixelBufferGetWidth(frame.pixelBuffer), height: CVPixelBufferGetHeight(frame.pixelBuffer))
         ) else { return }
-        if asKeyframe { encoder.requestKeyframe() }
         let refreshed = CapturedFrame(pixelBuffer: frame.pixelBuffer, presentationTime: time, duration: frame.duration, geometry: frame.geometry)
         do {
             try encoder.encode(refreshed)

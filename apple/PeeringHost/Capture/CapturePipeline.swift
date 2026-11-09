@@ -45,7 +45,7 @@ final class CapturePipeline: @unchecked Sendable {
     var encoder: VideoEncoder?
     var source: CaptureSource?
     /// Lazy because its callback needs `self`; every init touches it, so it is never first built on a second thread.
-    lazy var idleRefresh = IdleRefresh { [weak self] frame, time, first in self?.refreshStillPicture(frame, at: time, asKeyframe: first) }
+    lazy var idleRefresh = IdleRefresh { [weak self] frame, time in self?.refreshStillPicture(frame, at: time) }
     /// Held here, not only in the encoder: the encoder can be replaced mid-flight, and a request that dies with the old session leaves the client on a picture that never resolves.
     var awaitsKeyframe = false
     /// Guarded by ``lock``.

@@ -13,10 +13,4 @@ struct StillPictureRefreshTests {
         #expect(StillPictureRefresh.delayMilliseconds(beforeRepeat: 8) == nil)
         #expect(StillPictureRefresh.delayMilliseconds(beforeRepeat: -1) == nil)
     }
-
-    @Test func onlyTheFirstRepeatIsAKeyframe() {
-        #expect(StillPictureRefresh.isKeyframe(repeat: 0))
-        #expect(!StillPictureRefresh.isKeyframe(repeat: 1))
-        #expect(!StillPictureRefresh.isKeyframe(repeat: 7))
-    }
 }

@@ -3,7 +3,7 @@ import Dispatch
 import Foundation
 import RemoteCore
 
-/// Re-sends the last picture once the screen has been still for a moment: first as a keyframe, which repairs a lost packet, then a few more times, each of which lets the encoder spend bits on the detail it skipped in motion. Without it a still screen keeps whatever the last motion left until the keyframe interval comes round.
+/// Re-sends the last picture once the screen has been still for a moment: a few times, each of which lets the encoder spend bits on the detail it skipped in motion. Without it a still screen keeps whatever the last motion left until the keyframe interval comes round.
 /// The refresh frames are the real last buffer, not synthetic ones (see ``CapturePipeline/idleFramesEnabled``).
 final class IdleRefresh: @unchecked Sendable {
     private let queue = DispatchQueue(label: "pl.dmq.peering.capture.idle-refresh", qos: .userInitiated)
@@ -14,10 +14,10 @@ final class IdleRefresh: @unchecked Sendable {
 
     private var repeatsDone = 0
 
-    /// Called on `queue` with the last frame, a presentation time later than any already encoded, and whether this is the first repeat.
-    private let refresh: @Sendable (CapturedFrame, CMTime, Bool) -> Void
+    /// Called on `queue` with the last frame, and a presentation time later than any already encoded.
+    private let refresh: @Sendable (CapturedFrame, CMTime) -> Void
 
-    init(refresh: @escaping @Sendable (CapturedFrame, CMTime, Bool) -> Void) {
+    init(refresh: @escaping @Sendable (CapturedFrame, CMTime) -> Void) {
         self.refresh = refresh
     }
 
@@ -51,14 +51,13 @@ final class IdleRefresh: @unchecked Sendable {
     private func fire() {
         lock.withLock {
             guard let held = last, pending?.isCancelled == false else { return }
-            let index = repeatsDone
             repeatsDone += 1
             pending = nil
             schedule(repeat: repeatsDone)
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - held.notedAt.uptimeNanoseconds) / 1_000_000_000
             let time = CMTimeAdd(held.frame.presentationTime, CMTime(seconds: elapsed, preferredTimescale: 1_000_000))
             // Called with the lock held on purpose: the encoder does not call back into this type.
-            refresh(held.frame, time, StillPictureRefresh.isKeyframe(repeat: index))
+            refresh(held.frame, time)
         }
     }
 }
