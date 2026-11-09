@@ -300,10 +300,10 @@ final class VideoEncoder: @unchecked Sendable {
         return status == noErr
     }
 
-/// About 0.12 bits per pixel per frame for screen content, clamped to 4 Mbps (text shimmers below) and 30 Mbps (the encoder stops being the bottleneck above).
+/// About 0.12 bits per pixel per frame for screen content, clamped to 4 Mbps (text shimmers below) and 80 Mbps (a 5K picture at 60 fps needs most of that to stay clean in motion).
     private static func defaultBitRate(pixelSize: CGSize, frameRate: Int) -> Int {
 // Scales with frame rate: a budget set too low arrives as a lower frame rate, since the encoder drops frames rather than lowering quality.
         let raw = Double(pixelSize.width * pixelSize.height) * 0.12 * Double(frameRate)
-        return Int(min(max(raw, 4_000_000), 30_000_000))
+        return Int(min(max(raw, 4_000_000), 80_000_000))
     }
 }
