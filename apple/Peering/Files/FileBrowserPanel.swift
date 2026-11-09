@@ -110,10 +110,8 @@ struct FileBrowserPanel: View {
 
     private var folderTransition: AnyTransition {
         let deeper = Self.depth(of: path) >= shownDepth
-        return .asymmetric(
-            insertion: .move(edge: deeper ? .trailing : .leading),
-            removal: .move(edge: deeper ? .leading : .trailing).combined(with: .opacity)
-        )
+        // The leaving list only fades: its transition was fixed when it was drawn, before the direction of this move was known.
+        return .asymmetric(insertion: .move(edge: deeper ? .trailing : .leading), removal: .opacity)
     }
 
     private static func depth(of path: String?) -> Int {
@@ -155,10 +153,16 @@ struct FileBrowserPanel: View {
                     Text(pendingRename?.name ?? "")
                 }
             if let progress { progressLine(progress) }
-            content
-                .id(path)
-                .transition(folderTransition)
-                .refreshable { onReload() }
+            // The list alone slides, inside its own clip: the search field below stays where it is.
+            ZStack {
+                content
+                    .refreshable { onReload() }
+                    .background(ColorPalette.backdrop)
+                    .id(path)
+                    .transition(folderTransition)
+            }
+            .clipped()
+            .animation(.easeOut(duration: 0.26), value: path)
                 // Over the list rather than below it, so rows scroll under the field as on the other screens.
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(spacing: 0) {
@@ -214,8 +218,7 @@ struct FileBrowserPanel: View {
             query = ""
             shownDepth = Self.depth(of: new)
         }
-        .animation(.easeInOut(duration: 0.28), value: path)
-        .clipped()
+
         // The one guard between a tap and a program running on the machine, here so neither browser can forget it. Cancel is first with the cancel role; Run is not the default action.
         .alert(
             "Run this file?",
