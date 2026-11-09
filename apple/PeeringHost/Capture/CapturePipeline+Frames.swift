@@ -18,7 +18,24 @@ extension CapturePipeline {
             overlay?.draw(into: frame.pixelBuffer, geometry: frame.geometry)
         }
 
+        idleRefresh.note(frame)
         encode(frame, source: source)
+    }
+
+    /// Runs on the refresh queue once the picture has been still: the same buffer again, the first time as a keyframe, so what the last motion left behind is replaced by a clean picture.
+    func refreshStillPicture(_ frame: CapturedFrame, at time: CMTime, asKeyframe: Bool) {
+        let (encoder, running) = lock.withLock { (self.encoder, self.source) }
+        guard let encoder, running != nil, !encoder.hasFailed else { return }
+        guard encoder.pixelSize == VideoEncoder.encodedSize(
+            for: CGSize(width: CVPixelBufferGetWidth(frame.pixelBuffer), height: CVPixelBufferGetHeight(frame.pixelBuffer))
+        ) else { return }
+        if asKeyframe { encoder.requestKeyframe() }
+        let refreshed = CapturedFrame(pixelBuffer: frame.pixelBuffer, presentationTime: time, duration: frame.duration, geometry: frame.geometry)
+        do {
+            try encoder.encode(refreshed)
+        } catch {
+            pipelineLog.error("still-picture refresh failed: \(String(describing: error), privacy: .public)")
+        }
     }
 
     /// Where pointer smoothness on a still screen comes from: the overlay turns pointer movement into a frame.

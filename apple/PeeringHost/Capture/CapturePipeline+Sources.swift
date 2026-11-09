@@ -115,6 +115,7 @@ extension CapturePipeline {
             self.runningEngine = nil
             return current
         }
+        idleRefresh.cancel()
         encoder?.shutdown()
     }
 

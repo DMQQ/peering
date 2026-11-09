@@ -44,6 +44,8 @@ final class CapturePipeline: @unchecked Sendable {
 
     var encoder: VideoEncoder?
     var source: CaptureSource?
+    /// Lazy because its callback needs `self`; every init touches it, so it is never first built on a second thread.
+    lazy var idleRefresh = IdleRefresh { [weak self] frame, time, first in self?.refreshStillPicture(frame, at: time, asKeyframe: first) }
     /// Held here, not only in the encoder: the encoder can be replaced mid-flight, and a request that dies with the old session leaves the client on a picture that never resolves.
     var awaitsKeyframe = false
     /// Guarded by ``lock``.
@@ -103,6 +105,7 @@ final class CapturePipeline: @unchecked Sendable {
         self.preferredCodec = codec
         self.activeCodec = codec
         self.overlay = overlay
+        _ = idleRefresh
     }
 
     /// Generates its own frames so the real pipeline runs where Screen Recording is not granted. Nothing here touches ScreenCaptureKit; the source passed to `start` is only recorded.
