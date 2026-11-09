@@ -44,8 +44,10 @@ Windows host and does what the iPhone app does. It is in testing on devices and 
   picker for displays, apps, windows, desktops and virtual displays, including the mosaic.
 - **Coding agents.** Chats with Claude Code, Codex and OpenCode, changes review, permission prompts answered from
   a notification, and a home screen widget.
+- **Routines.** Schedule a prompt for an agent on the Mac, with a switch for a notification when the run ends.
+- **Widgets.** Quick Connect, Agents, Waiting on you, Routines and Computer status.
 - **Terminal, SSH and files.** Shells on the computer or on any SSH server you add, and a folder browser with
-  search, preview, upload and download.
+  search, preview, upload and download. Transfers carry an MD5 so a damaged file is caught and discarded.
 - **Stays connected.** A foreground service keeps a session alive in the background, and the app reconnects by
   itself when the network changes.
 - **Localised** in the same ten languages as the iPhone app.
@@ -75,6 +77,8 @@ tested on a Mac for its logic only and has never been run on Windows**, so treat
 - **Clipboard, files and terminal.** Text and image clipboard, folder browsing with zip download, and shells.
 - **Agents and hooks.** Claude Code, Codex and OpenCode chats, approval pushes through the relay, and the opt-in
   terminal hooks.
+- **Routines and file integrity.** A scheduler that runs a prompt in an agent chat on a timetable and can push the
+  result, and an MD5 on file transfers, as on the Mac. Neither has run on a Windows machine.
 - **Hosting niceties.** Text field awareness through UI Automation, a rotating log file with an Open log folder
   button, a daily update check, start at sign-in, and a firewall rule helper.
 - **Safety.** The device key is sealed with DPAPI, and every paired phone is pinned by its public key.
