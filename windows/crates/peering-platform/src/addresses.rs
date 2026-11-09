@@ -41,9 +41,14 @@ fn is_reachable_from_lan(adapter: &Adapter) -> bool {
 
 /// The IPv4 addresses the host must leave out of its mDNS record: every address of an adapter a phone on the same
 /// network could not use. A client resolves one address from the record, so one unreachable address is a connect timeout.
-/// An address that a reachable adapter also holds is kept.
+/// An address that a reachable adapter also holds is kept. When no adapter looks reachable (the PC's only LAN address may sit
+/// on a Hyper-V external switch, which is named like a virtual one) nothing is hidden, since announcing a wrong address is
+/// better than announcing none.
 pub fn addresses_to_hide(adapters: &[Adapter]) -> Vec<IpAddr> {
     let keep: Vec<Ipv4Addr> = adapters.iter().filter(|a| is_reachable_from_lan(a)).flat_map(|a| a.ipv4.clone()).collect();
+    if keep.is_empty() {
+        return Vec::new();
+    }
     let mut hidden: Vec<IpAddr> = Vec::new();
     for address in adapters.iter().filter(|a| !is_reachable_from_lan(a)).flat_map(|a| a.ipv4.iter().copied()) {
         if !keep.contains(&address) && !hidden.contains(&IpAddr::V4(address)) {
@@ -108,9 +113,15 @@ mod tests {
     }
 
     #[test]
-    fn an_adapter_that_is_down_is_hidden() {
-        let hidden = addresses_to_hide(&[networked(6, "Ethernet", false, &[[169, 254, 3, 4]])]);
-        assert_eq!(hidden, [IpAddr::from([169, 254, 3, 4])]);
+    fn an_adapter_that_is_down_is_hidden_while_another_serves_the_lan() {
+        let adapters = [networked(6, "Ethernet", false, &[[169, 254, 3, 4]]), networked(71, "Wi-Fi", true, &[[192, 168, 1, 20]])];
+        assert_eq!(addresses_to_hide(&adapters), [IpAddr::from([169, 254, 3, 4])]);
+    }
+
+    #[test]
+    fn nothing_is_hidden_when_no_adapter_looks_reachable() {
+        let adapters = [networked(6, "vEthernet (External)", true, &[[192, 168, 1, 20]]), networked(131, "Tunnel", true, &[[10, 9, 0, 2]])];
+        assert!(addresses_to_hide(&adapters).is_empty());
     }
 
     #[test]

@@ -29,6 +29,10 @@ internal class SurfacePicture(
 
     /** Handed to every decoder this picture builds, since a surface change builds a new one. */
     override var onNeedsKeyframe: (() -> Unit)? = null
+        set(value) {
+            field = value
+            decoder?.onNeedsKeyframe = value
+        }
     private var crashed = false
 
     /** The size of the stream the Mac is sending, or null before its first config. */
