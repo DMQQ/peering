@@ -19,8 +19,8 @@ pub enum ClipboardError {
 }
 
 pub trait Clipboard: Send + Sync {
-    /// What the program that owns the clipboard offered first. A picture is skipped when `allow_image` is false.
-    fn read(&self, allow_image: bool) -> Result<ClipboardContent, ClipboardError>;
+    /// What the program that owns the clipboard offered first.
+    fn read(&self) -> Result<ClipboardContent, ClipboardError>;
 
     /// Replaces the clipboard. `Empty` leaves it as it is.
     fn write(&self, content: &ClipboardContent) -> Result<(), ClipboardError>;

@@ -38,18 +38,6 @@ async fn silence_for(harness: &Harness, seconds: u32) {
 }
 
 #[test]
-fn the_host_declares_that_it_understands_client_state() {
-    run(async {
-        let harness = harness();
-        let mut phone = Phone::connect(&harness.runtime, direct_peer());
-        phone.send(role_frame(CONTROL_ROLE)).await;
-        phone.send(hello()).await;
-        let declared = server_hello(&phone.next_of(MessageKind::ServerHello).await);
-        assert_eq!(declared.capabilities.supports_client_state, Some(true));
-    });
-}
-
-#[test]
 fn a_backgrounded_phone_costs_no_encoding() {
     run(async {
         let harness = harness();

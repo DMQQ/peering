@@ -104,7 +104,6 @@ fn already_paired_client_is_authorised_without_pairing() {
     let server = server_hello_of(&actions);
     assert!(server.already_paired);
     assert_eq!(server.mac_addresses, Some(vec!["aa:bb:cc:dd:ee:ff".to_owned()]));
-    assert_eq!(server.capabilities.supports_video_pause, Some(true));
     assert!(actions.contains(&SessionAction::Authorized));
     assert_eq!(session.state(), HandshakeState::Ready);
     assert!(!sent_frames(&actions).iter().any(|frame| frame.kind == MessageKind::PairCommit));
@@ -318,7 +317,7 @@ fn client_id_of_256_bytes_is_accepted_and_257_is_refused() {
 #[test]
 fn client_name_of_257_bytes_is_refused() {
     let json = format!(
-        r#"{{"clientID":"{CLIENT_ID}","clientName":"{}","protocolVersion":20,"wantsPairing":true}}"#,
+        r#"{{"clientID":"{CLIENT_ID}","clientName":"{}","protocolVersion":{PROTOCOL_VERSION},"wantsPairing":true}}"#,
         "n".repeat(257)
     );
     let mut session = unpaired();

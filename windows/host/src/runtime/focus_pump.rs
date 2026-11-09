@@ -1,6 +1,5 @@
-//! Tells the phones where the PC's keyboard focus is, so a phone that asked can raise its keyboard for a text field and show
-//! what the field holds. The decisions are the core's `FocusWatcher`; this watches only while a phone that declared
-//! `supportsTextFocus` or `supportsFieldState` is connected, as the Mac host does.
+//! Tells the phones where the PC's keyboard focus is, so a phone can raise its keyboard for a text field and show what the
+//! field holds. The decisions are the core's `FocusWatcher`; this watches only while a phone is connected.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -35,13 +34,9 @@ impl FocusPipeline {
 }
 
 impl HostState {
-    /// One look at the focus. A `textFocus` goes to each phone that declared `supportsTextFocus` and a `fieldState` to each that
-    /// declared `supportsFieldState`.
+    /// One look at the focus. A `textFocus` and a `fieldState` go to every connected phone.
     pub fn pump_focus(&mut self) -> Vec<Outgoing> {
-        let interested = |slot: &super::shared::SessionSlot| {
-            slot.client_flags.supports_text_focus == Some(true) || slot.client_flags.supports_field_state == Some(true)
-        };
-        let wanted = self.hosting && self.sessions.values().any(interested);
+        let wanted = self.hosting && !self.sessions.is_empty();
         let presses = self.input.button_presses();
         if wanted != self.focus.watching {
             self.focus.watching = wanted;
@@ -70,22 +65,12 @@ impl HostState {
         let mut outgoing = Vec::new();
         for message in messages {
             // Derived Serialize over a bool, a string and numbers: no field can make the writer fail.
-            let (kind, payload, wants): (_, _, fn(&super::shared::SessionSlot) -> bool) = match message {
-                FocusMessage::Focus(focus) => (
-                    MessageKind::TextFocus,
-                    serde_json::to_vec(focus).expect("a text focus always serialises"),
-                    |slot| slot.client_flags.supports_text_focus == Some(true),
-                ),
-                FocusMessage::Field(state) => (
-                    MessageKind::FieldState,
-                    serde_json::to_vec(state).expect("a field state always serialises"),
-                    |slot| slot.client_flags.supports_field_state == Some(true),
-                ),
+            let (kind, payload) = match message {
+                FocusMessage::Focus(focus) => (MessageKind::TextFocus, serde_json::to_vec(focus).expect("a text focus always serialises")),
+                FocusMessage::Field(state) => (MessageKind::FieldState, serde_json::to_vec(state).expect("a field state always serialises")),
             };
             let frame = Frame::new(kind, payload);
-            outgoing.extend(
-                self.sessions.values().filter(|slot| wants(slot)).map(|slot| Outgoing { to: slot.outbound.clone(), frame: frame.clone() }),
-            );
+            outgoing.extend(self.sessions.values().map(|slot| Outgoing { to: slot.outbound.clone(), frame: frame.clone() }));
         }
         outgoing
     }

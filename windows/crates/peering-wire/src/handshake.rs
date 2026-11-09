@@ -8,49 +8,6 @@ use serde_json::Value;
 
 pub use crate::video_transport::{VideoKeyGrant, VideoTransportKind, VideoTransportRequest};
 
-/// Declares a struct of optional capability flags. Absent or `null` reads as `None`, which means unsupported.
-macro_rules! capability_flags {
-    ($name:ident { $($field:ident),* $(,)? }) => {
-        #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        pub struct $name {
-            $(
-                #[serde(default, skip_serializing_if = "Option::is_none")]
-                pub $field: Option<bool>,
-            )*
-        }
-    };
-}
-
-capability_flags!(ClientCapabilities {
-    supports_clipboard_images,
-    supports_text_focus,
-    supports_field_state,
-    supports_pointer_report,
-    supports_agent_chat,
-    supports_agent_permission_modes,
-    supports_agent_usage,
-});
-
-capability_flags!(ServerCapabilities {
-    supports_video_pause,
-    supports_clipboard_images,
-    supports_mosaic,
-    supports_source_thumbnails,
-    supports_device_orientation,
-    supports_virtual_display_management,
-    pushes_terminal_alerts_while_connected,
-    supports_agent_list,
-    supports_agent_chat,
-    supports_file_browser,
-    supports_agent_model_picker,
-    supports_agent_permission_modes,
-    supports_agent_usage,
-    supports_agent_session_import,
-    supports_agent_pause,
-    supports_client_state,
-});
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientHello {
@@ -60,8 +17,6 @@ pub struct ClientHello {
     pub protocol_version: u16,
     /// Advisory: the host decides, since only it knows its pin store.
     pub wants_pairing: bool,
-    #[serde(flatten)]
-    pub capabilities: ClientCapabilities,
     /// A `CaptureSource`, kept as raw JSON until the source model exists.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resume_source: Option<Value>,
@@ -92,8 +47,9 @@ pub struct ServerHello {
     pub already_paired: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mac_addresses: Option<Vec<String>>,
-    #[serde(flatten)]
-    pub capabilities: ServerCapabilities,
+    /// Whether this host pushes terminal alerts to a phone that is still connected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pushes_terminal_alerts_while_connected: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_chat_agents: Option<Vec<String>>,
     /// `windows` from this host. Absent from a host that predates the field.
@@ -158,7 +114,7 @@ pub struct PingPayload {
     pub sequence: u64,
 }
 
-/// Whether the phone is out of the foreground. A client sends it only to a host that declared `supportsClientState`.
+/// Whether the phone is out of the foreground.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientStatePayload {
@@ -233,14 +189,13 @@ mod tests {
     }
 
     #[test]
-    fn missing_capability_flags_decode_as_none() {
+    fn missing_optional_hello_fields_decode_as_none() {
         let hello: ClientHello = serde_json::from_str(r#"{"clientID":"c","clientName":"p","protocolVersion":20,"wantsPairing":false}"#).unwrap();
-        assert_eq!(hello.capabilities, ClientCapabilities::default());
         assert_eq!(hello.lost_pairing, None);
         assert_eq!(hello.resume_source, None);
 
         let server: ServerHello = serde_json::from_str(r#"{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true}"#).unwrap();
-        assert_eq!(server.capabilities, ServerCapabilities::default());
+        assert_eq!(server.pushes_terminal_alerts_while_connected, None);
         assert_eq!(server.mac_addresses, None);
         assert_eq!(server.agent_chat_agents, None);
     }
@@ -271,13 +226,12 @@ mod tests {
     }
 
     #[test]
-    fn unset_flags_are_absent_when_serialised() {
+    fn unset_optional_fields_are_absent_when_serialised() {
         let hello = ClientHello {
             client_id: "c".into(),
             client_name: "p".into(),
             protocol_version: 20,
             wants_pairing: false,
-            capabilities: ClientCapabilities::default(),
             resume_source: None,
             lost_pairing: None,
             client_platform: None,
@@ -286,7 +240,6 @@ mod tests {
         let value = serde_json::to_value(&hello).unwrap();
         let keys: Vec<&str> = value.as_object().unwrap().keys().map(String::as_str).collect();
         assert_eq!(keys.len(), 4, "only the required keys are written: {keys:?}");
-        assert!(value.get("supportsAgentChat").is_none());
         assert!(value.get("lostPairing").is_none());
 
         let server = ServerHello {
@@ -295,7 +248,7 @@ mod tests {
             protocol_version: 20,
             already_paired: true,
             mac_addresses: None,
-            capabilities: ServerCapabilities::default(),
+            pushes_terminal_alerts_while_connected: None,
             agent_chat_agents: None,
             host_platform: None,
         };
@@ -309,15 +262,6 @@ mod tests {
         assert_eq!(serde_json::to_string(&ClientStatePayload { background: true }).unwrap(), r#"{"background":true}"#);
         let parsed: ClientStatePayload = serde_json::from_str(r#"{"background":false,"later":1}"#).unwrap();
         assert!(!parsed.background);
-    }
-
-    #[test]
-    fn supports_client_state_is_optional_and_camel_case() {
-        let absent: ServerHello =
-            serde_json::from_str(r#"{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true}"#).unwrap();
-        assert_eq!(absent.capabilities.supports_client_state, None);
-        let declared = ServerCapabilities { supports_client_state: Some(true), ..ServerCapabilities::default() };
-        assert_eq!(serde_json::to_string(&declared).unwrap(), r#"{"supportsClientState":true}"#);
     }
 
     #[test]

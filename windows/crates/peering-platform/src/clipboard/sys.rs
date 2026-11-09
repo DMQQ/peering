@@ -48,7 +48,7 @@ fn open(owner: HWND) -> Result<Opened, ClipboardError> {
 }
 
 impl Clipboard for WindowsClipboard {
-    fn read(&self, allow_image: bool) -> Result<ClipboardContent, ClipboardError> {
+    fn read(&self) -> Result<ClipboardContent, ClipboardError> {
         let _opened = open(HWND::default())?;
         let mut format = 0u32;
         loop {
@@ -61,7 +61,7 @@ impl Clipboard for WindowsClipboard {
                 if let Some(bytes) = copy_global(format) {
                     return Ok(ClipboardContent::Text(text_from_utf16(&units_of(&bytes))));
                 }
-            } else if allow_image && (format == u32::from(CF_DIBV5.0) || format == u32::from(CF_DIB.0)) {
+            } else if format == u32::from(CF_DIBV5.0) || format == u32::from(CF_DIB.0) {
                 if let Some(png) = copy_global(format).and_then(|dib| dib_to_png(&dib)) {
                     return Ok(ClipboardContent::Image(png));
                 }

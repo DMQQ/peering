@@ -11,17 +11,9 @@ use peering_wire::chunks::{self, Reassembler, CONTROL_CHUNK_SIZE};
 use peering_wire::clipboard::{ClipboardKind, ClipboardPayload};
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, MessageKind};
-use peering_wire::handshake::{ClientCapabilities, NoticePayload};
+use peering_wire::handshake::NoticePayload;
 use peering_wire::source::NormalizedPoint;
 use support::*;
-
-fn declaring_images() -> ClientCapabilities {
-    ClientCapabilities { supports_clipboard_images: Some(true), ..ClientCapabilities::default() }
-}
-
-fn declaring_pointer() -> ClientCapabilities {
-    ClientCapabilities { supports_pointer_report: Some(true), ..ClientCapabilities::default() }
-}
 
 async fn pair_and_leave(harness: &Harness) {
     drop(paired_phone(&harness.runtime).await);
@@ -65,18 +57,14 @@ fn a_clipboard_request_is_answered_with_empty_text_when_there_is_nothing_to_give
 }
 
 #[test]
-fn a_picture_is_sent_only_to_a_phone_that_declared_it_can_read_one() {
+fn a_clipboard_picture_is_sent_as_an_image() {
     run(async {
         let harness = harness();
         pair_and_leave(&harness).await;
         harness.clipboard.write(&ClipboardContent::Image(vec![1, 2, 3])).expect("the fake clipboard takes it");
 
-        let mut without = reconnected_phone_declaring(&harness.runtime, ClientCapabilities::default()).await;
-        assert_eq!(clipboard_answer(&mut without).await, ClipboardPayload::text(""));
-        drop(without);
-
-        let mut with = reconnected_phone_declaring(&harness.runtime, declaring_images()).await;
-        let answer = clipboard_answer(&mut with).await;
+        let mut phone = reconnected_phone(&harness.runtime).await;
+        let answer = clipboard_answer(&mut phone).await;
         assert_eq!(answer.kind, ClipboardKind::Image);
         assert_eq!(answer.image, Some(vec![1, 2, 3]));
     });
@@ -268,14 +256,6 @@ fn a_live_activity_token_is_ignored_and_the_connection_stays_open() {
 }
 
 #[test]
-fn the_hello_says_the_host_can_carry_a_clipboard_picture() {
-    run(async {
-        let harness = harness();
-        assert_eq!(paired_server_hello(&harness.runtime).await.capabilities.supports_clipboard_images, Some(true));
-    });
-}
-
-#[test]
 fn the_pc_is_kept_awake_while_a_phone_is_connected_and_released_when_it_leaves() {
     run(async {
         let harness = harness();
@@ -327,11 +307,11 @@ fn set_pointer(harness: &Harness, position: (f64, f64)) {
 }
 
 #[test]
-fn a_hand_on_the_mouse_is_reported_to_a_phone_that_asked() {
+fn a_hand_on_the_mouse_is_reported_to_a_connected_phone() {
     run(async {
         let harness = harness();
         pair_and_leave(&harness).await;
-        let mut phone = reconnected_phone_declaring(&harness.runtime, declaring_pointer()).await;
+        let mut phone = reconnected_phone(&harness.runtime).await;
         set_pointer(&harness, (100.0, 100.0));
         harness.runtime.pump_pointer(harness.clock.now_seconds());
         set_pointer(&harness, (960.0, 540.0));
@@ -342,31 +322,11 @@ fn a_hand_on_the_mouse_is_reported_to_a_phone_that_asked() {
 }
 
 #[test]
-fn a_phone_that_did_not_ask_is_not_sent_the_pointer() {
-    run(async {
-        let harness = harness();
-        let mut phone = paired_phone(&harness.runtime).await;
-        set_pointer(&harness, (100.0, 100.0));
-        harness.runtime.pump_pointer(0.0);
-        set_pointer(&harness, (960.0, 540.0));
-        harness.runtime.pump_pointer(0.1);
-        phone.send(Frame::empty(MessageKind::Ping)).await;
-        loop {
-            let frame = phone.next().await;
-            assert_ne!(frame.kind, MessageKind::PointerReport);
-            if frame.kind == MessageKind::Pong {
-                break;
-            }
-        }
-    });
-}
-
-#[test]
 fn the_pointer_a_joystick_left_is_reported_after_it_settles() {
     run(async {
         let harness = harness();
         pair_and_leave(&harness).await;
-        let mut phone = reconnected_phone_declaring(&harness.runtime, declaring_pointer()).await;
+        let mut phone = reconnected_phone(&harness.runtime).await;
         set_pointer(&harness, (100.0, 100.0));
         harness.runtime.pump_pointer(10.0);
         set_pointer(&harness, (960.0, 540.0));

@@ -5,7 +5,7 @@ mod pairing;
 
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{ConnectionRole, Frame, MessageKind};
-use peering_wire::handshake::{ClientHello, ServerCapabilities, ServerHello};
+use peering_wire::handshake::{ClientHello, ServerHello};
 use peering_wire::source::CaptureSource;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -17,7 +17,7 @@ use super::state::HandshakeState;
 
 pub use super::deps::{PairedDevice, PinStore, Random};
 
-pub const PROTOCOL_VERSION: u16 = 20;
+pub const PROTOCOL_VERSION: u16 = 21;
 pub const MAX_CONTROL_PAYLOAD: usize = 64 * 1024;
 const HOST_PLATFORM: &str = "windows";
 const MAX_IDENTIFIER_BYTES: usize = 256;
@@ -191,12 +191,7 @@ impl HostSession {
             protocol_version: PROTOCOL_VERSION,
             already_paired,
             mac_addresses: already_paired.then(|| self.config.mac_addresses.clone()),
-            capabilities: ServerCapabilities {
-                supports_video_pause: Some(true),
-                supports_client_state: Some(true),
-                supports_source_thumbnails: Some(true),
-                ..ServerCapabilities::default()
-            },
+            pushes_terminal_alerts_while_connected: None,
             agent_chat_agents: None,
             host_platform: Some(HOST_PLATFORM.to_owned()),
         }

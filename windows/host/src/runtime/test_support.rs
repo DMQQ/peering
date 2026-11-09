@@ -8,7 +8,6 @@ use super::outbound::outbound;
 use super::{HostProfile, HostRuntime, SystemClock};
 use peering_core::fakes::secret_store::InMemorySecretStore;
 use peering_core::video::lane::VideoLane;
-use peering_wire::handshake::ClientCapabilities;
 
 /// On Windows building the adapters creates the install's entropy file on the first call, and two tests doing that at once make one of them fail to save it.
 static BUILDING_ADAPTERS: Mutex<()> = Mutex::new(());
@@ -41,7 +40,6 @@ pub(super) fn slot(client_id: &str) -> SessionSlot {
         datagram_outbound: None,
         lane: VideoLane::new([0; 16]),
         background: false,
-        client_flags: ClientCapabilities::default(),
         audio: Default::default(),
     }
 }

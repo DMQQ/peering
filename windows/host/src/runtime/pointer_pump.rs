@@ -20,7 +20,7 @@ use super::HostProfile;
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 impl HostState {
-    /// One look at the pointer. The report goes to every phone that declared `supportsPointerReport`.
+    /// One look at the pointer. The report goes to every phone.
     pub fn pump_pointer(&mut self, now: f64) -> Vec<Outgoing> {
         if self.sessions.is_empty() {
             self.pointer.reset();
@@ -42,7 +42,6 @@ impl HostState {
         let frame = Frame::new(MessageKind::PointerReport, serde_json::to_vec(&point).expect("a point always serialises"));
         self.sessions
             .values()
-            .filter(|slot| slot.client_flags.supports_pointer_report == Some(true))
             .map(|slot| Outgoing { to: slot.outbound.clone(), frame: frame.clone() })
             .collect()
     }

@@ -43,7 +43,7 @@ impl Connection {
             ReadyOutcome::Unhandled(MessageKind::ClientState) => self.client_state(frame),
             ReadyOutcome::Unhandled(MessageKind::VideoChunk) => self.clipboard_chunk(frame),
             ReadyOutcome::Unhandled(MessageKind::PreviewRequest) => self.preview_request(frame),
-            // Read and set aside: the host never declares supportsLiveActivityPush, and a stray token is not an error.
+            // Read and set aside: the host sends no live activity pushes, and a stray token is not an error.
             ReadyOutcome::Unhandled(_) => Flow::Open,
         }
     }
@@ -119,7 +119,7 @@ impl Connection {
         let Ok(request) = serde_json::from_slice::<AgentRequest>(&frame.payload) else {
             return Flow::Closed;
         };
-        if self.answered_by_a_hook(&request) || self.client_flags.supports_agent_chat != Some(true) {
+        if self.answered_by_a_hook(&request) {
             return Flow::Open;
         }
         if let AgentRequest::Browse { path } = request {

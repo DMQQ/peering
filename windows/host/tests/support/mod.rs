@@ -29,7 +29,7 @@ use peering_core::pairing::PairingOffer;
 use peering_host::runtime::{HostProfile, HostRuntime, HostServices, PeerInfo, TerminalServices};
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
-use peering_wire::handshake::{ClientCapabilities, ClientHello, PairConfirm, PairResult, ServerHello};
+use peering_wire::handshake::{ClientHello, PairConfirm, PairResult, ServerHello};
 use peering_wire::source::{CaptureSource, NormalizedPoint};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -423,17 +423,11 @@ pub fn hello() -> Frame {
 
 /// The hello of the phone named `client_id`.
 pub fn hello_from(client_id: &str) -> Frame {
-    hello_declaring(client_id, ClientCapabilities { supports_agent_chat: Some(true), ..Default::default() })
-}
-
-/// The hello of the phone named `client_id`, declaring exactly `capabilities`.
-pub fn hello_declaring(client_id: &str, capabilities: ClientCapabilities) -> Frame {
     let hello = ClientHello {
         client_id: client_id.to_owned(),
         client_name: CLIENT_NAME.to_owned(),
         protocol_version: PROTOCOL_VERSION,
         wants_pairing: true,
-        capabilities,
         resume_source: None,
         lost_pairing: None,
         client_platform: Some("android".to_owned()),
@@ -495,15 +489,6 @@ pub async fn reconnected_phone(runtime: &HostRuntime) -> Phone {
     let mut phone = Phone::connect(runtime, direct_peer());
     phone.send(role_frame(CONTROL_ROLE)).await;
     phone.send(hello()).await;
-    phone.next_of(MessageKind::Catalog).await;
-    phone
-}
-
-/// A second connection of the already paired phone that declares `capabilities`, authorised once the catalogue arrives.
-pub async fn reconnected_phone_declaring(runtime: &HostRuntime, capabilities: ClientCapabilities) -> Phone {
-    let mut phone = Phone::connect(runtime, direct_peer());
-    phone.send(role_frame(CONTROL_ROLE)).await;
-    phone.send(hello_declaring(CLIENT_ID, capabilities)).await;
     phone.next_of(MessageKind::Catalog).await;
     phone
 }

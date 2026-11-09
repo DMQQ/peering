@@ -30,15 +30,11 @@ impl MemoryClipboard {
 }
 
 impl Clipboard for MemoryClipboard {
-    fn read(&self, allow_image: bool) -> Result<ClipboardContent, ClipboardError> {
+    fn read(&self) -> Result<ClipboardContent, ClipboardError> {
         if let Some(error) = self.failed() {
             return Err(error);
         }
-        Ok(match self.current() {
-            Some(ClipboardContent::Image(_)) if !allow_image => ClipboardContent::Empty,
-            Some(content) => content,
-            None => ClipboardContent::Empty,
-        })
+        Ok(self.current().unwrap_or(ClipboardContent::Empty))
     }
 
     fn write(&self, content: &ClipboardContent) -> Result<(), ClipboardError> {

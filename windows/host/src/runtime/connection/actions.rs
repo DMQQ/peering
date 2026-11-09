@@ -7,7 +7,6 @@ use peering_wire::handshake::ServerHello;
 
 use peering_wire::agent::AgentEvent;
 
-use super::super::agent_gate;
 use super::{Connection, Flow};
 
 impl Connection {
@@ -53,9 +52,6 @@ impl Connection {
     }
 
     pub(in super::super) fn send_event(&self, event: &AgentEvent) {
-        if !agent_gate::admits(event, &self.client_flags) {
-            return;
-        }
         // Derived Serialize with string keys only: text from the CLI is just a string value, which cannot fail.
         self.send(Frame::new(MessageKind::AgentEvent, serde_json::to_vec(event).expect("agent events always serialise")));
     }
@@ -70,16 +66,8 @@ impl Connection {
         };
         let installed_agents = self.shared.lock().agent_availability.installed_programs(self.now());
         if !installed_agents.is_empty() {
-            hello.capabilities.supports_agent_chat = Some(true);
-            hello.capabilities.supports_agent_list = Some(true);
             hello.agent_chat_agents = Some(installed_agents);
-            hello.capabilities.supports_agent_model_picker = Some(true);
-            hello.capabilities.supports_agent_permission_modes = Some(true);
-            hello.capabilities.supports_agent_usage = Some(true);
-            hello.capabilities.supports_agent_pause = Some(true);
         }
-        hello.capabilities.supports_file_browser = Some(true);
-        hello.capabilities.supports_clipboard_images = Some(true);
         // The hello was decoded from our own derived type a moment ago, so writing it back cannot fail.
         Frame::new(MessageKind::ServerHello, serde_json::to_vec(&hello).expect("a hello always serialises"))
     }

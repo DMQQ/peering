@@ -103,9 +103,9 @@ device name and `cursorInPicture` are changed in the file, and take effect at th
 - Sound: what the PC plays (WASAPI loopback on the default playback device, which is followed when it changes) is sent as
   `audioConfig` and `audioFrame`, 48 kHz stereo Float32, while a phone in the foreground is connected. Silence sends nothing.
 - The pointer is drawn into the picture (the duplication's shape and position, composited on the GPU copy of the frame; a pointer-only
-  change makes a new frame). A window capture has the system draw it. `pointerReport` still goes to the phones that declared it.
-- `textFocus` and `fieldState` go to phones that declared `supportsTextFocus` and `supportsFieldState`, read with UI Automation on a
-  thread of its own every 300 ms while such a phone is connected, and again 150 ms after a phone's click.
+  change makes a new frame). A window capture has the system draw it. `pointerReport` goes to every connected phone.
+- `textFocus` and `fieldState` go to every connected phone, read with UI Automation on a
+  thread of its own every 300 ms while a phone is connected, and again 150 ms after a phone's click.
 - Windows: the picker lists the top-level windows the system will capture (Windows.Graphics.Capture), each checked when listed.
   Choosing one streams that window and maps the phone's pointer into it; closing it returns the picture to the primary display.
   Applications (several windows of one program) and icons are not offered. Thumbnails are: a screenshot of each window and display (`PrintWindow`, `BitBlt`), shrunk to 240 px across and sent in the catalogue while a phone has its picker open.

@@ -68,11 +68,10 @@ impl Connection {
 
     fn answer_clipboard_request(&mut self) {
         let clipboard = self.shared.lock().clipboard.clone();
-        let allow_image = self.client_flags.supports_clipboard_images == Some(true);
         let frame_id = self.next_clipboard_frame_id();
         let outbound = self.outbound.clone();
         spawn_local(async move {
-            let read = tokio::task::spawn_blocking(move || read_payload(clipboard.as_ref(), allow_image));
+            let read = tokio::task::spawn_blocking(move || read_payload(clipboard.as_ref()));
             let payload = match tokio::time::timeout(READ_DEADLINE, read).await {
                 Ok(Ok(payload)) => payload,
                 Ok(Err(_)) | Err(_) => ClipboardPayload::text(""),
@@ -95,12 +94,12 @@ impl Connection {
     }
 }
 
-/// What a phone is told for a request: the clipboard's text or picture, or empty text when there is none it can have. Empty
+/// What a phone is told for a request: the clipboard's text or picture, or empty text when there is none. Empty
 /// text and not silence, so the phone is never left waiting.
-fn read_payload(clipboard: &dyn Clipboard, allow_image: bool) -> ClipboardPayload {
-    match clipboard.read(allow_image) {
+fn read_payload(clipboard: &dyn Clipboard) -> ClipboardPayload {
+    match clipboard.read() {
         Ok(ClipboardContent::Text(text)) if text.len() <= MAX_REASSEMBLED_BYTES / 2 => ClipboardPayload::text(text),
-        Ok(ClipboardContent::Image(png)) if allow_image && png.len() <= MAX_IMAGE_BYTES => ClipboardPayload::image(png),
+        Ok(ClipboardContent::Image(png)) if png.len() <= MAX_IMAGE_BYTES => ClipboardPayload::image(png),
         _ => ClipboardPayload::text(""),
     }
 }
@@ -160,27 +159,26 @@ mod tests {
     #[test]
     fn a_request_is_answered_with_the_text_on_the_clipboard() {
         let clipboard = MemoryClipboard::holding(ClipboardContent::Text("copied".to_owned()));
-        assert_eq!(read_payload(&clipboard, false), ClipboardPayload::text("copied"));
+        assert_eq!(read_payload(&clipboard), ClipboardPayload::text("copied"));
     }
 
     #[test]
-    fn a_picture_goes_only_to_a_phone_that_can_take_one() {
+    fn a_picture_on_the_clipboard_is_sent_as_an_image() {
         let clipboard = MemoryClipboard::holding(ClipboardContent::Image(vec![1, 2, 3]));
-        assert_eq!(read_payload(&clipboard, true), ClipboardPayload::image(vec![1, 2, 3]));
-        assert_eq!(read_payload(&clipboard, false), ClipboardPayload::text(""));
+        assert_eq!(read_payload(&clipboard), ClipboardPayload::image(vec![1, 2, 3]));
     }
 
     #[test]
     fn an_empty_or_unreadable_clipboard_is_answered_with_empty_text() {
         let clipboard = MemoryClipboard::default();
-        assert_eq!(read_payload(&clipboard, true), ClipboardPayload::text(""));
+        assert_eq!(read_payload(&clipboard), ClipboardPayload::text(""));
         clipboard.fail_with(ClipboardError::Busy);
-        assert_eq!(read_payload(&clipboard, true), ClipboardPayload::text(""));
+        assert_eq!(read_payload(&clipboard), ClipboardPayload::text(""));
     }
 
     #[test]
     fn a_picture_over_the_limit_is_not_sent() {
         let clipboard = MemoryClipboard::holding(ClipboardContent::Image(vec![0; MAX_IMAGE_BYTES + 1]));
-        assert_eq!(read_payload(&clipboard, true), ClipboardPayload::text(""));
+        assert_eq!(read_payload(&clipboard), ClipboardPayload::text(""));
     }
 }
