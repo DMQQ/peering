@@ -83,21 +83,31 @@ object VideoChunkEncoder {
 class VideoChunkReassembler(private val maxReassembled: Int = MAX_REASSEMBLED_BYTES) {
     private var assembly: Assembly? = null
 
+    /** The frame last handed out. Its trailing parity chunks are still on the wire and would each open an empty assembly. */
+    private var completedFrameId: Long? = null
+
     /** Returns the whole inner frame once its last missing piece arrives, otherwise null. */
     fun ingest(frame: Frame): Frame? {
         val chunk = ChunkHeader.parse(frame.payload)
+        if (chunk.frameId == completedFrameId) return null
         val current = assembly?.takeIf { it.frameId == chunk.frameId }
             ?: Assembly(chunk.frameId, chunk.kind, chunk.count).also { assembly = it }
         if (current.kind != chunk.kind || current.count != chunk.count) return null
-        if (chunk.index >= chunk.count) current.keepParity(chunk.index - chunk.count, chunk.body)
-        else if (current.parts.putIfAbsent(chunk.index, chunk.body) == null) current.bufferedBytes += chunk.body.size
+        val group = if (chunk.index >= chunk.count) {
+            current.keepParity(chunk.index - chunk.count, chunk.body)
+            chunk.index - chunk.count
+        } else {
+            if (current.parts.putIfAbsent(chunk.index, chunk.body) == null) current.bufferedBytes += chunk.body.size
+            chunk.index / PARITY_GROUP_SIZE
+        }
         if (current.bufferedBytes > maxReassembled) {
             assembly = null
             return null
         }
-        if (current.parts.size != current.count) current.recover()
+        if (current.parts.size != current.count) current.recover(group)
         if (current.parts.size != current.count) return null
         assembly = null
+        completedFrameId = current.frameId
         return Frame(current.kind, current.join())
     }
 
@@ -113,26 +123,33 @@ class VideoChunkReassembler(private val maxReassembled: Int = MAX_REASSEMBLED_BY
             parities[group] = body.copyOfRange(PARITY_LENGTH_SIZE, body.size)
         }
 
-        /** Rebuilds the one missing chunk of any group whose parity arrived. Two missing in a group are left, as before parity existed. */
-        fun recover() {
+        /**
+         * Rebuilds the one missing chunk of [group] once its parity has arrived, which is the only group the chunk just
+         * ingested can have changed. Two missing in a group are left, as before parity existed.
+         */
+        fun recover(group: Int) {
+            val xor = parities[group] ?: return
             if (totalLength < 0) return
-            for ((group, xor) in parities) {
-                val members = group * PARITY_GROUP_SIZE until minOf((group + 1) * PARITY_GROUP_SIZE, count)
-                val missing = members.filter { it !in parts }
-                if (missing.size != 1) continue
-                val lost = missing.single()
-                val rebuilt = xor.copyOf()
-                for (present in members) {
-                    if (present == lost) continue
-                    val part = parts.getValue(present)
-                    for (i in part.indices) rebuilt[i] = (rebuilt[i].toInt() xor part[i].toInt()).toByte()
-                }
-                val length = if (lost == count - 1) totalLength - (count - 1) * xor.size else xor.size
-                if (length < 0 || length > rebuilt.size) continue
-                val chunk = rebuilt.copyOf(length)
-                parts[lost] = chunk
-                bufferedBytes += chunk.size
+            val first = group * PARITY_GROUP_SIZE
+            val last = minOf(first + PARITY_GROUP_SIZE, count)
+            var lost = -1
+            for (index in first until last) {
+                if (index in parts) continue
+                if (lost >= 0) return
+                lost = index
             }
+            if (lost < 0) return
+            val rebuilt = xor.copyOf()
+            for (present in first until last) {
+                if (present == lost) continue
+                val part = parts.getValue(present)
+                for (i in 0 until minOf(part.size, rebuilt.size)) rebuilt[i] = (rebuilt[i].toInt() xor part[i].toInt()).toByte()
+            }
+            val length = if (lost == count - 1) totalLength - (count - 1) * xor.size else xor.size
+            if (length < 0 || length > rebuilt.size) return
+            val chunk = rebuilt.copyOf(length)
+            parts[lost] = chunk
+            bufferedBytes += chunk.size
         }
 
         fun join(): ByteArray {

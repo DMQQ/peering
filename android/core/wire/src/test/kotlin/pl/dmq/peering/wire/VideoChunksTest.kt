@@ -236,4 +236,41 @@ class VideoChunksTest {
         val kept = frames.filterIndexed { index, _ -> index % PARITY_GROUP_SIZE != 3 || index >= count }
         assertEquals(data.toList(), feed(kept)?.payload?.toList())
     }
+
+    @Test
+    fun aCompletedFramesTrailingParityIsIgnored() {
+        val (data, frames) = elevenChunks()
+        val reassembler = VideoChunkReassembler()
+        var done: Frame? = null
+        for (frame in frames) done = reassembler.ingest(frame) ?: done
+        assertEquals(data.toList(), done?.payload?.toList())
+        // Ingesting the parity again must not restart the frame.
+        assertNull(reassembler.ingest(frames[11]))
+        assertNull(reassembler.ingest(frames[12]))
+    }
+
+    @Test
+    fun aLatePriorFramesParityDoesNotWipeTheNextFramesProgress() {
+        val (_, old) = elevenChunks()
+        val newer = VideoChunkEncoder.encodeWithParity(MessageKind.VideoFrame, ByteArray(21) { it.toByte() }, 8, chunkSize = 2)
+        val reassembler = VideoChunkReassembler()
+        old.take(11).forEach { reassembler.ingest(it) }
+        newer.take(10).forEach { reassembler.ingest(it) }
+        // Frame 7 was completed by its data, so its parity arriving late must not disturb frame 8.
+        reassembler.ingest(old[11])
+        val rest = newer.drop(10).fold<Frame, Frame?>(null) { done, frame -> reassembler.ingest(frame) ?: done }
+        assertEquals(ByteArray(21) { it.toByte() }.toList(), rest?.payload?.toList())
+    }
+
+    @Test
+    fun anOversizedDataChunkNeverBreaksRecovery() {
+        val (_, frames) = elevenChunks()
+        val reassembler = VideoChunkReassembler()
+        // Chunk 3 arrives far longer than the parity block: recovery of its group must not throw.
+        val fat = frames[3].payload.copyOf(frames[3].payload.size + 40)
+        reassembler.ingest(frames[0])
+        reassembler.ingest(Frame(frames[3].kind, fat))
+        reassembler.ingest(frames[11])
+        frames.drop(4).take(6).forEach { reassembler.ingest(it) }
+    }
 }

@@ -74,4 +74,39 @@ struct VideoChunkParityTests {
         body.append(0)
         #expect(throws: VideoChunkError.self) { try reassembler.ingest(Frame(kind: .videoChunk, payload: body)) }
     }
+
+    @Test func aCompletedFramesTrailingParityIsIgnored() throws {
+        let (payload, frames) = elevenChunks()
+        var reassembler = VideoChunkReassembler()
+        var done: Frame?
+        for frame in frames { done = try reassembler.ingest(frame) ?? done }
+        #expect(done?.payload == payload)
+        // Delivered again, the parity must not restart the frame.
+        #expect(try reassembler.ingest(frames[11]) == nil)
+        #expect(try reassembler.ingest(frames[12]) == nil)
+    }
+
+    @Test func aLateParityOfACompletedFrameDoesNotWipeTheNextFramesProgress() throws {
+        let (_, old) = elevenChunks()
+        let payload = Data((0..<21).map { UInt8($0) })
+        let newer = VideoChunkEncoder.encodeWithParity(kind: .videoFrame, payload: payload, frameID: 8, chunkSize: 2)
+        var reassembler = VideoChunkReassembler()
+        for frame in old[..<11] { _ = try reassembler.ingest(frame) }
+        for frame in newer[..<10] { _ = try reassembler.ingest(frame) }
+        _ = try reassembler.ingest(old[11])
+        var done: Frame?
+        for frame in newer[10...] { done = try reassembler.ingest(frame) ?? done }
+        #expect(done?.payload == payload)
+    }
+
+    @Test func anOversizedDataChunkNeverBreaksRecovery() throws {
+        let (_, frames) = elevenChunks()
+        var reassembler = VideoChunkReassembler()
+        var fat = frames[3].payload
+        fat.append(contentsOf: [UInt8](repeating: 9, count: 40))
+        _ = try reassembler.ingest(frames[0])
+        _ = try reassembler.ingest(Frame(kind: frames[3].kind, payload: fat))
+        _ = try reassembler.ingest(frames[11])
+        for frame in frames[4..<10] { _ = try reassembler.ingest(frame) }
+    }
 }

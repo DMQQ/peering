@@ -94,6 +94,8 @@ pub struct Reassembler {
     parities: HashMap<usize, Vec<u8>>,
     total_length: Option<usize>,
     bytes: usize,
+    /// The frame last handed out. Its trailing parity chunks are still on the wire and would each open an empty assembly.
+    completed: Option<u32>,
 }
 
 /// What a chunk's first bytes say about where it belongs.
@@ -133,11 +135,14 @@ impl Default for Reassembler {
 
 impl Reassembler {
     pub fn new(max_reassembled: usize) -> Self {
-        Self { max_reassembled, frame_id: None, inner_kind: None, expected: 0, parts: HashMap::new(), parities: HashMap::new(), total_length: None, bytes: 0 }
+        Self { max_reassembled, frame_id: None, inner_kind: None, expected: 0, parts: HashMap::new(), parities: HashMap::new(), total_length: None, bytes: 0, completed: None }
     }
 
     pub fn ingest(&mut self, frame: &Frame) -> Result<Option<Frame>, ChunkError> {
         let (header, body) = ChunkHeader::parse(&frame.payload)?;
+        if self.completed == Some(header.frame_id) {
+            return Ok(None);
+        }
         if self.frame_id != Some(header.frame_id) {
             self.clear();
             self.frame_id = Some(header.frame_id);
@@ -147,18 +152,22 @@ impl Reassembler {
         if Some(header.inner) != self.inner_kind || header.count != self.expected {
             return Ok(None);
         }
-        if header.index >= header.count {
+        let group = if header.index >= header.count {
             self.keep_parity(header.index - header.count, body);
-        } else if !self.parts.contains_key(&header.index) {
-            self.bytes += body.len();
-            self.parts.insert(header.index, body.to_vec());
-        }
+            header.index - header.count
+        } else {
+            if !self.parts.contains_key(&header.index) {
+                self.bytes += body.len();
+                self.parts.insert(header.index, body.to_vec());
+            }
+            header.index / PARITY_GROUP_SIZE
+        };
         if self.bytes > self.max_reassembled {
             self.clear();
             return Ok(None);
         }
         if self.parts.len() != self.expected {
-            self.recover();
+            self.recover(group);
         }
         if self.parts.len() != self.expected {
             return Ok(None);
@@ -175,26 +184,25 @@ impl Reassembler {
         self.parities.insert(group, xor.to_vec());
     }
 
-    /// Rebuilds the one missing chunk of any group whose parity arrived. Two missing in a group cannot be told apart, so that
-    /// group is left, and the picture is lost as it was before parity existed.
-    fn recover(&mut self) {
-        let Some(total) = self.total_length else { return };
-        for (group, xor) in self.parities.clone() {
-            let first = group * PARITY_GROUP_SIZE;
-            let members = first..(first + PARITY_GROUP_SIZE).min(self.expected);
-            let missing: Vec<usize> = members.clone().filter(|i| !self.parts.contains_key(i)).collect();
-            let [lost] = missing[..] else { continue };
-            let mut rebuilt = xor.clone();
-            for present in members.filter(|i| *i != lost) {
-                rebuilt.iter_mut().zip(&self.parts[&present]).for_each(|(x, b)| *x ^= b);
-            }
-            if lost + 1 == self.expected {
-                let Some(length) = total.checked_sub((self.expected - 1) * xor.len()) else { continue };
-                rebuilt.truncate(length);
-            }
-            self.bytes += rebuilt.len();
-            self.parts.insert(lost, rebuilt);
+    /// Rebuilds the one missing chunk of `group` once its parity has arrived, which is the only group the chunk just ingested
+    /// can have changed. Two missing in a group cannot be told apart, so that group is left, and the picture is lost as it was
+    /// before parity existed.
+    fn recover(&mut self, group: usize) {
+        let (Some(total), Some(xor)) = (self.total_length, self.parities.get(&group)) else { return };
+        let first = group * PARITY_GROUP_SIZE;
+        let members = first..(first + PARITY_GROUP_SIZE).min(self.expected);
+        let mut missing = members.clone().filter(|i| !self.parts.contains_key(i));
+        let (Some(lost), None) = (missing.next(), missing.next()) else { return };
+        let mut rebuilt = xor.clone();
+        for present in members.filter(|i| *i != lost) {
+            rebuilt.iter_mut().zip(&self.parts[&present]).for_each(|(x, b)| *x ^= b);
         }
+        if lost + 1 == self.expected {
+            let Some(length) = total.checked_sub((self.expected - 1) * xor.len()) else { return };
+            rebuilt.truncate(length);
+        }
+        self.bytes += rebuilt.len();
+        self.parts.insert(lost, rebuilt);
     }
 
     /// Joins the parts in order and starts over.
@@ -203,7 +211,9 @@ impl Reassembler {
         for i in 0..self.expected {
             assembled.extend_from_slice(&self.parts[&i]);
         }
+        let finished = self.frame_id;
         self.clear();
+        self.completed = finished;
         Frame::new(kind, assembled)
     }
 
@@ -391,5 +401,31 @@ mod tests {
         assert_eq!(frames.len(), count + count.div_ceil(PARITY_GROUP_SIZE));
         let kept: Vec<&Frame> = frames.iter().enumerate().filter(|(i, _)| i % PARITY_GROUP_SIZE != 3 || *i >= count).map(|(_, f)| f).collect();
         assert_eq!(feed(&kept), Some(Frame::new(MessageKind::VideoFrame, payload)));
+    }
+
+    #[test]
+    fn a_completed_frames_trailing_parity_does_not_open_a_new_assembly() {
+        let (payload, frames) = eleven_chunks();
+        let mut reassembler = Reassembler::default();
+        let mut done = None;
+        for frame in &frames {
+            done = reassembler.ingest(frame).unwrap().or(done);
+        }
+        assert_eq!(done, Some(Frame::new(MessageKind::VideoFrame, payload)));
+        assert_eq!(reassembler.frame_id, None);
+    }
+
+    #[test]
+    fn a_late_parity_does_not_wipe_the_next_frames_progress() {
+        let (_, old) = eleven_chunks();
+        let newer = encode_with_parity(MessageKind::VideoFrame, &(0..21).collect::<Vec<u8>>(), 8, 2, PARITY_GROUP_SIZE);
+        let mut reassembler = Reassembler::default();
+        for frame in &old[..11] {
+            reassembler.ingest(frame).unwrap();
+        }
+        reassembler.ingest(&newer[0]).unwrap();
+        reassembler.ingest(&old[11]).unwrap();
+        assert_eq!(reassembler.frame_id, Some(8));
+        assert_eq!(reassembler.parts.len(), 1);
     }
 }
