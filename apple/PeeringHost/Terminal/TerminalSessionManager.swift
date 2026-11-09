@@ -170,12 +170,12 @@ final class TerminalSessionManager: @unchecked Sendable {
             }
             archiveFolder(id: id, path: path, ownerClientID: clientID, sink: sink)
 
-        case .beginWrite(let id, let path, let totalBytes):
+        case .beginWrite(let id, let path, let totalBytes, let md5):
             guard canBrowse(id, ownerClientID: clientID) else {
                 sink(.failed(sessionID: id, message: "That terminal is no longer running."))
                 return
             }
-            beginWrite(id: id, path: path, totalBytes: totalBytes, ownerClientID: clientID, sink: sink)
+            beginWrite(id: id, path: path, totalBytes: totalBytes, md5: md5, ownerClientID: clientID, sink: sink)
 
         case .writeChunk(let id, let path, let data, let isLast):
             guard canBrowse(id, ownerClientID: clientID) else {

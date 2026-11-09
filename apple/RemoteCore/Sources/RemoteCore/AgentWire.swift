@@ -254,17 +254,3 @@ public struct AgentTurnSummary: Codable, Equatable, Sendable {
     }
 }
 
-/// Whether agent chat traffic may cross a session, in both directions.
-///
-/// As with ``ClipboardImages``: an older peer cannot decode these kinds and fails the session, so each end reads the other's declaration first. Only an explicit `true` counts: `nil` is a peer built before the field.
-public enum AgentChatSupport {
-    /// Whether a client may send ``AgentRequest`` to this Mac.
-    public static func maySend(toHostDeclared declared: Bool?) -> Bool {
-        declared == true
-    }
-
-    /// Whether a Mac may send ``AgentEvent`` to this client.
-    public static func mayReceive(clientDeclared declared: Bool?) -> Bool {
-        declared == true
-    }
-}

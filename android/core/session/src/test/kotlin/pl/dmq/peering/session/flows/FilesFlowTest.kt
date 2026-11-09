@@ -25,7 +25,6 @@ class FilesFlowTest {
     private val written = sortedMapOf<Long, ByteArray>()
     private val host = windowsHost()
     private val browser = FileBrowser(
-        supportsFileBrowser = true,
         browserID = scope,
         send = { outbox += it },
         writeDownloadRange = { offset, bytes -> written[offset] = bytes },

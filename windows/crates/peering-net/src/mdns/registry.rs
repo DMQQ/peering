@@ -1,6 +1,7 @@
+use std::net::IpAddr;
 use std::time::Duration;
 
-use mdns_sd::{ServiceDaemon, ServiceInfo};
+use mdns_sd::{IfKind, ServiceDaemon, ServiceInfo};
 
 use super::{MdnsError, ServiceAdvert, ServiceRegistry, SERVICE_TYPE};
 
@@ -10,8 +11,15 @@ pub struct MdnsRegistry {
 }
 
 impl MdnsRegistry {
-    pub fn new() -> Result<Self, MdnsError> {
-        let daemon = ServiceDaemon::new().map_err(|error| MdnsError::Registry(error.to_string()))?;
+    /// `hidden` are addresses of adapters a client could not reach. IPv6 is never announced, because the host listens on
+    /// IPv4 only and a client that resolves a link-local IPv6 address would time out dialling it.
+    pub fn new(hidden: &[IpAddr]) -> Result<Self, MdnsError> {
+        let registry_error = |error: mdns_sd::Error| MdnsError::Registry(error.to_string());
+        let daemon = ServiceDaemon::new().map_err(registry_error)?;
+        daemon.disable_interface(IfKind::IPv6).map_err(registry_error)?;
+        for address in hidden {
+            daemon.disable_interface(IfKind::Addr(*address)).map_err(registry_error)?;
+        }
         Ok(Self {
             daemon,
             registered: Vec::new(),

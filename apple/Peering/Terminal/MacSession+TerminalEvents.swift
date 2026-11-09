@@ -56,7 +56,7 @@ extension MacSession {
             if let directory = pendingTerminalDirectory {
                 pendingTerminalDirectory = nil
                 TerminalFolders.record(directory, for: info.id)
-                sendTerminalBytes(Array("cd -- \(ShellPath.quoted(directory))\r".utf8), to: info.id)
+                sendTerminalBytes(Array(ShellPath.changeDirectoryLine(to: directory, dialect: hostPlatform == .windows ? .powershell : .posix).utf8), to: info.id)
             }
             if let command = pendingRun {
                 pendingRun = nil
@@ -136,8 +136,8 @@ extension MacSession {
             pendingDirectories.remove(unresolved)
             browseFailures.removeValue(forKey: unresolved)
 
-        case .fileRange(let id, let path, let offset, let totalBytes, let data):
-            apply(fileRange: id, path: path, offset: offset, totalBytes: totalBytes, data: data)
+        case .fileRange(let id, let path, let offset, let totalBytes, let data, let md5):
+            apply(fileRange: id, path: path, offset: offset, totalBytes: totalBytes, data: data, md5: md5)
 
         case .archiveReady(let id, let folder, let archivePath, _):
             apply(archiveReady: id, folder: folder, archivePath: archivePath)

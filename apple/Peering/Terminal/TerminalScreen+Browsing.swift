@@ -132,7 +132,7 @@ extension TerminalScreen {
     /// A new tab rather than this terminal: a file that prints for a minute or prompts for a password should not take over the shell the user has been typing into.
     func run(_ entry: RemoteDirectoryEntry, in terminal: RemoteTerminal) {
         let path = childPath(entry.name, of: browsingPath)
-        model.runInNewTerminal(ShellPath.runCommand(for: path))
+        model.runInNewTerminal(ShellPath.runCommand(for: path, dialect: model.shellDialect))
         withAnimation(Motion.tap) { isBrowsing = false }
     }
 
@@ -140,14 +140,14 @@ extension TerminalScreen {
     func navigate(to path: String, in terminal: RemoteTerminal) {
         model.setBrowsingPath(path, for: terminal.id)
         model.listDirectory(path, sessionID: terminal.id)
-        model.sendTerminalBytes(Array("cd -- \(ShellPath.quoted(path))\r".utf8), to: terminal.id)
+        model.sendTerminalBytes(Array(ShellPath.changeDirectoryLine(to: path, dialect: model.shellDialect).utf8), to: terminal.id)
     }
 
     /// Back to the terminal as well as into the field, since the field is not on screen while browsing. Quoted, so the field holds the form that runs on Return.
     func reveal(_ path: String, in terminal: RemoteTerminal) {
         withAnimation(Motion.tap) { isBrowsing = false }
         model.closePreview()
-        command = ShellPath.quoted(path)
+        command = ShellPath.quoted(path, dialect: model.shellDialect)
         inputFocused = true
     }
 

@@ -49,13 +49,11 @@ object AgentSlash {
         typed: String,
         agentId: String,
         project: String,
-        offersUsage: Boolean,
-        offersModel: Boolean,
         listing: (String) -> List<RemoteDirectoryEntry>?,
     ): List<SlashSuggestion> {
         val found = buildList {
-            if (offersUsage) add(SlashSuggestion("usage", SlashDetail.USAGE, SlashKind.APP))
-            if (offersModel) add(SlashSuggestion("model", SlashDetail.MODEL, SlashKind.APP))
+            add(SlashSuggestion("usage", SlashDetail.USAGE, SlashKind.APP))
+            add(SlashSuggestion("model", SlashDetail.MODEL, SlashKind.APP))
             add(SlashSuggestion("rename", SlashDetail.RENAME, SlashKind.APP))
             if (agentId == CLAUDE) {
                 add(SlashSuggestion("compact", SlashDetail.COMPACT, SlashKind.BUILTIN))

@@ -1,11 +1,15 @@
 package pl.dmq.peering.feature.remote
 
 import kotlin.math.hypot
+import kotlin.math.pow
 
 /** The pointer joystick's arithmetic. Travel is per unit time, not per touch sample, so a 120 Hz screen is no faster. */
 object JoystickMath {
-    /** Full deflection crosses the picture in this many seconds' worth of travel per second (1.5 widths a second). */
-    const val TRAVEL_PER_SECOND = 1.5
+    /** Picture widths a second at full deflection and 1x, the iPhone's figure: 1.5 on a straight line put even a light push past what a person can aim with. */
+    const val WIDTHS_PER_SECOND_AT_FULL_DEFLECTION = 0.8
+
+    /** Above 1 so the first half of the stick is fine control and the speed arrives at the rim. */
+    const val RESPONSE_EXPONENT = 1.6
 
     /** A gap longer than this is a new gesture: otherwise the first sample would carry all the time since the last. */
     const val MAXIMUM_SAMPLE_GAP_SECONDS = 0.05
@@ -30,6 +34,10 @@ object JoystickMath {
     /** How far the pointer moves, in the picture's own points, for a knob held at ([x], [y]) for [seconds]. */
     fun travel(x: Double, y: Double, radius: Double, pointWidth: Double, pointHeight: Double, seconds: Double): Pair<Double, Double> {
         val interval = seconds.coerceIn(0.0, MAXIMUM_SAMPLE_GAP_SECONDS)
-        return (x / radius) * TRAVEL_PER_SECOND * pointWidth * interval to (y / radius) * TRAVEL_PER_SECOND * pointHeight * interval
+        val deflection = hypot(x, y) / radius
+        if (deflection <= 0.0 || !deflection.isFinite()) return 0.0 to 0.0
+        val gain = deflection.coerceAtMost(1.0).pow(RESPONSE_EXPONENT) / deflection
+        val perSecond = WIDTHS_PER_SECOND_AT_FULL_DEFLECTION * gain * interval
+        return (x / radius) * perSecond * pointWidth to (y / radius) * perSecond * pointHeight
     }
 }

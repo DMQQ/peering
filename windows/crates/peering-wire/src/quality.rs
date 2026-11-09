@@ -3,7 +3,7 @@
 pub const MAX_BITRATE_KBPS: u32 = 100_000;
 
 const DEFAULT_MIN_BITRATE_BPS: f64 = 4_000_000.0;
-const DEFAULT_MAX_BITRATE_BPS: f64 = 30_000_000.0;
+const DEFAULT_MAX_BITRATE_BPS: f64 = 80_000_000.0;
 const BITS_PER_PIXEL_PER_FRAME: f64 = 0.12;
 
 /// `None` for a request that is not a bitrate at all (zero or negative).
@@ -31,12 +31,13 @@ pub enum QualityTier {
     Low = 2_000,
     Medium = 8_000,
     High = 20_000,
+    Ultra = 60_000,
 }
 
 impl QualityTier {
     /// The highest tier not above `kbps`, or `None` below the lowest tier.
     pub fn from_kbps(kbps: u32) -> Option<QualityTier> {
-        [QualityTier::High, QualityTier::Medium, QualityTier::Low]
+        [QualityTier::Ultra, QualityTier::High, QualityTier::Medium, QualityTier::Low]
             .into_iter()
             .find(|tier| *tier as u32 <= kbps)
     }
@@ -91,7 +92,7 @@ mod tests {
 
     #[test]
     fn default_bitrate_is_capped_at_the_ceiling() {
-        assert_eq!(default_bitrate_bps(7680, 4320, 60), 30_000_000);
+        assert_eq!(default_bitrate_bps(7680, 4320, 60), 80_000_000);
     }
 
     #[test]
@@ -108,7 +109,8 @@ mod tests {
         assert_eq!(QualityTier::from_kbps(7_999), Some(QualityTier::Low));
         assert_eq!(QualityTier::from_kbps(8_000), Some(QualityTier::Medium));
         assert_eq!(QualityTier::from_kbps(19_999), Some(QualityTier::Medium));
-        assert_eq!(QualityTier::from_kbps(100_000), Some(QualityTier::High));
+        assert_eq!(QualityTier::from_kbps(59_999), Some(QualityTier::High));
+        assert_eq!(QualityTier::from_kbps(100_000), Some(QualityTier::Ultra));
     }
 
     #[test]

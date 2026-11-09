@@ -96,12 +96,12 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// either field means "keep current". Takes effect on the next keyframe.
     case setStreamQuality(fps: Int, bitrateKbps: Int)
     /// Pauses (`false`) or resumes the picture; session, control channel and terminals stay. The first frame after resume is a keyframe.
-    /// A client must not send this to a Mac that does not declare
-    /// ``ServerHello/supportsVideoPause``: an unknown command is a decode failure mid-session.
     case setVideoEnabled(Bool)
     /// Asks the host to re-photograph the desktop shown, ahead of its schedule. A timing signal; pictures arrive on the catalogue.
     case refreshSpacePreviews
-    /// Same shape as ``refreshSpacePreviews``, for the Apps panel grid. Gated by ``ServerHello/supportsSourceThumbnails``.
+    /// A viewer that dropped frames and is waiting for a picture it can decode from. The protocol version guards it: a Mac that does not know it is a different version and refuses the session.
+    case requestKeyframe
+    /// Same shape as ``refreshSpacePreviews``, for the Apps panel grid.
     case refreshSourceThumbnails
     /// The picker's grid opening (`true`) or closing (`false`). While it is open the host keeps
     /// re-photographing the sources and pushes the catalogue only when a picture changed, so the
@@ -115,10 +115,10 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// Asks the host to read its pasteboard and reply with a ``MessageKind/clipboardContent`` frame.
     case requestClipboard
     case pushClipboard(text: String)
-    /// PNG always. Separate from ``pushClipboard(text:)`` because widening that would break decoding on an un-updated Mac; send only after ``ServerHello/supportsClipboardImages``. Large payloads are cut by ``ClipboardTransfer``.
+    /// PNG always. Separate from ``pushClipboard(text:)``. Large payloads are cut by ``ClipboardTransfer``.
     case pushClipboardImage(png: Data)
 
-    /// Tells the host the phone's orientation so a virtual display can rotate. Only for a Mac declaring ``ServerHello/supportsDeviceOrientation``. A state report, so it coalesces like ``mouseMove(to:)``.
+    /// Tells the host the phone's orientation so a virtual display can rotate. A state report, so it coalesces like ``mouseMove(to:)``.
     case reportDeviceOrientation(isLandscape: Bool)
 
     /// Empty `name` asks the host to pick one. `width`/`height` are portrait pixels regardless of `startLandscape`, clamped by the host.
@@ -139,7 +139,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return .accumulate
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
-             .setVideoEnabled, .refreshSpacePreviews, .refreshSourceThumbnails,
+             .setVideoEnabled, .refreshSpacePreviews, .requestKeyframe, .refreshSourceThumbnails,
              .watchSourceThumbnails, .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard,
              .pushClipboardImage, .addVirtualDisplay, .removeVirtualDisplay,
              .renameVirtualDisplay, .performWindowAction, .openNewWindow:
@@ -167,7 +167,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .switchSpace, .switchToSpace, .joystickMove:
             return true
         case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
-             .refreshSpacePreviews, .refreshSourceThumbnails, .watchSourceThumbnails,
+             .refreshSpacePreviews, .requestKeyframe, .refreshSourceThumbnails, .watchSourceThumbnails,
              .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
              .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,
              .performWindowAction, .openNewWindow:
@@ -182,7 +182,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .joystickMove:
             return true
         case .switchSpace, .switchToSpace, .setCaptureSource, .launchApplication,
-             .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews,
+             .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews, .requestKeyframe,
              .refreshSourceThumbnails, .watchSourceThumbnails, .setPrivacyMode, .lockScreen,
              .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
              .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,

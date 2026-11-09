@@ -121,7 +121,7 @@ class SourcesPresenter(private val sink: CommandSink) {
     fun actionsFor(descriptor: CaptureSourceDescriptor, features: SourcesFeatures): List<TileAction> = when (descriptor.source) {
         is CaptureSource.Window -> if (features.windowControls) listOf(TileAction.CLOSE, TileAction.MINIMISE, TileAction.ZOOM) else emptyList()
         is CaptureSource.Display ->
-            if (descriptor.isManagedVirtualDisplay && features.virtualDisplays) listOf(TileAction.REMOVE, TileAction.RENAME) else emptyList()
+            if (descriptor.isManagedVirtualDisplay) listOf(TileAction.REMOVE, TileAction.RENAME) else emptyList()
         else -> emptyList()
     }
 
@@ -161,7 +161,7 @@ class SourcesPresenter(private val sink: CommandSink) {
 }
 
 /** What the computer can do, as the panel offers it. A Windows host can do neither. */
-data class SourcesFeatures(val windowControls: Boolean = false, val virtualDisplays: Boolean = false, val desktops: Boolean = false)
+data class SourcesFeatures(val windowControls: Boolean = false, val desktops: Boolean = false)
 
 enum class TileAction { CLOSE, MINIMISE, ZOOM, REMOVE, RENAME }
 

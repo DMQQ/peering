@@ -32,15 +32,21 @@ extension HostModel {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.coordinator?.refreshCatalog() }
+            // Nobody is there to receive it, and a phone that connects is sent a fresh one at once.
+            MainActor.assumeIsolated {
+                guard let self, !self.connectedClients.isEmpty else { return }
+                self.coordinator?.refreshCatalog()
+            }
         }
     }
 
     /// Built but not started: reading the catalogue needs permission, which happens on the first video connection.
     func makeCoordinator() -> VideoCoordinator {
         let resolver = ScreenCaptureSourceResolver { [weak self] immediate in
+            // The resolver keeps watching windows and desktops with nobody connected, and re-reading the catalogue for each change is the cost this skips: a phone that connects is sent a fresh one at once.
             Task { @MainActor [weak self] in
-                self?.coordinator?.refreshCatalog(immediate: immediate)
+                guard let self, !self.connectedClients.isEmpty else { return }
+                self.coordinator?.refreshCatalog(immediate: immediate)
             }
         }
         // Wired here because a cover taken back down cannot be reported in the call that raised it.

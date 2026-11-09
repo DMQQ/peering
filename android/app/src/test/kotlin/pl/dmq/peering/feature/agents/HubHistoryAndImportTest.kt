@@ -6,7 +6,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChatSession
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.AgentPause
@@ -33,7 +32,7 @@ class HubHistoryAndImportTest {
     private fun hub(port: FakeAgentsPort): AgentsHubPresenter {
         val scope = CoroutineScope(UnconfinedTestDispatcher())
         val folders = FolderPicker({}, scope)
-        return AgentsHubPresenter(port, listOf("claude", "codex"), true, folders, FolderRecents(InMemoryFolderRecentsStore(), "mac"), FakeClock(), scope)
+        return AgentsHubPresenter(port, listOf("claude", "codex"), folders, FolderRecents(InMemoryFolderRecentsStore(), "mac"), FakeClock(), scope)
     }
 
     private fun resumable(mayBeOpen: Boolean = false, agentID: String = "claude") =
@@ -49,14 +48,10 @@ class HubHistoryAndImportTest {
     }
 
     @Test
-    fun endingAQuietConversationPausesItWhenTheHostCanAndClosesOtherwise() {
+    fun endingAQuietConversationPausesIt() {
         val port = FakeAgentsPort(AgentChatState(sessions = listOf(talked("A"))))
         hub(port).endSession("A")
         assertEquals(listOf("pause:A"), port.calls)
-
-        val noPause = FakeAgentsPort(AgentChatState(sessions = listOf(talked("A"))), AgentCapabilities(chat = true))
-        hub(noPause).endSession("A")
-        assertEquals(listOf("close:A"), noPause.calls)
     }
 
     @Test
@@ -76,14 +71,10 @@ class HubHistoryAndImportTest {
     }
 
     @Test
-    fun refreshListsTheComputersConversationsOnlyWithImportSupport() {
+    fun refreshListsTheComputersConversations() {
         val port = FakeAgentsPort()
         hub(port).refresh()
         assertEquals(listOf("list", "listResumable"), port.calls)
-
-        val without = FakeAgentsPort(capabilities = AgentCapabilities(chat = true))
-        hub(without).refresh()
-        assertEquals(listOf("list"), without.calls)
     }
 
     @Test
@@ -110,15 +101,5 @@ class HubHistoryAndImportTest {
         val presenter = hub(port)
         assertTrue(presenter.resume("claude:cli2", anyway = true))
         assertEquals(listOf("resume:claude:cli2"), port.calls)
-    }
-
-    @Test
-    fun noImportSectionWithoutHostSupport() {
-        val port = FakeAgentsPort(capabilities = AgentCapabilities(chat = true))
-        port.resumableList.value = listOf(resumable())
-        val presenter = hub(port)
-        assertTrue(presenter.ui.value.resumable.isEmpty())
-        assertFalse(presenter.ui.value.canImport)
-        assertFalse(presenter.resume("claude:cli1"))
     }
 }

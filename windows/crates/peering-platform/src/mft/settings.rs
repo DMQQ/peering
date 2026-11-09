@@ -11,6 +11,8 @@ pub struct EncoderSettings {
     pub bitrate_bps: u32,
 }
 
+const KEYFRAME_INTERVAL_SECONDS: u32 = 10;
+
 impl EncoderSettings {
     pub fn new(width: u32, height: u32, fps: u32, bitrate_bps: u32) -> Result<Self, EncodeError> {
         let (width, height) = even_size(width, height);
@@ -21,8 +23,8 @@ impl EncoderSettings {
         Ok(Self { width, height, fps, bitrate_bps })
     }
 
-    /// Two seconds of frames, the keyframe interval the Mac host uses.
+    /// Ten seconds of frames, the keyframe interval the Mac host uses. Rare on purpose: a viewer that joins or drops frames asks for a keyframe, and a large one is a burst that shows up as stutter.
     pub fn gop_size(&self) -> u32 {
-        self.fps.saturating_mul(2)
+        self.fps.saturating_mul(KEYFRAME_INTERVAL_SECONDS)
     }
 }

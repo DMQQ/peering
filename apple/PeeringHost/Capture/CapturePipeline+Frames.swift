@@ -18,7 +18,23 @@ extension CapturePipeline {
             overlay?.draw(into: frame.pixelBuffer, geometry: frame.geometry)
         }
 
+        idleRefresh.note(frame)
         encode(frame, source: source)
+    }
+
+    /// Runs on the refresh queue once the picture has been still: the same buffer again, so the encoder refines what the last motion left coarse.
+    func refreshStillPicture(_ frame: CapturedFrame, at time: CMTime) {
+        let (encoder, running) = lock.withLock { (self.encoder, self.source) }
+        guard let encoder, running != nil, !encoder.hasFailed else { return }
+        guard encoder.pixelSize == VideoEncoder.encodedSize(
+            for: CGSize(width: CVPixelBufferGetWidth(frame.pixelBuffer), height: CVPixelBufferGetHeight(frame.pixelBuffer))
+        ) else { return }
+        let refreshed = CapturedFrame(pixelBuffer: frame.pixelBuffer, presentationTime: time, duration: frame.duration, geometry: frame.geometry)
+        do {
+            try encoder.encode(refreshed)
+        } catch {
+            pipelineLog.error("still-picture refresh failed: \(String(describing: error), privacy: .public)")
+        }
     }
 
     /// Where pointer smoothness on a still screen comes from: the overlay turns pointer movement into a frame.
@@ -99,7 +115,13 @@ extension CapturePipeline {
     func deliver(_ encoded: EncodedFrame, source: CaptureSource) {
         guard lock.withLock({ self.source == source }) else { return }
         if encoded.isKeyframe {
-            lock.withLock { awaitsKeyframe = false }
+            let wait = lock.withLock { () -> KeyframeWait.Delivered? in
+                awaitsKeyframe = false
+                return keyframeWait.delivered(at: .now)
+            }
+            if let wait {
+                pipelineLog.notice("keyframe sent \(wait.waitedMilliseconds, privacy: .public) ms after it was asked for\(wait.nudged ? ", after a nudge" : "", privacy: .public)")
+            }
         }
         let consumer = lock.withLock { _onFrame }
         consumer?(encoded, source)

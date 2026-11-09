@@ -83,7 +83,7 @@ impl Sealer {
     /// Cuts the message into datagram sized pieces and seals each. Returns nothing if the payload cannot be chunked.
     pub fn seal(&mut self, kind: MessageKind, payload: &[u8]) -> Vec<Vec<u8>> {
         self.frame_id = self.frame_id.wrapping_add(1);
-        chunks::encode(kind, payload, self.frame_id, chunks::DATAGRAM_CHUNK_SIZE)
+        chunks::encode_with_parity(kind, payload, self.frame_id, chunks::DATAGRAM_CHUNK_SIZE, chunks::PARITY_GROUP_SIZE)
             .iter()
             .map(|piece| self.seal_frame(&piece.encode()))
             .collect()

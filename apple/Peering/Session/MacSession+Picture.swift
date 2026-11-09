@@ -7,9 +7,8 @@ import UIKit
 import os
 
 extension MacSession {
-    /// Touches nothing else: the control channel, shells, clipboard and the keep-awake assertion all survive. Silent for a Mac that cannot take it.
+    /// Touches nothing else: the control channel, shells, clipboard and the keep-awake assertion all survive.
     func setPicturePaused(_ paused: Bool) {
-        guard PicturePause.mayAsk(hostDeclared: hostSupportsVideoPause) else { return }
         guard phase.holdsSession, paused != picturePaused else { return }
         picturePaused = paused
         send(.setVideoEnabled(!paused))

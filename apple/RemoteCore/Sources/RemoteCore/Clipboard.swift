@@ -25,15 +25,3 @@ public enum ClipboardTransfer {
         VideoChunkReassembler(maxReassembled: ClipboardLimits.maxReassembledBytes)
     }
 }
-
-public enum ClipboardImages {
-    /// Explicit `true` only: `nil` is a Mac built before the field, and an unknown command is a decode failure mid-session.
-    public static func maySend(toHostDeclared declared: Bool?) -> Bool {
-        declared == true
-    }
-
-    /// A client too old to read a picture would feed the chunked payload to its video assembler.
-    public static func mayReceive(clientDeclared declared: Bool?) -> Bool {
-        declared == true
-    }
-}

@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.controller
 
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -10,7 +11,6 @@ import pl.dmq.peering.session.clipboard.ClipboardDirection
 import pl.dmq.peering.session.clipboard.ClipboardHistory
 import pl.dmq.peering.session.clipboard.ClipboardImageFrames
 import pl.dmq.peering.session.clipboard.ClipboardPush
-import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.connection.LivenessMonitor
 import pl.dmq.peering.session.connection.SessionCommands
 import pl.dmq.peering.session.files.FileBrowser
@@ -29,6 +29,7 @@ import pl.dmq.peering.wire.AutoQualityPolicy
 import pl.dmq.peering.wire.ClientStatePayload
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.MessageKind
+import pl.dmq.peering.wire.RequestKeyframe
 import pl.dmq.peering.wire.WireJson
 import pl.dmq.peering.wire.ServerHello
 import pl.dmq.peering.wire.QualityTier
@@ -67,20 +68,30 @@ internal class ConnectedLink(
     private val tally: ByteTally,
     private val note: (String) -> Unit,
     lanPeerKey: ByteArray?,
+    private val mark: (String) -> Unit = {},
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
+    private var firstPictureMarked = false
     private val seen: () -> Unit = {
+        if (!firstPictureMarked) {
+            firstPictureMarked = true
+            mark("first picture frame reached the decoder")
+        }
+        // Told once per picture that starts, not per frame: publishing copies the whole session state, and the tick publishes the rest within a quarter of a second.
+        val first = !picture.hasSeenPicture
         noteSeen()
-        onPicture()
+        if (first) onPicture()
     }
-    private val streamRecord = StreamRecord(sink)
+    /** Set from the decoder's thread and read by the command tick, which owns [commands]. */
+    private val keyframeWanted = AtomicBoolean(false)
+    private val streamRecord = StreamRecord(sink).also { it.onNeedsKeyframe = { keyframeWanted.set(true) } }
     private val lanes = VideoLanes(PictureSink(streamRecord, onPicture = seen), clock, route.videoPeer, route.videoToken)
     private val router = FrameRouter(liveness, commands, lanes, selection, agent, files, terminals, preview)
     private val picture: PictureWatch = PictureWatch(
         clock,
         lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {
-            LanVideoLane(videoConnector, route.videoPeer, lanPeerKey, PictureSink(streamRecord, selection::onVideoConfig, seen), tally)
+            LanVideoLane(videoConnector, route.videoPeer, lanPeerKey, PictureSink(streamRecord, selection::onVideoConfig, seen), tally, mark)
         },
     )
     private var automatic: AutoQualityPolicy? = null
@@ -127,7 +138,7 @@ internal class ConnectedLink(
     /** Sends a picture to the computer's clipboard and keeps it in the history when it went. */
     fun sendClipboardImage(png: ByteArray): ClipboardPush {
         clipboardFrameId += 1
-        return when (val built = ClipboardImageFrames.build(hello, png, clipboardFrameId)) {
+        return when (val built = ClipboardImageFrames.build(png, clipboardFrameId)) {
             is ClipboardImageFrames.Refused -> built.reason
             is ClipboardImageFrames.Ready -> {
                 built.frames.forEach(writer::enqueue)
@@ -165,15 +176,14 @@ internal class ConnectedLink(
 
     /**
      * Tells the host the phone left or returned to the foreground. [probeNow] pings the host at once (see [ReturnProbe]); the
-     * silence counted from the return then ends the link after the foreground limit. False when the host did not declare that it understands. */
-    fun reportBackground(background: Boolean, probeNow: Boolean = false): Boolean {
+     * silence counted from the return then ends the link after the foreground limit.
+     */
+    fun reportBackground(background: Boolean, probeNow: Boolean = false) {
         if (backgrounded && !background) liveness.resetSilence()
         if (probeNow) writer.enqueue(liveness.nextPing())
         backgrounded = background
-        if (!HostCapability.ClientState.declaredBy(hello)) return false
         val payload = WireJson.encodeToString(ClientStatePayload.serializer(), ClientStatePayload(background))
         writer.enqueue(Frame(MessageKind.ClientState, payload.toByteArray(Charsets.UTF_8)))
-        return true
     }
 
     fun enqueue(frame: Frame) = writer.enqueue(frame)
@@ -206,7 +216,12 @@ internal class ConnectedLink(
         direct?.let { runner ->
             launchLinkTask(ended, note) { every(PROBE_INTERVAL) { runner.tick(clock.monotonicSeconds()) } }
         }
-        launchLinkTask(ended, note) { every(COMMAND_INTERVAL) { commands.drain().forEach(writer::enqueue) } }
+        launchLinkTask(ended, note) {
+            every(COMMAND_INTERVAL) {
+                if (keyframeWanted.getAndSet(false)) commands.offer(RequestKeyframe)
+                commands.drain().forEach(writer::enqueue)
+            }
+        }
         launchLinkTask(ended, note) { every(PING_INTERVAL) { writer.enqueue(liveness.nextPing()) } }
         launchLinkTask(ended, note) {
             every(LANE_INTERVAL) {
@@ -214,9 +229,18 @@ internal class ConnectedLink(
                 steerAutomatic()
                 when (picture.takeEscalation()) {
                     PictureEscalation.NONE -> Unit
-                    PictureEscalation.KEYFRAME -> requestKeyframe()
-                    PictureEscalation.REOPEN -> reopenPicture(automatic = true)
-                    PictureEscalation.RECONNECT -> ended.complete(LinkEnd.Lost)
+                    PictureEscalation.KEYFRAME -> {
+                        mark("no picture yet, asking the computer for a keyframe")
+                        requestKeyframe()
+                    }
+                    PictureEscalation.REOPEN -> {
+                        mark("still no picture, reopening it")
+                        reopenPicture(automatic = true)
+                    }
+                    PictureEscalation.RECONNECT -> {
+                        mark("still no picture, replacing the connection")
+                        ended.complete(LinkEnd.Lost)
+                    }
                 }
                 if (liveness.isSilent(clock.monotonicSeconds(), SilencePolicy.limitSeconds(backgrounded))) ended.complete(LinkEnd.Lost)
                 onTick()

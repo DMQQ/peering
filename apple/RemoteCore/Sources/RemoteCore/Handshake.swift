@@ -7,36 +7,13 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// Advisory only: the host decides, since only it knows its pin store.
     public var wantsPairing: Bool
 
-    /// Declared, not implied by version: this build and the one before both speak version 16. Optional and additive: `nil` reads as no.
-    public var supportsClipboardImages: Bool?
-
-    /// Declared like ``supportsClipboardImages``: an older client cannot decode the frame kind.
-    public var supportsTextFocus: Bool?
-
-    public var supportsFieldState: Bool?
-
-    /// Declared like ``supportsTextFocus``: an older client cannot decode the frame kind.
-    public var supportsPointerReport: Bool?
-
-    /// Declared in both directions: the Mac streams events, so it is the Mac that must restrain itself when the phone is older. `nil` reads as no.
-    public var supportsAgentChat: Bool?
-
-    /// Whether this client reads ``AgentEvent/permissionModeChanged(sessionID:mode:)``.
-    public var supportsAgentPermissionModes: Bool?
-
-    /// Whether this client reads ``AgentEvent/usageChanged(sessionID:usage:)``.
-    public var supportsAgentUsage: Bool?
-
-    /// Whether this client reads ``AgentEvent/queueChanged(sessionID:prompts:)``. Optional and additive: `nil` reads as no, and such a client queues its own messages.
-    public var supportsAgentQueue: Bool?
-
     /// Honoured only for a client the Mac already trusts.
     public var resumeSource: CaptureSource?
 
-    /// Set only by a phone that dialled a Mac by its ID and holds no pin for it, so the Mac may still trust the phone's key while the phone has forgotten the Mac. Without it that pair was stuck: the Mac answered "already paired" and the phone refused to proceed. `nil` reads as no, which is every older client.
+    /// Set only by a phone that dialled a Mac by its ID and holds no pin for it, so the Mac may still trust the phone's key while the phone has forgotten the Mac. Without it that pair was stuck: the Mac answered "already paired" and the phone refused to proceed. `nil` reads as no.
     public var lostPairing: Bool?
 
-    /// Set when the person chose to displace the phone that is using this Mac. Optional and additive: an older Mac ignores it and keeps turning the newcomer away. Honoured only for a client whose key the Mac has pinned.
+    /// Set when the person chose to displace the phone that is using this Mac. Honoured only for a client whose key the Mac has pinned.
     public var takesOver: Bool?
 
     /// Which platform this client runs on, for a host whose behaviour differs by it (`"android"`, `"ios"`). Optional and additive: `nil` is an iPhone build from before this field.
@@ -58,14 +35,6 @@ public struct ClientHello: Codable, Sendable, Equatable {
         clientName: String,
         protocolVersion: UInt16,
         wantsPairing: Bool,
-        supportsClipboardImages: Bool? = nil,
-        supportsTextFocus: Bool? = nil,
-        supportsFieldState: Bool? = nil,
-        supportsPointerReport: Bool? = nil,
-        supportsAgentChat: Bool? = nil,
-        supportsAgentPermissionModes: Bool? = nil,
-        supportsAgentUsage: Bool? = nil,
-        supportsAgentQueue: Bool? = nil,
         resumeSource: CaptureSource? = nil,
         lostPairing: Bool? = nil,
         takesOver: Bool? = nil,
@@ -82,14 +51,6 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.clientName = clientName
         self.protocolVersion = protocolVersion
         self.wantsPairing = wantsPairing
-        self.supportsClipboardImages = supportsClipboardImages
-        self.supportsTextFocus = supportsTextFocus
-        self.supportsFieldState = supportsFieldState
-        self.supportsPointerReport = supportsPointerReport
-        self.supportsAgentChat = supportsAgentChat
-        self.supportsAgentPermissionModes = supportsAgentPermissionModes
-        self.supportsAgentUsage = supportsAgentUsage
-        self.supportsAgentQueue = supportsAgentQueue
         self.resumeSource = resumeSource
     }
 }

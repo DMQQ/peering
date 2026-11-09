@@ -190,9 +190,14 @@ extension AgentSessionManager {
             applied.correctedModel = model
         }
         let alert: AgentAlertPolicy.Alert = summary.ok ? .finished : .failed
-        guard PushPolicy.shouldPush(presence: push.presence, hasToken: push.token != nil),
-              AgentAlertPolicy.allows(alert, decisionsOnly: push.decisionsOnly)
-        else { return }
+        let allowed: Bool
+        switch session.finishAlert {
+        case .some(let wanted): allowed = wanted && push.token != nil
+        case .none:
+            allowed = PushPolicy.shouldPush(presence: push.presence, hasToken: push.token != nil)
+                && AgentAlertPolicy.allows(alert, decisionsOnly: push.decisionsOnly)
+        }
+        guard allowed else { return }
         let text = AgentNotificationText.finished(
             agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply,
             editedFiles: session.turnRecap.editedFiles.count, duration: summary.duration,

@@ -3,7 +3,7 @@ package pl.dmq.peering.wire
 const val MAX_BITRATE_KBPS = 100_000
 
 private const val MIN_DEFAULT_BITRATE_BPS = 4_000_000.0
-private const val MAX_DEFAULT_BITRATE_BPS = 30_000_000.0
+private const val MAX_DEFAULT_BITRATE_BPS = 80_000_000.0
 private const val BITS_PER_PIXEL_PER_FRAME = 0.12
 
 /** Null for a request that is not a bitrate at all (zero or negative). Anything above the maximum is capped. */
@@ -22,6 +22,9 @@ enum class QualityTier(val kbps: Int) {
     LOW(2_000),
     MEDIUM(8_000),
     HIGH(20_000),
+
+    /** Reached only by the automatic policy, on a path that spends nobody's bandwidth. */
+    ULTRA(60_000),
     ;
 
     companion object {
@@ -35,7 +38,7 @@ enum class QualityTier(val kbps: Int) {
  * [HEALTHY_SAMPLES_FOR_UPGRADE] good ones in a row, so one good ping cannot make the stream bounce. The ceiling caps the
  * climb and the start, never the fall.
  */
-class AutoQualityPolicy(private val path: Path, private val ceiling: QualityTier = QualityTier.HIGH) {
+class AutoQualityPolicy(private val path: Path, private val ceiling: QualityTier = QualityTier.ULTRA) {
     enum class Path { LAN, RELAY, DIRECT }
 
     var tier: QualityTier = minOf(if (path == Path.RELAY) QualityTier.MEDIUM else QualityTier.HIGH, ceiling)

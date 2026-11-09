@@ -97,7 +97,7 @@ extension TerminalHubScreen {
     }
 
     private func chatCapable(_ agent: TerminalAgent) -> Bool {
-        agent.supportsChat && model.activeSession?.hostSupportsAgentChat == true
+        agent.supportsChat
             && model.activeSession?.hostChatAgents.contains(agent.id) == true
     }
 
@@ -169,8 +169,7 @@ extension TerminalHubScreen {
             selection: $tab,
             terminalCount: shellCards.filter(\.isRunning).count,
             agentCount: model.agentCards.filter(\.isLive).count,
-            agentsBusy: model.agentCards.contains { $0.state == .working },
-            offersFiles: model.hostSupportsFileBrowser
+            agentsBusy: model.agentCards.contains { $0.state == .working }
         )
     }
 
@@ -179,7 +178,6 @@ extension TerminalHubScreen {
         MacFilesScreen(
             path: nil,
             embedded: true,
-            push: { path.append(.files($0)) },
             close: {},
             preview: { path.append(.filePreview($0)) }
         )
@@ -209,7 +207,6 @@ extension TerminalHubScreen {
             canChat: selectedAgent.map(chatCapable) ?? false,
             chat: { if let agent = selectedAgent { path.append(.folder(agent, nil)) } },
             terminal: { if let agent = selectedAgent { start(agent) } },
-            offersFiles: model.hostSupportsFileBrowser,
             files: { tab = .files },
             newTerminal: { path.append(.terminalFolder(nil)) }
         )

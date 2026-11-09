@@ -63,7 +63,7 @@ class VideoSealer(secret: ByteArray, direction: VideoDirection, private val toke
     /** Cuts the message into datagram sized pieces and seals each. Returns nothing if it cannot be chunked. */
     fun seal(kind: MessageKind, payload: ByteArray): List<ByteArray> {
         frameId = (frameId + 1) and 0xFFFF_FFFFL
-        return VideoChunkEncoder.encode(kind, payload, frameId, DATAGRAM_CHUNK_SIZE)
+        return VideoChunkEncoder.encodeWithParity(kind, payload, frameId, DATAGRAM_CHUNK_SIZE)
             .map { sealFrame(FrameEncoder.encode(it.kind, it.payload)) }
     }
 

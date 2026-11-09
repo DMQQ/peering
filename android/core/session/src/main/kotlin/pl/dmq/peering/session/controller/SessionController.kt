@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import pl.dmq.peering.session.agent.AgentCapabilities
+import pl.dmq.peering.session.agent.declaredAgents
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.session.clipboard.ClipboardDirection
@@ -62,26 +62,28 @@ class SessionController(
     private val handover = LanHandover(target, ports)
     private val link: ConnectedLink? get() = runner.link
 
-    /** The agent chat, present once the host has declared that it supports one. */
+    /** The agent chat, present once a session has been ready. */
     val agentChat: AgentChat? get() = services.agentChat
 
-    /** The file browser, present once the host has declared that it supports one. */
+    /** The file browser, present once a session has been ready. */
     val files: FileBrowser? get() = services.fileBrowser
 
     /** The shells of the computer, present once a session has been ready. */
     val terminals: TerminalSessions? get() = services.terminals
 
-    /** The web preview's way to the computer's loopback; null until a computer that supports agent chats is connected. */
+    /** The web preview's way to the computer's loopback; null until a session has been ready. */
     val preview: PreviewProxyClient? get() = services.preview
 
     /** The agent ids the host declared for chats (Claude Code and Codex for a host that predates the list), or none while no session is ready. */
-    val declaredAgentIDs: List<String> get() = link?.hello?.let(AgentCapabilities::declaredAgents).orEmpty()
+    val declaredAgentIDs: List<String> get() = link?.hello?.let(::declaredAgents).orEmpty()
 
     /** Starts the session. Does nothing while one is already running. */
     fun connect() {
         if (job?.isActive == true) return
         runner.forgetReadiness()
         reconnect = ReconnectSupervisor(ports.clock)
+        recorder.restartTiming()
+        recorder.mark("connect requested")
         update { it.copy(phase = SessionPhase.Connecting(target.path)) }
         job = scope.launch { lifecycle() }
         handoverJob?.cancel()

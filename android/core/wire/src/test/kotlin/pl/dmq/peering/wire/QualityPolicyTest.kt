@@ -29,7 +29,7 @@ class QualityPolicyTest {
     @Test
     fun defaultBitrateIsRaisedToTheFloorAndCappedAtTheCeiling() {
         assertEquals(4_000_000, defaultBitrateBps(640, 360, 30))
-        assertEquals(30_000_000, defaultBitrateBps(7680, 4320, 60))
+        assertEquals(80_000_000, defaultBitrateBps(7680, 4320, 60))
     }
 
     @Test
@@ -39,7 +39,8 @@ class QualityPolicyTest {
         assertEquals(QualityTier.LOW, QualityTier.fromKbps(7_999))
         assertEquals(QualityTier.MEDIUM, QualityTier.fromKbps(8_000))
         assertEquals(QualityTier.MEDIUM, QualityTier.fromKbps(19_999))
-        assertEquals(QualityTier.HIGH, QualityTier.fromKbps(100_000))
+        assertEquals(QualityTier.HIGH, QualityTier.fromKbps(59_999))
+        assertEquals(QualityTier.ULTRA, QualityTier.fromKbps(100_000))
     }
 
     @Test
@@ -47,6 +48,15 @@ class QualityPolicyTest {
         assertEquals(QualityTier.HIGH, AutoQualityPolicy(AutoQualityPolicy.Path.LAN).tier)
         assertEquals(QualityTier.HIGH, AutoQualityPolicy(AutoQualityPolicy.Path.DIRECT).tier)
         assertEquals(QualityTier.MEDIUM, AutoQualityPolicy(AutoQualityPolicy.Path.RELAY).tier)
+    }
+
+    @Test
+    fun ultraIsReachedOnlyWhereTheCeilingAllowsIt() {
+        val open = AutoQualityPolicy(AutoQualityPolicy.Path.LAN)
+        val capped = AutoQualityPolicy(AutoQualityPolicy.Path.LAN, QualityTier.HIGH)
+        assertEquals(List(11) { null } + listOf(QualityTier.ULTRA), observeAll(open, latency = 20.0, dropped = 0, times = 12))
+        assertEquals(List(12) { null }, observeAll(capped, latency = 20.0, dropped = 0, times = 12))
+        assertEquals(QualityTier.HIGH, open.observe(200.0, 0))
     }
 
     @Test

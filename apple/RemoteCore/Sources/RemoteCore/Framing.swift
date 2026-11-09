@@ -51,19 +51,15 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     case videoKey = 0x1A
     /// Opening it proves the datagram came from the peer and not from someone spoofing a source address, which the relay's introduction cannot vouch for.
     case directProbe = 0x1B
-    /// The Mac's keyboard focus moved. JSON-encoded ``TextFocus``. Sent only to a client that
-    /// declared ``ClientHello/supportsTextFocus``.
+    /// The Mac's keyboard focus moved. JSON-encoded ``TextFocus``.
     case textFocus = 0x1C
-    /// What the focused text field holds and where its caret is. JSON-encoded ``FieldState``. Sent only
-    /// to a client that declared ``ClientHello/supportsFieldState``.
+    /// What the focused text field holds and where its caret is. JSON-encoded ``FieldState``.
     case fieldState = 0x1D
 
-    /// An authenticated client's agent chat request. JSON-encoded ``AgentRequest``. Sent only to a
-    /// Mac that declared ``ServerHello/supportsAgentChat``.
+    /// An authenticated client's agent chat request. JSON-encoded ``AgentRequest``.
     case agentRequest = 0x1E
 
     /// Agent session listings, stream events and replays from the host. JSON-encoded ``AgentEvent``.
-    /// Sent only to a client that declared ``ClientHello/supportsAgentChat``.
     case agentEvent = 0x1F
 
     /// The phone's web preview asking the Mac to fetch from its own loopback. JSON-encoded ``PreviewProxyCommand``.
@@ -72,13 +68,13 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     /// The answer, in pieces. JSON-encoded ``PreviewProxyEvent``.
     case previewEvent = 0x21
 
-    /// Where the Mac's pointer is after something other than this client moved it. JSON-encoded ``NormalizedPoint``. Sent only to a client that declared ``ClientHello/supportsPointerReport``.
+    /// Where the Mac's pointer is after something other than this client moved it. JSON-encoded ``NormalizedPoint``.
     case pointerReport = 0x22
 
-    /// The client app left or returned to the foreground. JSON-encoded ``ClientStatePayload``. Sent only to a host that declared ``ServerHello/supportsClientState``.
+    /// The client app left or returned to the foreground. JSON-encoded ``ClientStatePayload``.
     case clientState = 0x23
 
-    /// The Live Activity push tokens the phone holds. JSON-encoded ``ActivityTokenPayload``. Sent only to a host that declared ``ServerHello/supportsLiveActivityPush``.
+    /// The Live Activity push tokens the phone holds. JSON-encoded ``ActivityTokenPayload``.
     case activityToken = 0x24
 }
 

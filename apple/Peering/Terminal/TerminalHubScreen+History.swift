@@ -5,13 +5,12 @@ import SwiftUI
 extension TerminalHubScreen {
     /// Conversations written to a moment ago on the Mac: a terminal there probably has them open, so they sit with the chats in use and not with the past.
     private var activeOnMac: [AgentResumableSession] {
-        guard model.hostSupportsAgentSessionImport else { return [] }
-        return (model.resumableSessions ?? []).filter(\.mayBeOpenElsewhere)
+        (model.resumableSessions ?? []).filter(\.mayBeOpenElsewhere)
     }
 
     /// Conversations found on the Mac and chats stopped here, newest first. Nothing is remembered on the phone, so the list never shows entries the Mac is about to replace.
     private var historyEntries: [HistoryCard.Entry] {
-        let onMac = (model.hostSupportsAgentSessionImport ? model.resumableSessions ?? [] : [])
+        let onMac = (model.resumableSessions ?? [])
             .filter { !$0.mayBeOpenElsewhere }
             .map { (date: $0.modifiedAt, entry: macEntry($0)) }
         let paused = model.agentCards.filter(\.isPaused).map { (date: $0.pausedAt, entry: pausedEntry($0)) }
@@ -44,7 +43,7 @@ extension TerminalHubScreen {
                 if entries.isEmpty { HistoryNoMatches() } else { HistoryCard(entries: entries) }
             }
             .padding(.top, 20)
-        } else if activeOnMac.isEmpty, model.hostSupportsAgentSessionImport, model.resumableSessions?.isEmpty == true {
+        } else if activeOnMac.isEmpty, model.resumableSessions?.isEmpty == true {
             Text("No Claude conversations found on your Mac. Chats from your Desktop, Documents or Downloads only show up once Peering is allowed there: on the Mac, open System Settings, Privacy & Security, Files and Folders.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -67,12 +66,7 @@ extension TerminalHubScreen {
                 message: "It was written to a moment ago. If a terminal still has it open, both would add to the same conversation.",
                 proceed: "Continue here anyway"
             ) : nil,
-            peek: {
-                if model.hostSupportsAgentSessionPeek { return AnyView(ResumableChatPeek(conversation: session).environment(model)) }
-                return AnyView(HistoryInfoPeek(
-                    symbol: "sparkles", title: session.title, detail: session.directory, date: session.modifiedAt
-                ))
-            }
+            peek: { AnyView(ResumableChatPeek(conversation: session).environment(model)) }
         ) {
             model.resumeAgentSession(session)
         }

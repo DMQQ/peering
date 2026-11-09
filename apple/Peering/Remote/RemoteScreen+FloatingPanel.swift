@@ -86,16 +86,12 @@ extension RemoteScreen {
     /// and pruned against the sources the Mac is offering now, so a reconnect to a Mac that has
     /// been relaunched in between is a grid of outlines until something asks again.
     func stopWatchingSourcePictures() {
-        if model.hostSupportsSourceThumbnails {
-            model.send(.watchSourceThumbnails(false))
-        }
+        model.send(.watchSourceThumbnails(false))
     }
 
     func askForSourcePictures() {
         guard openPanel == .sources else { return }
-        if model.hostSupportsSourceThumbnails {
-            model.send(.watchSourceThumbnails(true))
-        }
+        model.send(.watchSourceThumbnails(true))
         if let info = model.catalog?.spaceInfo, SourcesPanel.showsDesktops(info) {
             model.send(.refreshSpacePreviews)
         }

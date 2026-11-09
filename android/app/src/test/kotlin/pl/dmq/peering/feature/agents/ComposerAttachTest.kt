@@ -42,7 +42,7 @@ class ComposerAttachTest {
     private class Harness(chats: AgentChatState, val sender: HeldSender?) {
         val port = FakeAgentsPort(chats)
         val presenter = ComposerPresenter(
-            port, FakeComposerDraftStore(), port.chats, modelPickerSupported = false,
+            port, FakeComposerDraftStore(), port.chats,
             scope = CoroutineScope(UnconfinedTestDispatcher()), attachments = sender,
         )
     }

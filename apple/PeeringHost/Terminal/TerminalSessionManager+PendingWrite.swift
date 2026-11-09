@@ -1,4 +1,5 @@
 import Foundation
+import RemoteCore
 
 extension TerminalSessionManager {
     /// A file being written, between the request that opened it and the piece that closes it.
@@ -21,8 +22,12 @@ extension TerminalSessionManager {
         var lastActivity = ProcessInfo.processInfo.systemUptime
         /// The first thing that went wrong writing to disk, if anything did.
         var failure: String?
+        /// What the client said the whole file hashes to, if it said. Pieces are appended on one serial queue, which is what guards `checksum`.
+        let expectedMD5: String?
+        var checksum = FileChecksum()
 
-        init(ownerClientID: String, path: String, expected: Int, target: URL, staging: URL) {
+        init(ownerClientID: String, path: String, expected: Int, expectedMD5: String? = nil, target: URL, staging: URL) {
+            self.expectedMD5 = expectedMD5
             self.ownerClientID = ownerClientID
             self.path = path
             self.expected = expected

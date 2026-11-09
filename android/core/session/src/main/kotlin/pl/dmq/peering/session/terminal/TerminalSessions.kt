@@ -26,7 +26,6 @@ class TerminalSessions(
     private val send: (TerminalRequest) -> Unit,
     private val newEmulator: (columns: Int, rows: Int) -> TerminalEmulator = ::VtScreen,
     private val scope: CoroutineScope? = null,
-    private val listsAgents: () -> Boolean = { false },
 ) {
     private val lock = Any()
     private val screens = HashMap<String, TerminalEmulator>()
@@ -41,9 +40,8 @@ class TerminalSessions(
     /** Asks for the list. Called when the screen opens and again after a reconnect, which replays each shell's output. */
     fun attach() = send(TerminalRequest.ListTerminals)
 
-    /** Asks which agent commands the computer has. Never sent to a computer that did not declare the list: it could not decode it. */
+    /** Asks which agent commands the computer has. */
     fun refreshAgents() {
-        if (!listsAgents()) return
         synchronized(lock) { mutableState.value = mutableState.value.copy(agentListPending = true) }
         send(TerminalRequest.ListAgents)
     }

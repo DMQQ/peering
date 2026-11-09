@@ -7,8 +7,6 @@ extension SessionModel {
         activeSession.flatMap { $0.agentSpendingCaps[id] ?? $0.agentGuardStore.cap(for: id) }
     }
 
-    var agentSpendingCapsAvailable: Bool { activeSession?.agentSpendingCapsAvailable ?? false }
-
     func setAgentSpendingCap(_ cap: AgentSpendingCap?, for id: UUID) {
         activeSession?.setAgentSpendingCap(cap, for: id)
     }

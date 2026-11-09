@@ -60,14 +60,11 @@ public enum AgentSlash {
         for typed: String,
         agentID: String,
         project: String,
-        offersUsage: Bool,
         offersModel: Bool,
         listing: (String) -> [RemoteDirectoryEntry]?
     ) -> [SlashSuggestion] {
         var found: [SlashSuggestion] = []
-        if offersUsage {
-            found.append(SlashSuggestion(name: "usage", detail: .usage, kind: .app))
-        }
+        found.append(SlashSuggestion(name: "usage", detail: .usage, kind: .app))
         if offersModel {
             found.append(SlashSuggestion(name: "model", detail: .model, kind: .app))
         }

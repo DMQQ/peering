@@ -9,12 +9,6 @@ struct SessionModeTests {
         SessionModeMemory(defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard)
     }
 
-    @Test("workspace is offered only when the Mac has a hub to show")
-    func availability() {
-        #expect(SessionMode.available(workspaceCapable: true) == [.screen, .workspace, .remote])
-        #expect(SessionMode.available(workspaceCapable: false) == [.screen, .remote])
-    }
-
     @Test("a Mac never chosen for asks")
     func asksFirst() {
         #expect(memory().decision(for: "mac", available: SessionMode.allCases) == .ask)
@@ -68,16 +62,10 @@ struct SessionModeTests {
 
     @Test("leaving the screen pauses the picture once and returning resumes only that pause")
     func picturePolicy() {
-        #expect(SessionModePicture.action(entering: .remote, hostMayPause: true, pausedByMode: false) == .pause)
-        #expect(SessionModePicture.action(entering: .workspace, hostMayPause: true, pausedByMode: true) == .none)
-        #expect(SessionModePicture.action(entering: .screen, hostMayPause: true, pausedByMode: true) == .resume)
-        #expect(SessionModePicture.action(entering: .screen, hostMayPause: true, pausedByMode: false) == .none)
-    }
-
-    @Test("a Mac that cannot be asked to pause is never sent the command")
-    func oldMac() {
-        #expect(SessionModePicture.action(entering: .remote, hostMayPause: false, pausedByMode: false) == .none)
-        #expect(SessionModePicture.action(entering: .screen, hostMayPause: false, pausedByMode: true) == .none)
+        #expect(SessionModePicture.action(entering: .remote, pausedByMode: false) == .pause)
+        #expect(SessionModePicture.action(entering: .workspace, pausedByMode: true) == .none)
+        #expect(SessionModePicture.action(entering: .screen, pausedByMode: true) == .resume)
+        #expect(SessionModePicture.action(entering: .screen, pausedByMode: false) == .none)
     }
 }
 

@@ -45,6 +45,34 @@ class KeyboardPresenterTest {
     }
 
     @Test
+    fun `a backspace key event takes the last letter off the typing line`() {
+        presenter.onSoftKeyboardText("hello")
+
+        presenter.onKey(KeyInput(androidKeyCode = KEYCODE_DEL, unicodeChar = 0, metaState = 0, isDown = true))
+        presenter.onKey(KeyInput(androidKeyCode = KEYCODE_DEL, unicodeChar = 0, metaState = 0, isDown = false))
+
+        assertEquals("hell", presenter.typedPreview.value)
+    }
+
+    @Test
+    fun `a return key event clears the typing line`() {
+        presenter.onSoftKeyboardText("hello")
+
+        presenter.onKey(KeyInput(androidKeyCode = KEYCODE_ENTER, unicodeChar = 0, metaState = 0, isDown = true))
+
+        assertEquals("", presenter.typedPreview.value)
+    }
+
+    @Test
+    fun `a backspace with a modifier held leaves the typing line alone`() {
+        presenter.onSoftKeyboardText("hello")
+
+        presenter.onKey(KeyInput(androidKeyCode = KEYCODE_DEL, unicodeChar = 0, metaState = CTRL_ON, isDown = true))
+
+        assertEquals("hello", presenter.typedPreview.value)
+    }
+
+    @Test
     fun `a printable hardware key is typed as text on press only`() {
         assertTrue(presenter.onKey(KeyInput(androidKeyCode = 29, unicodeChar = 'a'.code, metaState = 0, isDown = true)))
         assertTrue(presenter.onKey(KeyInput(androidKeyCode = 29, unicodeChar = 'a'.code, metaState = 0, isDown = false)))
@@ -198,5 +226,7 @@ class KeyboardPresenterTest {
     private companion object {
         const val CTRL_ON = 0x1000L
         const val KEYCODE_BACK = 4
+        const val KEYCODE_DEL = 67
+        const val KEYCODE_ENTER = 66
     }
 }

@@ -81,7 +81,7 @@ private fun ChatMenu(ui: ChatUi, onShowUsage: () -> Unit, onShowChanges: () -> U
         }
         val close = { open = false }
         PeeringMenu(open, close) {
-            if (ui.usageSupported) ChatMenuItem(R.string.agents_usage_title, AgentIcons.usage, close, onShowUsage)
+            ChatMenuItem(R.string.agents_usage_title, AgentIcons.usage, close, onShowUsage)
             ChatMenuItem(R.string.changes_menu, AgentIcons.changes, close, onShowChanges)
             if (onShowPreview != null) ChatMenuItem(R.string.preview_menu, AppIcons.globe, close, onShowPreview)
             ChatMenuItem(R.string.agents_rename, AppIcons.edit, close, onRename)

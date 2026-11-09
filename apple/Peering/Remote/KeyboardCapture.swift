@@ -87,12 +87,15 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
 
     func textViewDidChange(_ textView: UITextView) {
         hint.isHidden = !textView.text.isEmpty
+        invalidateIntrinsicContentSize()
         onDraftChange?(textView.text)
     }
 
+    /// SwiftUI measures this view in `sizeThatFits` and measures again only when told the size may have changed. Text set in code never reaches `textViewDidChange`, and without this the bar stayed as tall as the longest text it had held.
     func restore(_ draft: String) {
         text = draft
         hint.isHidden = !draft.isEmpty
+        invalidateIntrinsicContentSize()
     }
 
     /// Left alone mid-composition, which the system would otherwise lose.
@@ -103,6 +106,7 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
         let location = min(max(selection.location, 0), length)
         let clamped = NSRange(location: location, length: min(max(selection.length, 0), length - location))
         if selectedRange != clamped { selectedRange = clamped }
+        invalidateIntrinsicContentSize()
     }
 
     var appliedFieldSerial = 0
@@ -110,6 +114,7 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
     func reset() {
         text = ""
         hint.isHidden = false
+        invalidateIntrinsicContentSize()
         onDraftChange?("")
     }
 

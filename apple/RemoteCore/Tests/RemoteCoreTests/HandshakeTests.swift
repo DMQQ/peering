@@ -44,33 +44,6 @@ struct HandshakeTests {
         #expect(hello.macAddresses == nil)
     }
 
-    @Test("serverHello carries the video pause capability")
-    func serverHelloCarriesTheVideoPauseCapability() throws {
-        let hello = ServerHello(
-            serverID: "server-1",
-            hostName: "Damian's MacBook Pro",
-            protocolVersion: ProtocolInfo.version,
-            alreadyPaired: true,
-            macAddresses: ["aa:bb:cc:dd:ee:ff"],
-            supportsVideoPause: true
-        )
-        let decoded = try MessageCodec.decode(
-            ServerHello.self,
-            from: try MessageCodec.encode(hello)
-        )
-
-        #expect(decoded.supportsVideoPause == true)
-        #expect(decoded == hello)
-    }
-
-    @Test("a serverHello with no capability reads as a refusal")
-    func serverHelloWithoutTheCapability() throws {
-        let data = Data(#"{"serverID":"server-1","hostName":"Mac","protocolVersion":16,"alreadyPaired":true}"#.utf8)
-        let hello = try MessageCodec.decode(ServerHello.self, from: data)
-
-        #expect(hello.supportsVideoPause == nil)
-    }
-
     @Test("virtual display management is additive and survives the wire")
     func virtualDisplayManagementCapability() throws {
         let older = Data(
@@ -136,66 +109,6 @@ struct HandshakeTests {
         )
         let decoded = try MessageCodec.decode(ServerHello.self, from: try MessageCodec.encode(hello))
         #expect(decoded.agentChatAgents == ["claude", "codex", "opencode"])
-    }
-
-    @Test("agent chat is additive on both sides and survives the wire")
-    func agentChatCapability() throws {
-        let olderServer = Data(
-            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#.utf8
-        )
-        #expect(
-            try MessageCodec.decode(ServerHello.self, from: olderServer)
-                .supportsAgentChat == nil
-        )
-        #expect(
-            try MessageCodec.decode(ServerHello.self, from: olderServer)
-                .supportsFileBrowser == nil
-        )
-        #expect(
-            try MessageCodec.decode(ServerHello.self, from: olderServer)
-                .supportsAgentModelPicker == nil
-        )
-
-        let server = ServerHello(
-            serverID: "server-1",
-            hostName: "Damian's MacBook Pro",
-            protocolVersion: ProtocolInfo.version,
-            alreadyPaired: true,
-            supportsAgentList: true,
-            supportsAgentChat: true,
-            supportsFileBrowser: true,
-            supportsAgentModelPicker: true
-        )
-        let decodedServer = try MessageCodec.decode(
-            ServerHello.self,
-            from: try MessageCodec.encode(server)
-        )
-        #expect(decodedServer.supportsAgentChat == true)
-        #expect(decodedServer == server)
-
-        // The client's own declaration, which is what restrains the Mac's stream: a phone too old
-        // to read an agent event must be answered with nothing rather than a frame it cannot decode.
-        let olderClient = Data(
-            #"{"clientID":"c-1","clientName":"iPhone","protocolVersion":20,"wantsPairing":false}"#.utf8
-        )
-        #expect(
-            try MessageCodec.decode(ClientHello.self, from: olderClient)
-                .supportsAgentChat == nil
-        )
-
-        let client = ClientHello(
-            clientID: "c-1",
-            clientName: "iPhone",
-            protocolVersion: ProtocolInfo.version,
-            wantsPairing: false,
-            supportsAgentChat: true
-        )
-        let decodedClient = try MessageCodec.decode(
-            ClientHello.self,
-            from: try MessageCodec.encode(client)
-        )
-        #expect(decodedClient.supportsAgentChat == true)
-        #expect(decodedClient == client)
     }
 
     @Test("a serverHello with a field this build does not know still decodes")

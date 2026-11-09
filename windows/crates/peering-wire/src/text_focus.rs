@@ -1,5 +1,4 @@
-//! The `textFocus` (0x1C) and `fieldState` (0x1D) payloads (`RemoteCore/TextFocus.swift`), sent only to a client that declared
-//! `supportsTextFocus` or `supportsFieldState`.
+//! The `textFocus` (0x1C) and `fieldState` (0x1D) payloads (`RemoteCore/TextFocus.swift`).
 
 use crate::source::NormalizedPoint;
 use serde::{Deserialize, Serialize};

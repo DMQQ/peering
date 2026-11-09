@@ -2,7 +2,6 @@ package pl.dmq.peering.feature.agents
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
 import pl.dmq.peering.session.agent.changes.AgentChangesByChat
@@ -17,9 +16,6 @@ import pl.dmq.peering.wire.AgentResumableSession
  */
 interface AgentsPort {
     val chats: StateFlow<AgentChatState>
-
-    /** What the computer declared; each feature degrades when its flag is absent. */
-    val capabilities: AgentCapabilities
 
     /** Conversations started on the computer that a chat can continue; null until listed. */
     val resumable: StateFlow<List<AgentResumableSession>?>

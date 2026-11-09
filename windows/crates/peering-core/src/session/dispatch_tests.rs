@@ -10,6 +10,7 @@ struct RecordingSource {
     qualities: Vec<(Option<u32>, Option<u32>)>,
     video_enabled: Vec<bool>,
     locks: usize,
+    keyframe_requests: usize,
 }
 
 impl SourceControl for RecordingSource {
@@ -23,6 +24,10 @@ impl SourceControl for RecordingSource {
 
     fn set_video_enabled(&mut self, enabled: bool) {
         self.video_enabled.push(enabled);
+    }
+
+    fn request_keyframe(&mut self) {
+        self.keyframe_requests += 1;
     }
 
     fn lock_screen(&mut self) {
@@ -84,6 +89,13 @@ fn a_display_source_is_forwarded_to_source_control() {
     assert_eq!(outcome, DispatchOutcome::Applied);
     assert_eq!(source.sources, vec![CaptureSource::Display { id: 4 }]);
     assert!(input.applied().is_empty());
+}
+
+#[test]
+fn a_keyframe_request_reaches_the_encoder_even_in_observe_mode() {
+    let (outcome, _, source) = run(RemoteCommand::RequestKeyframe {}, true);
+    assert_eq!(outcome, DispatchOutcome::Applied);
+    assert_eq!(source.keyframe_requests, 1);
 }
 
 #[test]

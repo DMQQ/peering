@@ -23,7 +23,7 @@ public enum AgentModelName {
 
     private static let claudeModels = ["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"]
 
-    public static func offersPicker(agentID: String, hostSupportsPicker: Bool) -> Bool {
-        hostSupportsPicker && (agentID == "claude" || agentID == "codex")
+    public static func offersPicker(agentID: String) -> Bool {
+        agentID == "claude" || agentID == "codex"
     }
 }

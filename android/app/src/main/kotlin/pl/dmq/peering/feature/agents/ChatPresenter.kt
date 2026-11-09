@@ -17,7 +17,6 @@ data class ChatUi(
     val directory: String,
     val agentName: String,
     val agentID: String,
-    val usageSupported: Boolean,
     val chip: ContextChip?,
     val usage: UsageUi,
     val canPause: Boolean,
@@ -59,7 +58,6 @@ class ChatPresenter(
 
     private fun derive(chats: AgentChatState): ChatUi {
         val session = chats.selected
-        val usageSupported = port.capabilities.usage
         val usage = session?.info?.usage
         val state = session?.state
         return ChatUi(
@@ -68,10 +66,9 @@ class ChatPresenter(
             directory = session?.info?.directory.orEmpty(),
             agentName = session?.let { AgentCatalog.name(it.info.agentID) }.orEmpty(),
             agentID = session?.info?.agentID.orEmpty(),
-            usageSupported = usageSupported,
-            chip = if (usageSupported) ContextChip.of(usage) else null,
+            chip = ContextChip.of(usage),
             usage = UsageUi.of(usage),
-            canPause = session != null && port.capabilities.chat && canPause(session),
+            canPause = session != null && canPause(session),
             ended = state == AgentSessionState.EXITED || state == AgentSessionState.FAILED,
             showEmptyState = session != null && session.historyLoaded && session.transcript.rows.isEmpty() &&
                 session.prompts.prompts.isEmpty(),
@@ -79,5 +76,5 @@ class ChatPresenter(
     }
 
     private fun canPause(session: AgentChatSession): Boolean =
-        AgentEndAction.choose(session, hostSupportsPause = port.capabilities.pause) == AgentEndAction.PAUSE
+        AgentEndAction.choose(session) == AgentEndAction.PAUSE
 }

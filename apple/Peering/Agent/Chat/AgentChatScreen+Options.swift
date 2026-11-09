@@ -4,7 +4,7 @@ import SwiftUI
 
 extension AgentChatScreen {
     func offersModelPicker(_ session: RemoteAgentSession) -> Bool {
-        AgentModelName.offersPicker(agentID: session.agentID, hostSupportsPicker: model.hostSupportsAgentModelPicker)
+        AgentModelName.offersPicker(agentID: session.agentID)
     }
 
     func shortModel(_ session: RemoteAgentSession) -> String {
@@ -45,7 +45,7 @@ extension AgentChatScreen {
                 .accessibilityLabel(Text("Model, \(shortModel(session))"))
                 .accessibilityIdentifier("chat.modelMenu")
             }
-            if model.hostSupportsAgentPermissionModes, session.permissionModes.count > 1 {
+            if session.permissionModes.count > 1 {
                 let current = session.permissionMode ?? session.permissionModes.first ?? .manual
                 Menu {
                     ForEach(session.permissionModes, id: \.self) { mode in
@@ -63,7 +63,7 @@ extension AgentChatScreen {
                 .accessibilityLabel(Text("Permissions, \(AgentPermissionModeMenu.title(current))"))
             }
             Spacer(minLength: 0)
-            if model.hostSupportsAgentUsage, let usage = session.usage, AgentContextBar.hasContent(usage) {
+            if let usage = session.usage, AgentContextBar.hasContent(usage) {
                 AgentContextBar(usage: usage) { showsUsage = true }
             }
         }
@@ -72,15 +72,11 @@ extension AgentChatScreen {
     /// In the navigation bar's trailing corner, where a screen's own actions live.
     func moreMenu(_ session: RemoteAgentSession) -> some View {
         Menu {
-            if model.hostSupportsAgentUsage {
-                Button { showsUsage = true } label: {
-                    Label("Usage and limits", systemImage: "gauge.with.dots.needle.33percent")
-                }
-                if model.agentSpendingCapsAvailable {
-                    Button { showsSpendingCap = true } label: {
-                        Label("Spending cap", systemImage: "gauge.with.dots.needle.100percent")
-                    }
-                }
+            Button { showsUsage = true } label: {
+                Label("Usage and limits", systemImage: "gauge.with.dots.needle.33percent")
+            }
+            Button { showsSpendingCap = true } label: {
+                Label("Spending cap", systemImage: "gauge.with.dots.needle.100percent")
             }
             Button { showsChanges = true } label: {
                 Label("Changes", systemImage: "doc.badge.gearshape")

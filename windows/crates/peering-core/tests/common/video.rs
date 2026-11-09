@@ -119,6 +119,10 @@ impl SourceControl for CoordinatorControl {
         self.coordinator.set_video_enabled(enabled);
     }
 
+    fn request_keyframe(&mut self) {
+        self.coordinator.request_resync();
+    }
+
     fn lock_screen(&mut self) {}
 }
 

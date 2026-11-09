@@ -102,7 +102,8 @@ struct VideoDatagramRoundTripTests {
         let original = payload(bytes: 3000)
         let datagrams = forwarded(sealer.seal(kind: .videoFrame, payload: original))
 
-        #expect(datagrams.count == 3)
+        // Three data chunks and one parity chunk.
+        #expect(datagrams.count == 4)
         #expect(try opener.open(datagrams[0]) == nil)
         #expect(try opener.open(datagrams[1]) == nil)
 
@@ -117,7 +118,7 @@ struct VideoDatagramRoundTripTests {
 
         let original = payload(bytes: 3000)
         let datagrams = forwarded(sealer.seal(kind: .videoFrame, payload: original))
-        #expect(datagrams.count == 3)
+        #expect(datagrams.count == 4)
 
         // Reordering is the normal state of a datagram path; a receiver needing ascending counters would drop overtaken pictures.
         #expect(try opener.open(datagrams[2]) == nil)
@@ -361,7 +362,7 @@ struct VideoDatagramLossTests {
         var (sealer, opener) = lane()
 
         let lost = forwarded(sealer.seal(kind: .videoFrame, payload: payload(bytes: 3000)))
-        #expect(lost.count == 3)
+        #expect(lost.count == 4)
 
         #expect(try opener.open(lost[0]) == nil)
         #expect(try opener.open(lost[2]) == nil)
@@ -372,6 +373,19 @@ struct VideoDatagramLossTests {
             last = try opener.open(datagram) ?? last
         }
         #expect(last?.payload == next)
+    }
+
+    @Test("a lost chunk is rebuilt from the parity chunk and the picture still arrives")
+    func aLostChunkIsRebuilt() throws {
+        var (sealer, opener) = lane()
+
+        let original = payload(bytes: 3000)
+        let datagrams = forwarded(sealer.seal(kind: .videoFrame, payload: original))
+
+        #expect(try opener.open(datagrams[0]) == nil)
+        #expect(try opener.open(datagrams[2]) == nil)
+        let frame = try opener.open(datagrams[3])
+        #expect(frame?.payload == original)
     }
 
     @Test("a piece that arrives twice is not appended twice")
@@ -428,6 +442,6 @@ struct VideoKeyMessageTests {
     /// A mixed pair must fail at the door, so the version is read back and a bump has to be deliberate.
     @Test("the two ends of the exchange agree about the protocol version")
     func theVersionWasBumped() {
-        #expect(ProtocolInfo.version == 20)
+        #expect(ProtocolInfo.version == 21)
     }
 }

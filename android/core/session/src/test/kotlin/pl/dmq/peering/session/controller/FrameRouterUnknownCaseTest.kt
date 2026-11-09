@@ -20,7 +20,7 @@ import pl.dmq.peering.wire.MessageKind
 class FrameRouterUnknownCaseTest {
     @Test
     fun anUnknownAgentTerminalOrPreviewCaseLeavesTheSessionUpAndLaterEventsStillLand() = runTest {
-        val mac = ScriptedMac(declare = { it.copy(supportsAgentChat = true) })
+        val mac = ScriptedMac()
         val rig = ControllerRig(
             backgroundScope,
             testScheduler,

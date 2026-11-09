@@ -220,14 +220,4 @@ struct AgentWireTests {
         #expect(MessageKind.allCases.contains(.agentEvent))
     }
 
-    @Test("only an explicit chat capability permits traffic")
-    func capabilityGate() {
-        #expect(AgentChatSupport.maySend(toHostDeclared: true))
-        #expect(!AgentChatSupport.maySend(toHostDeclared: nil))
-        #expect(!AgentChatSupport.maySend(toHostDeclared: false))
-
-        #expect(AgentChatSupport.mayReceive(clientDeclared: true))
-        #expect(!AgentChatSupport.mayReceive(clientDeclared: nil))
-        #expect(!AgentChatSupport.mayReceive(clientDeclared: false))
-    }
 }

@@ -30,11 +30,10 @@ class AgentPauseAndImportTest {
     )
 
     private fun chatWith(
-        capabilities: AgentCapabilities,
         vararg payloads: AgentStreamPayload,
         state: AgentSessionState = AgentSessionState.IDLE,
     ): AgentChat {
-        val chat = AgentChat(capabilities) { sent += it }
+        val chat = AgentChat { sent += it }
         chat.onEvent(AgentEvent.Snapshot(listOf(info("A", state))))
         payloads.forEachIndexed { index, payload ->
             chat.onEvent(AgentEvent.Stream("A", AgentStreamEvent(index.toLong() + 1, payload)))
@@ -43,19 +42,15 @@ class AgentPauseAndImportTest {
         return chat
     }
 
-    private val full = AgentCapabilities(chat = true, sessionImport = true, pause = true)
-
     @Test
-    fun pauseIsSentOnlyWhenTheHostDeclaredIt() {
-        chatWith(AgentCapabilities(chat = true)).pause("A")
-        assertEquals(emptyList<AgentRequest>(), sent)
-        chatWith(full).pause("A")
+    fun pauseIsSent() {
+        chatWith().pause("A")
         assertEquals(listOf<AgentRequest>(AgentRequest.Pause("A")), sent)
     }
 
     @Test
     fun aChatIsPausedWhileTheHostsNoticeIsTheLastRow() {
-        val chat = chatWith(full, AgentStreamPayload.UserPrompt("hi"), AgentStreamPayload.Notice(AgentPause.NOTICE))
+        val chat = chatWith(AgentStreamPayload.UserPrompt("hi"), AgentStreamPayload.Notice(AgentPause.NOTICE))
         assertTrue(chat.state.value.selected!!.isPaused)
         chat.onEvent(AgentEvent.Stream("A", AgentStreamEvent(3, AgentStreamPayload.UserPrompt("back"))))
         assertFalse(chat.state.value.selected!!.isPaused)
@@ -63,21 +58,20 @@ class AgentPauseAndImportTest {
 
     @Test
     fun endingKeepsAQuietConversationAndClosesTheRest() {
-        val talked = chatWith(full, AgentStreamPayload.UserPrompt("hi")).state.value.selected!!
-        assertEquals(AgentEndAction.PAUSE, AgentEndAction.choose(talked, hostSupportsPause = true))
-        assertEquals(AgentEndAction.CLOSE, AgentEndAction.choose(talked, hostSupportsPause = false))
-        val empty = chatWith(full).state.value.selected!!
-        assertEquals(AgentEndAction.CLOSE, AgentEndAction.choose(empty, hostSupportsPause = true))
-        val working = chatWith(full, AgentStreamPayload.UserPrompt("hi"), AgentStreamPayload.TurnStarted, state = AgentSessionState.WORKING).state.value.selected!!
-        assertEquals(AgentEndAction.CLOSE, AgentEndAction.choose(working, hostSupportsPause = true))
-        val paused = chatWith(full, AgentStreamPayload.UserPrompt("hi"), AgentStreamPayload.Notice(AgentPause.NOTICE))
+        val talked = chatWith(AgentStreamPayload.UserPrompt("hi")).state.value.selected!!
+        assertEquals(AgentEndAction.PAUSE, AgentEndAction.choose(talked))
+        val empty = chatWith().state.value.selected!!
+        assertEquals(AgentEndAction.CLOSE, AgentEndAction.choose(empty))
+        val working = chatWith(AgentStreamPayload.UserPrompt("hi"), AgentStreamPayload.TurnStarted, state = AgentSessionState.WORKING).state.value.selected!!
+        assertEquals(AgentEndAction.CLOSE, AgentEndAction.choose(working))
+        val paused = chatWith(AgentStreamPayload.UserPrompt("hi"), AgentStreamPayload.Notice(AgentPause.NOTICE))
             .state.value.selected!!
-        assertEquals(AgentEndAction.CLOSE, AgentEndAction.choose(paused, hostSupportsPause = true))
+        assertEquals(AgentEndAction.CLOSE, AgentEndAction.choose(paused))
     }
 
     @Test
-    fun resumableSessionsAreListedDecodedAndContinuedOnlyWithImportSupport() {
-        val chat = chatWith(full)
+    fun resumableSessionsAreListedDecodedAndContinued() {
+        val chat = chatWith()
         assertNull(chat.resumable.value)
         chat.listResumable()
         val entry = json(
@@ -88,20 +82,14 @@ class AgentPauseAndImportTest {
         assertEquals(listOf("Fix tests"), listed.map { it.title })
         chat.resume(listed.single())
         assertEquals(listOf(AgentRequest.ListResumable, AgentRequest.Resume("claude", "abc")), sent)
-
-        sent.clear()
-        val without = chatWith(AgentCapabilities(chat = true))
-        without.listResumable()
-        without.resume(AgentResumableSession("claude", "abc", "/work", "t", 0.0, false))
-        assertEquals(emptyList<AgentRequest>(), sent)
     }
 
     @Test
     fun aHostThatPredatesTheAgentListOffersClaudeAndCodex() {
         val hello = ServerHello(serverID = "s", hostName = "h", protocolVersion = 1, alreadyPaired = true)
-        assertEquals(listOf("claude", "codex"), AgentCapabilities.declaredAgents(hello))
+        assertEquals(listOf("claude", "codex"), declaredAgents(hello))
         val declared = hello.copy(agentChatAgents = listOf("claude", "opencode"))
-        assertEquals(listOf("claude", "opencode"), AgentCapabilities.declaredAgents(declared))
+        assertEquals(listOf("claude", "opencode"), declaredAgents(declared))
     }
 
     private fun json(text: String): JsonElement = Json.parseToJsonElement(text)

@@ -36,8 +36,6 @@ fun AgentsRoute(
     port: AgentsPort,
     recents: FolderRecents,
     declaredAgentIDs: List<String>,
-    chatSupported: Boolean,
-    modelPickerSupported: Boolean,
     draftStore: ComposerDraftStore,
     guideStore: KeyValueStore,
     clock: Clock,
@@ -46,18 +44,18 @@ fun AgentsRoute(
 ) {
     val scope = rememberCoroutineScope()
     val folders = remember(port) { FolderPicker(port::browse, scope) }
-    val hub = remember(port, declaredAgentIDs, chatSupported) {
-        AgentsHubPresenter(port, declaredAgentIDs, chatSupported, folders, recents, clock, scope)
+    val hub = remember(port, declaredAgentIDs) {
+        AgentsHubPresenter(port, declaredAgentIDs, folders, recents, clock, scope)
     }
     val guide = remember(guideStore) { HubGuidePresenter(guideStore) }
     val chat = remember(port) { ChatPresenter(port, scope) }
     val templates = remember(guideStore) { PromptTemplatesPresenter(PromptTemplateStore(guideStore)) }
     val transcript = remember(port) { TranscriptPresenter(port.chats, scope) }
-    val composer = remember(port, modelPickerSupported, attachments) {
-        ComposerPresenter(port, draftStore, port.chats, modelPickerSupported, scope, attachments)
+    val composer = remember(port, attachments) {
+        ComposerPresenter(port, draftStore, port.chats, scope, attachments)
     }
     val lister = remember(port) { DirectoryLister(port::browse, scope, System::currentTimeMillis) }
-    val hints = remember(composer, lister) { ComposerHints(composer.ui, lister, composer.hintOffers, scope) }
+    val hints = remember(composer, lister) { ComposerHints(composer.ui, lister, scope) }
     val review = remember(port, guideStore) { ReviewInbox(port, ReviewMarkStore(guideStore), scope, System::currentTimeMillis) }
     var reviewing by remember { mutableStateOf(false) }
     var reviewedFile by remember { mutableStateOf<Pair<String, String>?>(null) }

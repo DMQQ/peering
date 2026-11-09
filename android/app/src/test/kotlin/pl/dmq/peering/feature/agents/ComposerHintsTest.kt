@@ -35,9 +35,9 @@ class ComposerHintsTest {
                 selectedSessionID = "S1",
             ),
         )
-        val composer = ComposerPresenter(port, FakeComposerDraftStore(), port.chats, modelPickerSupported = true, scope = scope)
+        val composer = ComposerPresenter(port, FakeComposerDraftStore(), port.chats, scope = scope)
         val lister = DirectoryLister({ asked += it }, scope, { 0L })
-        val hints = ComposerHints(composer.ui, lister, composer.hintOffers, scope)
+        val hints = ComposerHints(composer.ui, lister, scope)
     }
 
     private fun harness(scope: CoroutineScope) = Harness(scope)

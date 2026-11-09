@@ -33,7 +33,6 @@ class ComposerPresenterTest {
     private class Harness(
         chats: AgentChatState,
         drafts: ComposerDrafts = ComposerDrafts(),
-        modelPicker: Boolean = true,
     ) {
         val port = FakeAgentsPort(chats)
         val store = FakeComposerDraftStore(drafts)
@@ -41,7 +40,6 @@ class ComposerPresenterTest {
             port = port,
             store = store,
             chats = port.chats,
-            modelPickerSupported = modelPicker,
             scope = CoroutineScope(UnconfinedTestDispatcher()),
         )
     }
@@ -106,7 +104,7 @@ class ComposerPresenterTest {
     fun eachChatKeepsItsOwnDraftWhenTheSelectionMoves() = runTest {
         val port = FakeAgentsPort(chats(session("S1"), session("S2")))
         val store = FakeComposerDraftStore()
-        val presenter = ComposerPresenter(port, store, port.chats, modelPickerSupported = false, scope = CoroutineScope(UnconfinedTestDispatcher()))
+        val presenter = ComposerPresenter(port, store, port.chats, scope = CoroutineScope(UnconfinedTestDispatcher()))
         presenter.onTextChanged("for one")
         port.chatState.value = port.chatState.value.copy(selectedSessionID = "S2")
         assertEquals("", presenter.ui.value.text)
@@ -147,10 +145,9 @@ class ComposerPresenterTest {
     }
 
     @Test
-    fun modelChoicesAreShownOnlyWhenTheMacDeclaresThePicker() = runTest {
+    fun modelChoicesAreShownFromTheSession() = runTest {
         val models = chats(session("S1", models = listOf("opus", "sonnet")))
         assertEquals(listOf("opus", "sonnet"), Harness(models).presenter.ui.value.modelChoices)
-        assertTrue(Harness(models, modelPicker = false).presenter.ui.value.modelChoices.isEmpty())
     }
 
     @Test
@@ -160,13 +157,6 @@ class ComposerPresenterTest {
         harness.presenter.setModel("opus")
         harness.presenter.setModel(null)
         assertEquals(listOf("model:S1:opus", "model:S1:null"), harness.port.calls)
-    }
-
-    @Test
-    fun noModelIsSentWhenThePickerIsNotDeclared() = runTest {
-        val harness = Harness(chats(session("S1", models = listOf("opus"))), modelPicker = false)
-        harness.presenter.setModel(null)
-        assertTrue(harness.port.calls.isEmpty())
     }
 
     @Test
@@ -189,7 +179,7 @@ class ComposerPresenterTest {
     @Test
     fun aSessionStateChangeReflectsOnTheButtonWithoutAnyInput() = runTest {
         val port = FakeAgentsPort(chats(session("S1", state = AgentSessionState.WORKING)))
-        val presenter = ComposerPresenter(port, FakeComposerDraftStore(), port.chats, true, CoroutineScope(UnconfinedTestDispatcher()))
+        val presenter = ComposerPresenter(port, FakeComposerDraftStore(), port.chats, CoroutineScope(UnconfinedTestDispatcher()))
         port.chatState.value = chats(session("S1", state = AgentSessionState.IDLE))
         assertEquals(ComposerAction.SEND, presenter.ui.value.action)
     }

@@ -1,6 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
+import PeeringKit
 import RemoteCore
 import ScreenCaptureKit
 import os
@@ -13,7 +14,8 @@ extension CapturePipeline {
     func start(
         source: CaptureSource,
         frameRate: Int = 60,
-        resolution: CaptureResolution = .full
+        resolution: CaptureResolution = .full,
+        budgetKbps: Int? = nil
     ) async throws {
         // Before the stop: re-composing the same windows in new rectangles must keep the captures (stopping first cost a second and a half of black). See ``recompose(_:)``.
         if await recompose(source) { return }
@@ -69,7 +71,9 @@ extension CapturePipeline {
 
             let plan = try resolver.makeFilter(for: source)
             // Stream and encoder must use the same size expression: a halved stream with a full-size encoder rebuilds the session every frame.
-            let pixelSize = resolution.pixelSize(for: descriptor.pixelSize)
+            let pixelSize = Self.shapedResolution(
+                resolution, native: descriptor.pixelSize, frameRate: frameRate, budgetKbps: budgetKbps
+            ).pixelSize(for: descriptor.pixelSize)
             let configuration = try CaptureEngine.configuration(
                 for: descriptor,
                 pixelSize: pixelSize,
@@ -119,6 +123,18 @@ extension CapturePipeline {
         }
     }
 
+    /// The setting, lowered to what the starting rate can keep sharp. Fixed for the life of the stream: following a mid-stream rate change would rebuild the capture and encoder.
+    static func shapedResolution(
+        _ setting: CaptureResolution, native: CGSize, frameRate: Int, budgetKbps: Int?
+    ) -> CaptureResolution {
+        guard let budgetKbps else { return setting }
+        let rate = min(frameRate, StreamShaping.framesPerSecondCeiling(bitrateKbps: budgetKbps) ?? frameRate)
+        let scale = StreamShaping.pixelScale(
+            bitrateKbps: budgetKbps, framesPerSecond: rate, nativePixels: Double(native.width * native.height)
+        )
+        return setting.capped(by: .fitting(scale: scale))
+    }
+
     /// Shared by both backends. Callbacks attach before the source starts; the keyframe is requested after, since a request with no session is lost. The first frame must be a keyframe.
     func begin(
         engine: any CaptureFrameSource,
@@ -152,6 +168,7 @@ extension CapturePipeline {
             self.source = source
             self.encoder = encoder
             self.awaitsKeyframe = true
+            self.keyframeWait.asked(at: .now)
             self.runningEngine = engine
         }
         encoder.onFrame = { [weak self] encoded in self?.deliver(encoded, source: source) }

@@ -45,8 +45,6 @@ extension SessionModel {
         activeSession?.startAgentChat(agentID: agentID, directory: directory)
     }
 
-    var hostSupportsAgentPause: Bool { activeSession?.hostSupportsAgentPause ?? false }
-
     func pauseAgentSession(_ id: UUID) {
         Analytics.featureUsed(.agentChatStopped, agent: agentCards.first { $0.id == id }?.agentID)
         activeSession?.pauseAgentSession(id)
@@ -58,10 +56,6 @@ extension SessionModel {
         ChatSeed.set(AgentRecap.text(from: session.transcript), agentID: session.agentID)
         startAgentChat(agentID: session.agentID, directory: session.directory)
     }
-
-    var hostSupportsAgentSessionImport: Bool { activeSession?.hostSupportsAgentSessionImport ?? false }
-
-    var hostSupportsAgentSessionPeek: Bool { activeSession?.hostSupportsAgentSessionPeek ?? false }
 
     func resumablePeek(_ session: AgentResumableSession) -> RemoteAgentSession? { activeSession?.resumablePeeks[session.cliSessionID] }
 
@@ -97,15 +91,9 @@ extension SessionModel {
 
     func setAgentModel(_ model: String?, in id: UUID) { activeSession?.setAgentModel(model, in: id) }
 
-    var hostSupportsAgentModelPicker: Bool { activeSession?.hostSupportsAgentModelPicker ?? false }
-
     func setAgentPermissionMode(_ mode: AgentPermissionMode, in id: UUID) {
         activeSession?.setAgentPermissionMode(mode, in: id)
     }
-
-    var hostSupportsAgentPermissionModes: Bool { activeSession?.hostSupportsAgentPermissionModes ?? false }
-
-    var hostSupportsAgentUsage: Bool { activeSession?.hostSupportsAgentUsage ?? false }
 
     func ensureAgentPreviews() { activeSession?.ensureAgentPreviews() }
 
@@ -115,8 +103,7 @@ extension SessionModel {
         let action = AgentEndAction.choose(
             hasConversation: session.map { !$0.transcript.isEmpty } ?? false,
             isWorking: session?.state == .working,
-            isPaused: session.map { AgentPause.isPaused($0.transcript) } ?? false,
-            hostSupportsPause: hostSupportsAgentPause
+            isPaused: session.map { AgentPause.isPaused($0.transcript) } ?? false
         )
         switch action {
         case .pause: pauseAgentSession(id)

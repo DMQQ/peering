@@ -3,13 +3,6 @@ import RemoteCore
 import SwiftUI
 
 extension RemoteScreen {
-    private var availableModes: [SessionMode] {
-        let session = model.activeSession
-        let workspaceCapable = session?.hostSupportsAgentList == true || session?.hostSupportsAgentChat == true
-            || session?.hostSupportsFileBrowser == true
-        return SessionMode.available(workspaceCapable: workspaceCapable)
-    }
-
     @ViewBuilder
     var modeLayers: some View {
         if let session = model.activeSession {
@@ -22,14 +15,19 @@ extension RemoteScreen {
             }
             if showsModePicker {
                 SessionModePicker(
-                    modes: availableModes,
+                    modes: SessionMode.allCases,
                     hostName: model.shownHostName ?? String(localized: "this Mac"),
                     onChoose: { chooseMode($0, source: "picker") },
-                    onCancel: session.modeResolved ? { showsModePicker = false } : nil
+                    onCancel: session.modeResolved ? { cancelModePicker(in: session) } : nil
                 )
                 .transition(.opacity)
             }
         }
+    }
+
+    private func cancelModePicker(in session: MacSession) {
+        showsModePicker = false
+        if session.mode == .workspace, route.isEmpty { route = [.hub] }
     }
 
     /// Opens the mode last chosen for this Mac, or asks. A session that already has a mode (a screen rebuilt, or a dial replaced by a retry) only re-applies it.
@@ -39,7 +37,7 @@ extension RemoteScreen {
             applyMode(session.mode)
             return
         }
-        switch SessionModeMemory().decision(for: session.hostID, available: availableModes) {
+        switch SessionModeMemory().decision(for: session.hostID, available: SessionMode.allCases) {
         case .open(let mode):
             Analytics.sessionModeChosen(mode, source: "remembered")
             applyMode(mode)
@@ -67,14 +65,18 @@ extension RemoteScreen {
         let old = session.mode
         session.mode = new
         session.modeResolved = true
-        showsModePicker = false
-        if new == .workspace {
-            if route.isEmpty { route = [.hub] }
-        } else if old == .workspace, !route.isEmpty {
-            route = []
+        // The picker is a screen of its own, so the hub replaces it outright: fading the picker out or sliding the hub in would show the Mac's picture between the two.
+        var transaction = Transaction()
+        transaction.disablesAnimations = showsModePicker && new == .workspace
+        withTransaction(transaction) {
+            showsModePicker = false
+            if new == .workspace {
+                if route.isEmpty { route = [.hub] }
+            } else if old == .workspace, !route.isEmpty {
+                route = []
+            }
         }
-        let mayPause = PicturePause.mayAsk(hostDeclared: session.hostSupportsVideoPause)
-        switch SessionModePicture.action(entering: new, hostMayPause: mayPause, pausedByMode: session.picturePausedByMode) {
+        switch SessionModePicture.action(entering: new, pausedByMode: session.picturePausedByMode) {
         case .pause:
             session.picturePausedByMode = !session.picturePaused
             session.setPicturePaused(true)
@@ -86,9 +88,11 @@ extension RemoteScreen {
         }
     }
 
-    /// Backing out of the hub in workspace mode is going back to the screen.
+    /// Backing out of the hub goes back to the picker it was opened from. Going straight to the screen showed a picture still paused by the mode, blank until the Mac sent a new keyframe.
     func leaveWorkspaceIfClosed(_ route: [RemoteRoute]) {
-        guard route.isEmpty, model.activeSession?.mode == .workspace else { return }
-        chooseMode(.screen, source: "picker")
+        guard route.isEmpty, model.activeSession?.mode == .workspace, !showsModePicker else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { showsModePicker = true }
     }
 }

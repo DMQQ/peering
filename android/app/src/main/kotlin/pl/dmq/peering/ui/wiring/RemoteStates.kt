@@ -39,11 +39,9 @@ internal fun remoteUiState(
         hostClipboard = session.hostClipboard,
         sourcesFeatures = SourcesFeatures(
             windowControls = ready?.capabilities?.contains(HostCapability.MacControls) == true,
-            virtualDisplays = ready?.capabilities?.contains(HostCapability.VirtualDisplayManagement) == true,
             desktops = ready?.capabilities?.contains(HostCapability.MacControls) == true,
         ),
         screenControls = ready?.capabilities?.contains(HostCapability.ScreenControls) == true,
-        supportsMosaic = ready?.capabilities?.contains(HostCapability.Mosaic) == true,
         mosaic = mosaic,
         rememberedMosaic = session.rememberedMosaic,
         hostPointer = session.hostPointer,
@@ -51,7 +49,6 @@ internal fun remoteUiState(
         hostField = session.hostField,
         directPath = session.directPath,
         videoStream = session.videoStream,
-        clipboardImages = ready?.capabilities?.contains(HostCapability.ClipboardImages) == true,
     )
 }
 

@@ -34,3 +34,21 @@ struct StreamPacingTests {
         #expect(StreamPacing.rate(intervalValue: 1, intervalTimescale: 0) == nil)
     }
 }
+
+@Suite("Stream update decision")
+struct StreamUpdateDecisionTests {
+    @Test("a stream already at the wanted rate is left alone")
+    func unchanged() {
+        #expect(!StreamPacing.needsUpdate(applied: 60, wanted: 60, redrawRequested: false))
+    }
+
+    @Test("a different wanted rate updates the stream")
+    func rateChanged() {
+        #expect(StreamPacing.needsUpdate(applied: 120, wanted: 30, redrawRequested: false))
+    }
+
+    @Test("a redraw updates a stream whose rate is right")
+    func redraw() {
+        #expect(StreamPacing.needsUpdate(applied: 60, wanted: 60, redrawRequested: true))
+    }
+}

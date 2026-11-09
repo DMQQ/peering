@@ -26,6 +26,13 @@ internal class SurfacePicture(
     private var decoder: VideoSink? = null
     private var config: VideoStreamConfig? = null
     private val returns = SurfaceReturn()
+
+    /** Handed to every decoder this picture builds, since a surface change builds a new one. */
+    override var onNeedsKeyframe: (() -> Unit)? = null
+        set(value) {
+            field = value
+            decoder?.onNeedsKeyframe = value
+        }
     private var crashed = false
 
     /** The size of the stream the Mac is sending, or null before its first config. */
@@ -35,7 +42,7 @@ internal class SurfacePicture(
         this.config = config
         size.value = PixelSize(config.pixelWidth.toDouble(), config.pixelHeight.toDouble())
         // A reconnect on the same screen has released the decoder but kept the surface, so the next config rebuilds it.
-        val live = decoder ?: surface?.let(createDecoder)?.also { decoder = it }
+        val live = decoder ?: surface?.let(::newDecoder)?.also { decoder = it }
         guarded(live) { it.onConfig(config) }
     }
 
@@ -52,6 +59,8 @@ internal class SurfacePicture(
     }
 
     override val decoderFailed: Boolean get() = crashed || decoder?.decoderFailed == true
+
+    private fun newDecoder(surface: Surface): VideoSink = createDecoder(surface).also { it.onNeedsKeyframe = onNeedsKeyframe }
 
     /** A decoder that throws past its own recovery is dropped, so the picture reads as failed and the session lives. */
     private fun guarded(target: VideoSink?, call: (VideoSink) -> Unit) {
@@ -79,7 +88,7 @@ internal class SurfacePicture(
         guarded(decoder) { it.onStop() }
         decoder = null
         this.surface = surface
-        val created = createDecoder(surface)
+        val created = newDecoder(surface)
         decoder = created
         crashed = false
         config?.let { guarded(created) { decoder -> decoder.onConfig(it) } }

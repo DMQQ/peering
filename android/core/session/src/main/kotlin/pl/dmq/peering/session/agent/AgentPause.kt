@@ -21,10 +21,10 @@ enum class AgentEndAction {
     ;
 
     companion object {
-        fun choose(session: AgentChatSession, hostSupportsPause: Boolean): AgentEndAction {
+        fun choose(session: AgentChatSession): AgentEndAction {
             val working = session.state == AgentSessionState.WORKING || session.state == AgentSessionState.AWAITING_APPROVAL
             val hasConversation = session.transcript.rows.isNotEmpty()
-            return if (hostSupportsPause && hasConversation && !working && !session.isPaused) PAUSE else CLOSE
+            return if (hasConversation && !working && !session.isPaused) PAUSE else CLOSE
         }
     }
 }

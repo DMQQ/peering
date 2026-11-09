@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -32,8 +33,15 @@ fun DotField(touch: Offset?, tap: DotTap?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val still = remember(context) { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
     var now by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(still) {
-        while (true) withFrameNanos { now = if (still) 0L else it }
+    val touching = touch != null
+    // At full frame rate only while a finger or a ripple needs it. Drawing a few hundred dots 60 to 120 times a second on an idle pad cost main-thread time the picture's decoder shares.
+    LaunchedEffect(still, touching, tap) {
+        val tapStarted = Snapshot.withoutReadObservation { now }
+        while (true) {
+            val animating = touching || (tap != null && now - tapStarted < RIPPLE_NANOS)
+            if (!animating) delay(IDLE_FRAME_MILLIS)
+            withFrameNanos { now = if (still) 0L else it }
+        }
     }
     val ripple = remember(tap) { tap?.takeUnless { still }?.let { DotRipple(it.point, Snapshot.withoutReadObservation { now }) } }
     Canvas(modifier) { drawDots(touch, ripple, now) }
@@ -80,4 +88,8 @@ private fun falloff(distance: Float, width: Float): Float {
 }
 
 private const val RIPPLE_SECONDS = 0.7f
+private const val RIPPLE_NANOS = (RIPPLE_SECONDS * 1e9).toLong()
+
+/** About twelve frames a second for the slow swell while nothing is touching the pad. */
+private const val IDLE_FRAME_MILLIS = 80L
 private const val RIPPLE_SPEED_DP = 420f

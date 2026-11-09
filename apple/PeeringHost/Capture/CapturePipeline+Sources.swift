@@ -1,6 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
+import PeeringKit
 import RemoteCore
 import ScreenCaptureKit
 import os
@@ -114,6 +115,7 @@ extension CapturePipeline {
             self.runningEngine = nil
             return current
         }
+        idleRefresh.cancel()
         encoder?.shutdown()
     }
 
@@ -121,9 +123,25 @@ extension CapturePipeline {
     func requestKeyframe() {
         let encoder = lock.withLock { () -> VideoEncoder? in
             awaitsKeyframe = true
+            keyframeWait.asked(at: .now)
             return self.encoder
         }
         encoder?.requestKeyframe()
+        Task { [weak self] in
+            try? await Task.sleep(for: KeyframeWait.nudgeAfter)
+            self?.nudgeIfStillWaiting()
+        }
+    }
+
+    /// A still screen sends no frame to carry the keyframe, so the client joining it saw nothing until something moved. Asking the stream to redraw gives the request a real frame to ride on.
+    private func nudgeIfStillWaiting() {
+        let engine = lock.withLock { () -> CaptureEngine? in
+            guard awaitsKeyframe, let source, !source.isMosaic, keyframeWait.shouldNudge(at: .now) else { return nil }
+            return runningEngine as? CaptureEngine
+        }
+        guard let engine else { return }
+        pipelineLog.notice("no frame yet for the requested keyframe; asking the capture for a fresh one")
+        engine.refreshFrame()
     }
 
     /// Also arms a keyframe so the new rate applies quickly.

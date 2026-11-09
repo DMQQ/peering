@@ -62,7 +62,6 @@ impl Connection {
                 datagram_outbound,
                 lane: VideoLane::new(video_token),
                 background: false,
-                client_flags: self.client_flags.clone(),
                 audio: Default::default(),
             },
         );

@@ -28,12 +28,11 @@ async fn pumped_event(runtime: &HostRuntime, phone: &mut Phone) -> TerminalEvent
 }
 
 #[test]
-fn the_hello_advertises_the_agent_list_it_serves() {
+fn the_hello_does_not_claim_terminal_alerts_while_connected() {
     run(async {
         let harness = harness();
         let hello = server_hello_of(&harness).await;
-        assert_eq!(hello.capabilities.supports_agent_list, Some(true));
-        assert_eq!(hello.capabilities.pushes_terminal_alerts_while_connected, None);
+        assert_eq!(hello.pushes_terminal_alerts_while_connected, None);
     });
 }
 

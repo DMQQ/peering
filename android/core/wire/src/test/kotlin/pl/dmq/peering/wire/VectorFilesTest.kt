@@ -14,6 +14,6 @@ class VectorFilesTest {
 
     @Test
     fun theProtocolVersionIsTwenty() {
-        assertEquals(20, PROTOCOL_VERSION)
+        assertEquals(21, PROTOCOL_VERSION)
     }
 }

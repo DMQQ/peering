@@ -89,7 +89,7 @@ extension SessionModel {
             }
         }
         // Fresh for the path this session just chose: the policy's tier is tuned per path.
-        session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
+        session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath, ceiling: session.videoCeiling)
         session.lastAutoDroppedFrames = 0
 
         // Two facts belong to the Mac, not this attempt, and are carried across a dial of that Mac only.

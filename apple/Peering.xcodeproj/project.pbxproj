@@ -131,7 +131,7 @@
 
 /* Begin PBXFileReference section */
 		27F01A9B57365D31A880C9DD /* PeeringNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PeeringNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = PeeringWatch.app; path = PeeringWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = PeeringWatch.app; path = Peering.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7885FA979AEF3E8D6828D066 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		AA00000000000000000000AA /* TerminalActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalActivityAttributes.swift; sourceTree = "<group>"; };
 		AB00000000000000000000AA /* AgentChatSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatSnapshot.swift; sourceTree = "<group>"; };
@@ -185,29 +185,21 @@
 		};
 		C2C039C130574AB400ABF943 /* Peering */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = Peering;
 			sourceTree = "<group>";
 		};
 		C2C039D130574AB600ABF943 /* PeeringTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = PeeringTests;
 			sourceTree = "<group>";
 		};
 		C2C039DB30574AB600ABF943 /* PeeringUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = PeeringUITests;
 			sourceTree = "<group>";
 		};
 		C2C039F230574AB600ABF943 /* PeeringHost */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = PeeringHost;
 			sourceTree = "<group>";
 		};
@@ -229,8 +221,6 @@
 		};
 		E9431515AD3317740FC0FE87 /* PeeringWatch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = PeeringWatch;
 			sourceTree = "<group>";
 		};
@@ -1089,24 +1079,37 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Config/Peering.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202611011;
+				CURRENT_PROJECT_VERSION = 202611091;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Peering-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Peering;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Peering uses the camera to scan the one-time pairing code shown on your Mac.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Peering uses Face ID to protect access to your paired Macs.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Peering connects to your Mac on the local network to stream its screen and send input.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Peering listens while you dictate, so you can speak instead of typing on the Mac.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Peering saves photos and videos you download from your Mac to your photo library.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Peering turns what you say into text, on your iPhone when the language allows it, and types it on your Mac.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 202611011;
+				MARKETING_VERSION = 202611091;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1124,25 +1127,38 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Config/Peering.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202611011;
+				CURRENT_PROJECT_VERSION = 202611091;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Peering-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Peering;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Peering uses the camera to scan the one-time pairing code shown on your Mac.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Peering uses Face ID to protect access to your paired Macs.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Peering connects to your Mac on the local network to stream its screen and send input.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Peering listens while you dictate, so you can speak instead of typing on the Mac.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Peering saves photos and videos you download from your Mac to your photo library.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Peering turns what you say into text, on your iPhone when the language allows it, and types it on your Mac.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 202611011;
+				MARKETING_VERSION = 202611091;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

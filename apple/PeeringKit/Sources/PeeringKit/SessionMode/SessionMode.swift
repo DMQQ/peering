@@ -8,11 +8,6 @@ public enum SessionMode: String, CaseIterable, Sendable, Identifiable {
 
     public var id: String { rawValue }
 
-    /// Workspace needs a hub to show (chat, files or terminals); the other two need nothing from the Mac.
-    public static func available(workspaceCapable: Bool) -> [SessionMode] {
-        workspaceCapable ? [.screen, .workspace, .remote] : [.screen, .remote]
-    }
-
     /// Whether the picture is shown in this mode: the other two stop it so a relay session costs almost nothing.
     public var showsPicture: Bool { self == .screen }
 }

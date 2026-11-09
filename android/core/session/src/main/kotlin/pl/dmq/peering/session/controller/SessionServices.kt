@@ -3,7 +3,6 @@ package pl.dmq.peering.session.controller
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.preview.PreviewProxyClient
@@ -13,7 +12,7 @@ import pl.dmq.peering.wire.MessageKind
 import pl.dmq.peering.wire.ServerHello
 
 /**
- * The agent chat and the file browser of one phone. Each exists once the host declares it, and it outlives the links
+ * The agent chat and the file browser of one phone. Each is created on the first link, and it outlives the links
  * it is used on: its requests go out on whichever link is current, and a request made while the link is down is dropped.
  */
 internal class SessionServices(private val ports: SessionPorts, private val currentLink: () -> ConnectedLink?) {
@@ -37,22 +36,20 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
                     currentLink()?.enqueue(Frame(MessageKind.TerminalRequest, request.toJson().toByteArray(Charsets.UTF_8)))
                 },
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-                listsAgents = { currentLink()?.hello?.supportsAgentList == true },
             )
         }
-        if (hello.supportsAgentChat == true && agentChat == null) {
-            agentChat = AgentChat(AgentCapabilities.declaredBy(hello)) { request ->
+        if (agentChat == null) {
+            agentChat = AgentChat { request ->
                 currentLink()?.enqueue(Frame(MessageKind.AgentRequest, request.toJson().toByteArray(Charsets.UTF_8)))
             }
         }
-        if (hello.supportsAgentChat == true && preview == null) {
+        if (preview == null) {
             preview = PreviewProxyClient(transmit = { command ->
                 currentLink()?.enqueue(Frame(MessageKind.PreviewRequest, command.toJson().toByteArray(Charsets.UTF_8))) != null
             })
         }
-        if (hello.supportsFileBrowser == true && fileBrowser == null) {
+        if (fileBrowser == null) {
             fileBrowser = FileBrowser(
-                supportsFileBrowser = true,
                 send = { request ->
                     currentLink()?.enqueue(Frame(MessageKind.TerminalRequest, request.toJson().toByteArray(Charsets.UTF_8)))
                 },

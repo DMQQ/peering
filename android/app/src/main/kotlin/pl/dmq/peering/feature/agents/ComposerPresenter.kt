@@ -31,7 +31,6 @@ class ComposerPresenter(
     private val port: AgentsPort,
     private val store: ComposerDraftStore,
     private val chats: StateFlow<AgentChatState>,
-    private val modelPickerSupported: Boolean,
     private val scope: CoroutineScope,
     private val attachments: AttachmentSender? = null,
 ) {
@@ -45,9 +44,6 @@ class ComposerPresenter(
 
     /** A slash command this app answers itself (usage, model, rename), named without the slash. The chat screen opens what it names. */
     val appCommands: SharedFlow<String> get() = appCommandEvents
-
-    /** What the hints may offer: the computer's own usage and model features, as it declared them. */
-    val hintOffers: HintOffers get() = HintOffers(usage = port.capabilities.usage, model = modelPickerSupported)
 
     fun onTextChanged(text: String) = editSelected { it.copy(text = text) }
 
@@ -118,7 +114,7 @@ class ComposerPresenter(
     /** A command typed out in full and sent is answered by the app instead of being handed to the CLI. */
     private fun runTypedAppCommand(current: ComposerUi): Boolean {
         val typed = AgentSlash.query(current.text) ?: return false
-        val own = AgentSlash.suggestions(typed, current.agentID.orEmpty(), current.directory, hintOffers.usage, hintOffers.model) { null }
+        val own = AgentSlash.suggestions(typed, current.agentID.orEmpty(), current.directory) { null }
             .firstOrNull { it.kind == SlashKind.APP && it.name == typed } ?: return false
         pickSlash(own)
         return true
@@ -135,11 +131,10 @@ class ComposerPresenter(
         if (mode in current.permissionModes) port.setPermissionMode(sessionID, mode)
     }
 
-    /** A null [model] chooses the CLI's default. Nothing is sent when the Mac did not declare the picker. */
+    /** A null [model] chooses the CLI's default. */
     fun setModel(model: String?) {
         val current = ui.value
         val sessionID = current.sessionID ?: return
-        if (!modelPickerSupported) return
         if (model == null || model in current.modelChoices) port.setModel(sessionID, model)
     }
 
@@ -189,7 +184,7 @@ class ComposerPresenter(
             permissionMode = session?.info?.permissionMode ?: modes.firstOrNull(),
             permissionModes = modes,
             model = session?.info?.model,
-            modelChoices = if (modelPickerSupported) session?.info?.modelChoices.orEmpty() else emptyList(),
+            modelChoices = session?.info?.modelChoices.orEmpty(),
         )
     }
 }

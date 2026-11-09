@@ -61,7 +61,8 @@ extension VideoCoordinator {
         try await pipeline.start(
             source: source,
             frameRate: frameRate.rawValue,
-            resolution: resolution
+            resolution: resolution,
+            budgetKbps: effectiveBitrateKbps
         )
         lock.withLock { currentSource = source }
         onSourceChanged?(source)

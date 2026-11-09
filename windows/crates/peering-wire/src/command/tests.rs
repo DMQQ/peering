@@ -35,6 +35,7 @@ fn every_case() -> Vec<RemoteCommand> {
         RemoteCommand::SetStreamQuality { fps: 0, bitrate_kbps: 8000 },
         RemoteCommand::SetVideoEnabled { enabled: false },
         RemoteCommand::RefreshSpacePreviews {},
+        RemoteCommand::RequestKeyframe {},
         RemoteCommand::RefreshSourceThumbnails {},
         RemoteCommand::WatchSourceThumbnails { watching: true },
         RemoteCommand::SetPrivacyMode { enabled: true },
@@ -138,6 +139,7 @@ fn stream_controls_encode_quality_and_visibility() {
     encodes_as(RemoteCommand::WatchSourceThumbnails { watching: false }, r#"{"watchSourceThumbnails":{"_0":false}}"#);
     encodes_as(RemoteCommand::RefreshSourceThumbnails {}, r#"{"refreshSourceThumbnails":{}}"#);
     encodes_as(RemoteCommand::RefreshSpacePreviews {}, r#"{"refreshSpacePreviews":{}}"#);
+    encodes_as(RemoteCommand::RequestKeyframe {}, r#"{"requestKeyframe":{}}"#);
 }
 
 #[test]

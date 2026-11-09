@@ -129,11 +129,7 @@ struct Probe {
             clientID: options.clientID,
             clientName: options.clientName,
             protocolVersion: ProtocolInfo.version,
-            wantsPairing: options.pinnedKey == nil,
-            // Declared so the host will stream agent events here. Without it every event of a
-            // chat is dropped by the host's own restraint, and the probe waits on a session
-            // that is working perfectly.
-            supportsAgentChat: true
+            wantsPairing: options.pinnedKey == nil
         )
         channel.send(Frame(kind: .clientHello, payload: try MessageCodec.encode(hello)))
 

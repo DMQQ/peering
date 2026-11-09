@@ -3,11 +3,6 @@ import Testing
 @testable import RemoteCore
 
 struct AgentRoutineWireTests {
-    @Test func aHelloFromBeforeRoutinesReadsAsNoSupport() throws {
-        let old = #"{"serverID":"s","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#
-        let hello = try JSONDecoder().decode(ServerHello.self, from: Data(old.utf8))
-        #expect(hello.supportsAgentRoutines == nil)
-    }
 
     @Test func aSaveRequestSurvivesAnEncodeAndDecode() throws {
         let routine = AgentRoutine(
@@ -26,5 +21,16 @@ struct AgentRoutineWireTests {
         )
         let decoded = try JSONDecoder().decode(AgentEvent.self, from: JSONEncoder().encode(AgentEvent.routines([routine])))
         #expect(decoded == .routines([routine]))
+    }
+
+    @Test func aRoutineSavedBeforeTheNotifyFieldDecodesAsUnset() throws {
+        let routine = AgentRoutine(
+            name: "Old", agentID: "claude", directory: "/tmp", prompt: "Go.",
+            schedule: .every(minutes: 60), permissionMode: .plan
+        )
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(routine)) as? [String: Any])
+        object.removeValue(forKey: "notifiesWhenDone")
+        let decoded = try JSONDecoder().decode(AgentRoutine.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.notifiesWhenDone == nil)
     }
 }

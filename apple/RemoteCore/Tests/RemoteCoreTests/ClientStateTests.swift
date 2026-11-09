@@ -24,20 +24,6 @@ struct ClientStateTests {
         #expect(decoded == ClientStatePayload(background: true))
     }
 
-    @Test("the notice goes only to a host that declared it")
-    func supportGate() {
-        #expect(ClientStateSupport.maySend(toHostDeclared: true))
-        #expect(!ClientStateSupport.maySend(toHostDeclared: false))
-        #expect(!ClientStateSupport.maySend(toHostDeclared: nil))
-    }
-
-    @Test("a server hello without the flag decodes as not supported")
-    func oldHostHello() throws {
-        let json = #"{"serverID":"s","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#
-        let hello = try MessageCodec.decode(ServerHello.self, from: Data(json.utf8))
-        #expect(hello.supportsClientState == nil)
-    }
-
     @Test("background pauses the picture and returning resumes it")
     func backgroundThenForeground() {
         var state = ClientPictureState()

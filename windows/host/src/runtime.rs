@@ -9,7 +9,6 @@
 mod advertise;
 mod ask_queue;
 mod agent;
-mod agent_gate;
 mod agent_browse;
 mod agent_git;
 mod agent_pump;

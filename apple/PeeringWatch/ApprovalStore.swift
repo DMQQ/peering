@@ -65,9 +65,11 @@ final class ApprovalStore {
         defer { sending.remove(approval.approvalID) }
         guard await phone.send(approval.answer(choice)) else {
             failure = phone.isReachable ? .notTaken : .phoneNotReachable
+            WKInterfaceDevice.current().play(.failure)
             return false
         }
         remove(approval)
+        WKInterfaceDevice.current().play(.success)
         return true
     }
 
@@ -76,8 +78,17 @@ final class ApprovalStore {
     }
 
     private func adopt(_ snapshot: WatchApprovalSnapshot) {
-        let arrived = Set(snapshot.approvals.map(\.approvalID)).subtracting(approvals.map(\.approvalID))
+        let listed = Set(snapshot.approvals.map(\.approvalID))
+        // Against the phone's own last list: a question that only reappears from the merged list is not new.
+        let arrived = listed.subtracting(fromPhone.map(\.approvalID))
         fromPhone = snapshot.approvals
+        // The phone's list is the truth while it is talking: a notification it no longer lists was answered elsewhere.
+        let answeredElsewhere = fromNotificationsList.filter { !listed.contains($0.approvalID) }
+        if phoneReachable, !answeredElsewhere.isEmpty {
+            fromNotificationsList.removeAll { !listed.contains($0.approvalID) }
+            let identifiers = answeredElsewhere.map { WatchApproval.NotificationShape.identifierPrefix + $0.approvalID }
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+        }
         rebuild()
         if !arrived.isEmpty { WKInterfaceDevice.current().play(.notification) }
     }

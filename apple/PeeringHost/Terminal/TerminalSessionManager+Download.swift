@@ -14,10 +14,10 @@ extension TerminalSessionManager {
             return
         }
         let url = URL(fileURLWithPath: path).standardizedFileURL
-        FileWork.run(work: { Self.chunk(of: url, at: offset) }) { outcome in
+        FileWork.run(work: { Self.chunk(of: url, at: offset, checksummed: offset == 0) }) { outcome in
             switch outcome {
             case .done(.success(let piece)):
-                sink(.fileRange(sessionID: id, path: path, offset: offset, totalBytes: piece.total, data: piece.data))
+                sink(.fileRange(sessionID: id, path: path, offset: offset, totalBytes: piece.total, data: piece.data, md5: piece.md5))
                 if Self.isArchive(url), offset + Int64(piece.data.count) >= piece.total {
                     try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
                 }
@@ -34,6 +34,7 @@ extension TerminalSessionManager {
     private struct Chunk: Sendable {
         let data: Data
         let total: Int64
+        let md5: String?
     }
 
     private enum ChunkOutcome: Sendable {
@@ -41,7 +42,7 @@ extension TerminalSessionManager {
         case failure(String)
     }
 
-    private static func chunk(of url: URL, at offset: Int64) -> ChunkOutcome {
+    private static func chunk(of url: URL, at offset: Int64, checksummed: Bool) -> ChunkOutcome {
         do {
             let handle = try FileHandle(forReadingFrom: url)
             defer { try? handle.close() }
@@ -51,7 +52,9 @@ extension TerminalSessionManager {
             }
             try handle.seek(toOffset: UInt64(min(offset, total)))
             let data = try handle.read(upToCount: FileDownloadLimits.chunkBytes) ?? Data()
-            return .success(Chunk(data: data, total: total))
+            // Hashed on the first piece only: the phone checks the finished file against it, and a read that fails here is reported as the download failing.
+            let md5 = checksummed ? try FileChecksum.ofFile(at: url) : nil
+            return .success(Chunk(data: data, total: total, md5: md5))
         } catch {
             return .failure(Self.changeMessage(for: error))
         }

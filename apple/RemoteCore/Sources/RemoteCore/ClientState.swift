@@ -9,13 +9,6 @@ public struct ClientStatePayload: Codable, Sendable, Equatable {
     }
 }
 
-public enum ClientStateSupport {
-    /// An older host treats an unknown kind as a protocol error, so the notice goes only to a host that declared it.
-    public static func maySend(toHostDeclared declared: Bool?) -> Bool {
-        declared == true
-    }
-}
-
 /// What the app last asked the Mac to be told, and what the Mac has been told, so a notice that could not go yet goes when it can.
 struct ClientStateNotice: Equatable {
     private(set) var wanted = false
@@ -25,9 +18,9 @@ struct ClientStateNotice: Equatable {
         wanted = background
     }
 
-    /// - Returns: the state to send now, or nil when the Mac already has it, is not ready, or did not declare it takes the notice.
-    mutating func takePending(isReady: Bool, hostDeclared: Bool?) -> Bool? {
-        guard isReady, ClientStateSupport.maySend(toHostDeclared: hostDeclared), sent != wanted else { return nil }
+    /// - Returns: the state to send now, or nil when the Mac already has it, is not ready, or is not ready.
+    mutating func takePending(isReady: Bool) -> Bool? {
+        guard isReady, sent != wanted else { return nil }
         sent = wanted
         return wanted
     }

@@ -59,11 +59,6 @@ public struct ActivityTokenPayload: Codable, Sendable, Equatable {
 }
 
 public enum LiveActivityPushSupport {
-    /// An older host treats an unknown kind as a protocol error, so the tokens go only to a host that declared it.
-    public static func maySend(toHostDeclared declared: Bool?) -> Bool {
-        declared == true
-    }
-
     /// Hex the way the relay reads it: lowercase, two digits a byte.
     public static func hex(_ token: Data) -> String {
         token.map { String(format: "%02x", $0) }.joined()

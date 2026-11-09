@@ -49,18 +49,37 @@ class WheelAndJoystickTest {
     }
 
     @Test
-    fun fullDeflectionCoversOnePointWidthAndAHalfPerSecond() {
+    fun fullDeflectionCoversEightTenthsOfAWidthPerSecond() {
         val (dx, dy) = JoystickMath.travel(x = 50.0, y = 0.0, radius = 50.0, pointWidth = 1000.0, pointHeight = 600.0, seconds = 0.02)
 
-        assertEquals(30.0, dx, 1e-9)
+        assertEquals(16.0, dx, 1e-9)
         assertEquals(0.0, dy, 1e-9)
+    }
+
+    @Test
+    fun aHalfPushMovesWellUnderHalfAsFastAsAFullOne() {
+        val (dx, _) = JoystickMath.travel(x = 25.0, y = 0.0, radius = 50.0, pointWidth = 1000.0, pointHeight = 600.0, seconds = 0.05)
+
+        assertTrue(dx < 15.0)
+    }
+
+    @Test
+    fun aCentredKnobDoesNotMove() {
+        assertEquals(0.0 to 0.0, JoystickMath.travel(x = 0.0, y = 0.0, radius = 50.0, pointWidth = 1000.0, pointHeight = 600.0, seconds = 0.05))
+    }
+
+    @Test
+    fun travelKeepsTheDirectionOfThePush() {
+        val (dx, dy) = JoystickMath.travel(x = -30.0, y = 40.0, radius = 50.0, pointWidth = 1000.0, pointHeight = 600.0, seconds = 0.05)
+
+        assertTrue(dx < 0.0 && dy > 0.0)
     }
 
     @Test
     fun aLongGapIsCappedSoTheFirstSampleDoesNotJump() {
         val (dx, _) = JoystickMath.travel(x = 50.0, y = 0.0, radius = 50.0, pointWidth = 1000.0, pointHeight = 600.0, seconds = 2.0)
 
-        assertEquals(75.0, dx, 1e-9)
+        assertEquals(40.0, dx, 1e-9)
     }
 
     @Test

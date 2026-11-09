@@ -13,6 +13,8 @@ struct FileDownload {
     /// The file being read: the source itself, or the zip once the Mac has made it.
     var readPath: String?
     var window = FileDownloadWindow()
+    /// The whole file's checksum, sent with its first piece; `nil` until it arrives.
+    var expectedMD5: String?
     let destination: URL
     var handle: FileHandle?
     /// Ends the download if the Mac stops answering; restarted by every request and answer.
@@ -91,8 +93,9 @@ extension MacSession {
 
     // MARK: - The Mac's answers
 
-    func apply(fileRange id: UUID, path: String, offset: Int64, totalBytes: Int64, data: Data) {
+    func apply(fileRange id: UUID, path: String, offset: Int64, totalBytes: Int64, data: Data, md5: String?) {
         guard var download = downloads[id], download.readPath == path else { return }
+        if let md5 { download.expectedMD5 = md5.lowercased() }
         let more: [Int64]
         switch download.window.accept(offset: offset, count: data.count, totalBytes: totalBytes, freeDiskBytes: Self.freeDiskBytes()) {
         case .failure(let rejection):
@@ -120,12 +123,7 @@ extension MacSession {
             try? download.handle?.close()
             downloads.removeValue(forKey: id)
             if download.window.isComplete {
-                downloadFailures.removeValue(forKey: id)
-                if download.playsInline {
-                    finishedVideos[id] = (download.sourcePath, download.destination)
-                } else {
-                    finishedDownloads[id] = download.destination
-                }
+                verifyAndPublish(download, sessionID: id)
             } else {
                 fail(download, message: String(localized: "The Mac sent less of the file than it said it had."), sessionID: id)
             }
@@ -138,6 +136,36 @@ extension MacSession {
             wire?.sendTerminal(.readRange(sessionID: id, path: path, offset: next))
         }
     }
+
+    /// Hashes the finished file off the main thread, so a large download does not freeze the screen, and offers it only if it matches what the Mac read.
+    private func verifyAndPublish(_ download: FileDownload, sessionID id: UUID) {
+        downloadFailures.removeValue(forKey: id)
+        guard let expected = download.expectedMD5 else {
+            publish(download, sessionID: id)
+            return
+        }
+        let destination = download.destination
+        Task { [weak self] in
+            let actual = try? await Task.detached { try FileChecksum.ofFile(at: destination) }.value
+            guard let self, self.downloads[id] == nil else { return }
+            if actual == expected {
+                self.publish(download, sessionID: id)
+            } else {
+                Analytics.fileTransferFailed(ChecksumMismatch(), direction: .down, stage: .write, bytes: download.window.totalBytes ?? 0)
+                self.fail(download, message: String(localized: "The file arrived damaged (its checksum did not match), so it was not kept. Download it again."), sessionID: id)
+            }
+        }
+    }
+
+    private func publish(_ download: FileDownload, sessionID id: UUID) {
+        if download.playsInline {
+            finishedVideos[id] = (download.sourcePath, download.destination)
+        } else {
+            finishedDownloads[id] = download.destination
+        }
+    }
+
+    private struct ChecksumMismatch: Error {}
 
     func apply(archiveReady id: UUID, folder: String, archivePath: String) {
         guard var download = downloads[id], download.isFolder, download.sourcePath == folder else { return }

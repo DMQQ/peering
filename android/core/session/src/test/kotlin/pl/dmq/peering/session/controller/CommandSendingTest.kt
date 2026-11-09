@@ -59,21 +59,8 @@ class CommandSendingTest {
     }
 
     @Test
-    fun aCommandNeedingACapabilityTheHostDidNotDeclareIsRefused() = runTest {
+    fun pausingThePictureIsSentAndShowsThePictureAsPaused() = runTest {
         val rig = lanRig(ScriptedMac())
-        rig.controller.connect()
-        settle()
-
-        assertFalse(rig.controller.setPictureEnabled(false))
-        settle()
-
-        assertTrue(rig.mac.connections.single().phoneFrames.commands().none { it is SetVideoEnabled })
-        assertEquals(PictureState.Connecting, rig.controller.state.value.picture)
-    }
-
-    @Test
-    fun aHostThatDeclaresVideoPauseAcceptsThePauseAndShowsThePictureAsPaused() = runTest {
-        val rig = lanRig(ScriptedMac(declare = { it.copy(supportsVideoPause = true) }))
         rig.controller.connect()
         settle()
 
@@ -85,20 +72,8 @@ class CommandSendingTest {
     }
 
     @Test
-    fun backgroundingIsSentOnlyToAHostThatDeclaredClientState() = runTest {
+    fun backgroundingAndReturningAreSentToTheHost() = runTest {
         val rig = lanRig(ScriptedMac())
-        rig.controller.connect()
-        settle()
-
-        rig.controller.clientBackgrounded(true)
-        settle()
-
-        assertTrue(rig.mac.connections.single().phoneFrames.ofKind(MessageKind.ClientState).isEmpty())
-    }
-
-    @Test
-    fun backgroundingAndReturningAreSentToAHostThatDeclaredClientState() = runTest {
-        val rig = lanRig(ScriptedMac(declare = { it.copy(supportsClientState = true) }))
         rig.controller.connect()
         settle()
 
@@ -114,7 +89,7 @@ class CommandSendingTest {
 
     @Test
     fun backgroundingBeforeTheSessionIsReadyIsSentOnceItIs() = runTest {
-        val rig = lanRig(ScriptedMac(declare = { it.copy(supportsClientState = true) }))
+        val rig = lanRig(ScriptedMac())
         rig.controller.clientBackgrounded(true)
         rig.controller.connect()
         settle()

@@ -34,3 +34,46 @@ public enum ShellPath {
         return "cd -- \(quoted(folder)) && \(quoted(path))"
     }
 }
+
+/// What a Windows host's shell is: PowerShell, which the host starts first. Its quoting and its folder commands are not a POSIX shell's, and the wire's `/C:/Users/me` is not a path it can enter.
+public enum ShellDialect: Sendable, Equatable {
+    case posix
+    case powershell
+}
+
+extension ShellPath {
+    /// `/C:/Users/me` is `C:\Users\me` and `/C:` is `C:\`; a path that is not drive-first is returned unchanged.
+    public static func windowsPath(fromWire path: String) -> String {
+        let parts = path.split(separator: "/", omittingEmptySubsequences: true)
+        guard let drive = parts.first, drive.count == 2, drive.last == ":" else { return path }
+        return parts.count == 1 ? "\(drive)\\" : parts.joined(separator: "\\")
+    }
+
+    /// Single quotes, where only a single quote is special and is doubled.
+    public static func quoted(_ path: String, dialect: ShellDialect) -> String {
+        switch dialect {
+        case .posix: quoted(path)
+        case .powershell: "'" + windowsPath(fromWire: path).replacingOccurrences(of: "'", with: "''") + "'"
+        }
+    }
+
+    /// The line that steps a shell into `path`, ending in the Return that runs it. `-LiteralPath` so `[` in a folder name is not a wildcard.
+    public static func changeDirectoryLine(to path: String, dialect: ShellDialect) -> String {
+        switch dialect {
+        case .posix: "cd -- \(quoted(path))\r"
+        case .powershell: "Set-Location -LiteralPath \(quoted(path, dialect: .powershell))\r"
+        }
+    }
+
+    public static func runCommand(for path: String, dialect: ShellDialect) -> String {
+        switch dialect {
+        case .posix:
+            return runCommand(for: path)
+        case .powershell:
+            let folder = (path as NSString).deletingLastPathComponent
+            let program = "& \(quoted(path, dialect: .powershell))"
+            guard !folder.isEmpty, folder != "." else { return program }
+            return "Set-Location -LiteralPath \(quoted(folder, dialect: .powershell)); \(program)"
+        }
+    }
+}

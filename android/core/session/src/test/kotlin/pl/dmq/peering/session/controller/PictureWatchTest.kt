@@ -1,6 +1,8 @@
 package pl.dmq.peering.session.controller
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.dmq.peering.session.testing.FakeClock
 
@@ -46,6 +48,15 @@ class PictureWatchTest {
         watch.restart()
         clock.advance(30.0)
         assertEquals(PictureEscalation.REOPEN, watch.takeEscalation())
+    }
+
+    @Test
+    fun aWatchKnowsWhetherAPictureHasArrivedAndForgetsItOnRestart() {
+        assertFalse(watch.hasSeenPicture)
+        watch.noteSeen()
+        assertTrue(watch.hasSeenPicture)
+        watch.restart()
+        assertFalse(watch.hasSeenPicture)
     }
 
     @Test

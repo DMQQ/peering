@@ -137,9 +137,9 @@ class VideoChunksTest {
     }
 
     @Test
-    fun anIndexOutsideItsCountIsRejected() {
+    fun anIndexBeyondItsCountAndItsParityIsRejected() {
         assertThrows(OutOfRange::class.java) {
-            VideoChunkReassembler().ingest(chunk(MessageKind.VideoFrame.byte, 1, 5, 5))
+            VideoChunkReassembler().ingest(chunk(MessageKind.VideoFrame.byte, 1, 6, 5))
         }
     }
 
@@ -165,5 +165,122 @@ class VideoChunksTest {
 
         val atCap = VideoChunkReassembler(maxReassembled = 40)
         assertEquals(Frame(MessageKind.VideoFrame, payload(40)), pieces.fold<Frame, Frame?>(null) { _, piece -> atCap.ingest(piece) })
+    }
+
+    /** Eleven chunks of two bytes, the last holding one, so the first group is full and the second is the short last chunk alone. */
+    private fun elevenChunks(): Pair<ByteArray, List<Frame>> {
+        val data = ByteArray(21) { it.toByte() }
+        val frames = VideoChunkEncoder.encodeWithParity(MessageKind.VideoFrame, data, 7, chunkSize = 2)
+        assertEquals(13, frames.size)
+        return data to frames
+    }
+
+    private fun feed(frames: List<Frame>): Frame? =
+        VideoChunkReassembler().let { reassembler -> frames.fold<Frame, Frame?>(null) { done, frame -> reassembler.ingest(frame) ?: done } }
+
+    @Test
+    fun parityBodiesAreTheLengthThenTheXorOfTheGroup() {
+        val data = ByteArray(10) { it.toByte() }
+        val frames = VideoChunkEncoder.encodeWithParity(MessageKind.VideoFrame, data, 7, chunkSize = 4, group = 2)
+        val kind = MessageKind.VideoFrame.byte.toByte()
+        assertEquals(5, frames.size)
+        assertEquals(
+            byteArrayOf(kind, 0, 0, 0, 7, 0, 3, 0, 3, 0, 0, 0, 10, 4, 4, 4, 4).toList(),
+            frames[3].payload.toList(),
+        )
+        assertEquals(
+            byteArrayOf(kind, 0, 0, 0, 7, 0, 4, 0, 3, 0, 0, 0, 10, 8, 9, 0, 0).toList(),
+            frames[4].payload.toList(),
+        )
+    }
+
+    @Test
+    fun anySingleLostChunkIsRebuiltFromItsGroupsParity() {
+        val (data, frames) = elevenChunks()
+        for (lost in 0 until 11) {
+            val done = feed(frames.filterIndexed { index, _ -> index != lost })
+            assertEquals("lost chunk $lost", Frame(MessageKind.VideoFrame, data).payload.toList(), done?.payload?.toList())
+        }
+    }
+
+    @Test
+    fun parityArrivingFirstStillRebuilds() {
+        val (data, frames) = elevenChunks()
+        val order = listOf(frames[11], frames[12]) + frames.take(11).filterIndexed { index, _ -> index != 4 }
+        assertEquals(data.toList(), feed(order)?.payload?.toList())
+    }
+
+    @Test
+    fun parityBodiesCountTowardTheReassemblyLimit() {
+        val (data, frames) = elevenChunks()
+        val parityFirst = listOf(frames[11], frames[12]) + frames.take(11)
+        val tight = VideoChunkReassembler(maxReassembled = data.size + 1)
+        assertNull(parityFirst.fold<Frame, Frame?>(null) { done, frame -> tight.ingest(frame) ?: done })
+        val roomy = VideoChunkReassembler(maxReassembled = data.size + 16)
+        assertEquals(data.toList(), parityFirst.fold<Frame, Frame?>(null) { done, frame -> roomy.ingest(frame) ?: done }?.payload?.toList())
+    }
+
+    @Test
+    fun twoLostChunksInOneGroupAreNotRebuilt() {
+        val (_, frames) = elevenChunks()
+        assertNull(feed(frames.filterIndexed { index, _ -> index != 2 && index != 5 }))
+    }
+
+    @Test
+    fun aWholeFrameIgnoresItsParity() {
+        val (data, frames) = elevenChunks()
+        assertEquals(data.toList(), feed(frames)?.payload?.toList())
+    }
+
+    @Test
+    fun aPayloadThatFitsOnePieceCarriesNoParity() {
+        assertEquals(1, VideoChunkEncoder.encodeWithParity(MessageKind.Ping, byteArrayOf(1, 2, 3), 1, 1024).size)
+    }
+
+    @Test
+    fun aRealisticFrameSurvivesOneLossPerGroup() {
+        val data = ByteArray(25_000) { (it * 31 % 251).toByte() }
+        val frames = VideoChunkEncoder.encodeWithParity(MessageKind.VideoFrame, data, 9, DATAGRAM_CHUNK_SIZE)
+        val count = (data.size + DATAGRAM_CHUNK_SIZE - 1) / DATAGRAM_CHUNK_SIZE
+        assertEquals(count + (count + PARITY_GROUP_SIZE - 1) / PARITY_GROUP_SIZE, frames.size)
+        val kept = frames.filterIndexed { index, _ -> index % PARITY_GROUP_SIZE != 3 || index >= count }
+        assertEquals(data.toList(), feed(kept)?.payload?.toList())
+    }
+
+    @Test
+    fun aCompletedFramesTrailingParityIsIgnored() {
+        val (data, frames) = elevenChunks()
+        val reassembler = VideoChunkReassembler()
+        var done: Frame? = null
+        for (frame in frames) done = reassembler.ingest(frame) ?: done
+        assertEquals(data.toList(), done?.payload?.toList())
+        // Ingesting the parity again must not restart the frame.
+        assertNull(reassembler.ingest(frames[11]))
+        assertNull(reassembler.ingest(frames[12]))
+    }
+
+    @Test
+    fun aLatePriorFramesParityDoesNotWipeTheNextFramesProgress() {
+        val (_, old) = elevenChunks()
+        val newer = VideoChunkEncoder.encodeWithParity(MessageKind.VideoFrame, ByteArray(21) { it.toByte() }, 8, chunkSize = 2)
+        val reassembler = VideoChunkReassembler()
+        old.take(11).forEach { reassembler.ingest(it) }
+        newer.take(10).forEach { reassembler.ingest(it) }
+        // Frame 7 was completed by its data, so its parity arriving late must not disturb frame 8.
+        reassembler.ingest(old[11])
+        val rest = newer.drop(10).fold<Frame, Frame?>(null) { done, frame -> reassembler.ingest(frame) ?: done }
+        assertEquals(ByteArray(21) { it.toByte() }.toList(), rest?.payload?.toList())
+    }
+
+    @Test
+    fun anOversizedDataChunkNeverBreaksRecovery() {
+        val (_, frames) = elevenChunks()
+        val reassembler = VideoChunkReassembler()
+        // Chunk 3 arrives far longer than the parity block: recovery of its group must not throw.
+        val fat = frames[3].payload.copyOf(frames[3].payload.size + 40)
+        reassembler.ingest(frames[0])
+        reassembler.ingest(Frame(frames[3].kind, fat))
+        reassembler.ingest(frames[11])
+        frames.drop(4).take(6).forEach { reassembler.ingest(it) }
     }
 }

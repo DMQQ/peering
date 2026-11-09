@@ -19,12 +19,10 @@ import pl.dmq.peering.wire.TerminalRequest
 import java.util.UUID
 
 /**
- * The file browser of one Mac, driven by its events and the user's intents. Nothing is sent unless the host declared
- * [supportsFileBrowser]. Download bytes go to [writeDownloadRange] in the order the plan accepts them, so the caller
- * owns the file and its cleanup on failure.
+ * The file browser of one Mac, driven by its events and the user's intents. Download bytes go to
+ * [writeDownloadRange] in the order the plan accepts them, so the caller owns the file and its cleanup on failure.
  */
 class FileBrowser(
-    private val supportsFileBrowser: Boolean,
     private val browserID: String = UUID.randomUUID().toString().uppercase(),
     private val send: (TerminalRequest) -> Unit,
     private val writeDownloadRange: (offset: Long, bytes: ByteArray) -> Unit,
@@ -37,31 +35,31 @@ class FileBrowser(
     val state: StateFlow<FileBrowserState> = mutableState.asStateFlow()
 
     /** Opens the scope on the Mac, then lists [initialPath], or the home folder when it is null. */
-    fun open(initialPath: String? = null) = whenSupported {
+    fun open(initialPath: String? = null) {
         send(TerminalRequest.StartBrowser(browserID))
         list(initialPath)
     }
 
-    fun list(path: String?) = whenSupported { commit(FileBrowserIntents.list(browserID, mutableState.value, path)) }
+    fun list(path: String?) = commit(FileBrowserIntents.list(browserID, mutableState.value, path))
 
     fun openEntry(entry: RemoteDirectoryEntry) =
-        whenSupported { commit(FileBrowserIntents.openEntry(browserID, mutableState.value, entry)) }
+        commit(FileBrowserIntents.openEntry(browserID, mutableState.value, entry))
 
-    fun up() = whenSupported { commit(FileBrowserIntents.up(browserID, mutableState.value)) }
+    fun up() = commit(FileBrowserIntents.up(browserID, mutableState.value))
 
-    fun preview(path: String) = whenSupported { commit(FileBrowserIntents.preview(browserID, mutableState.value, path)) }
+    fun preview(path: String) = commit(FileBrowserIntents.preview(browserID, mutableState.value, path))
 
-    fun closePreview() = whenSupported { commit(FileBrowserIntents.closePreview(mutableState.value)) }
+    fun closePreview() = commit(FileBrowserIntents.closePreview(mutableState.value))
 
-    fun download(path: String) = whenSupported {
+    fun download(path: String) {
         commit(FileBrowserIntents.download(browserID, mutableState.value, path, isFolder = false))
     }
 
-    fun downloadFolder(path: String) = whenSupported {
+    fun downloadFolder(path: String) {
         commit(FileBrowserIntents.download(browserID, mutableState.value, path, isFolder = true))
     }
 
-    fun cancelDownload() = whenSupported { commit(FileBrowserIntents.cancelDownload(mutableState.value)) }
+    fun cancelDownload() = commit(FileBrowserIntents.cancelDownload(mutableState.value))
 
     /** Makes [name] in the folder on screen. A name the computer would refuse is not sent. */
     fun create(name: String, kind: RemoteEntryKind) = changeInFolder {
@@ -81,7 +79,7 @@ class FileBrowser(
         entries.map { RemoteFileOperation.Delete(FilePath.child(folder, it.name)) }
     }
 
-    fun dismissFailures() = whenSupported { commit(FileChangeReducer.dismissFailures(mutableState.value)) }
+    fun dismissFailures() = commit(FileChangeReducer.dismissFailures(mutableState.value))
 
     /**
      * Sends [pieces] as a file called [name] in the folder on screen and returns once the computer has answered or
@@ -97,13 +95,13 @@ class FileBrowser(
      * attachments to its own folder. The browsing scope is opened first, since no folder was listed to open it.
      */
     suspend fun uploadInto(folder: String, name: String, totalBytes: Long, pieces: Iterator<ByteArray>) {
-        if (!supportsFileBrowser || mutableState.value.upload is FileUpload.Running) return
+        if (mutableState.value.upload is FileUpload.Running) return
         send(TerminalRequest.StartBrowser(browserID))
         sendFile(folder, name, totalBytes, pieces)
     }
 
     private suspend fun sendFile(folder: String, name: String, totalBytes: Long, pieces: Iterator<ByteArray>) {
-        if (!supportsFileBrowser || mutableState.value.upload is FileUpload.Running) return
+        if (mutableState.value.upload is FileUpload.Running) return
         val path = FilePath.child(folder, name)
         val refusal = when {
             !RemoteFileName.isValid(name) -> UploadFailure.InvalidName
@@ -177,8 +175,8 @@ class FileBrowser(
         commit(FileBrowserReducer.onEvent(browserID, mutableState.value, event))
     }
 
-    private inline fun changeInFolder(operations: (folder: String) -> List<RemoteFileOperation>) = whenSupported {
-        val folder = mutableState.value.listing?.path ?: return@whenSupported
+    private inline fun changeInFolder(operations: (folder: String) -> List<RemoteFileOperation>) {
+        val folder = mutableState.value.listing?.path ?: return
         commit(FileChangeReducer.start(browserID, mutableState.value, operations(folder)))
     }
 
@@ -201,7 +199,7 @@ class FileBrowser(
         mutableState.value = step.state
         if (step.state.transfer !is FileTransfer.Running) heldReads.clear()
         step.piece?.let { writeDownloadRange(it.offset, it.bytes) }
-        if (supportsFileBrowser) step.requests.forEach(::dispatch)
+        step.requests.forEach(::dispatch)
     }
 
     /** A read waits while the writer is behind, so a slow destination holds the window shut instead of filling memory. */
@@ -212,10 +210,6 @@ class FileBrowser(
         } else {
             send(request)
         }
-    }
-
-    private inline fun whenSupported(action: () -> Unit) {
-        if (supportsFileBrowser) action()
     }
 
     private companion object {

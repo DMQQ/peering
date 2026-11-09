@@ -20,6 +20,7 @@ struct ApprovalDetailView: View {
                 if let failure = store.failure { FailureNote(failure: failure) }
             }
         }
+        .onAppear { store.clearFailure() }
         .navigationTitle(approval.chatTitle)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -48,6 +49,7 @@ struct ApprovalDetailView: View {
                 Button(choice.label) { send(choice) }
                     .buttonStyle(.bordered)
                     .tint(isAllow(choice) ? .blue : nil)
+                    .accessibilityLabel(Text("\(choice.label): \(approval.chatTitle)"))
             }
         }
     }

@@ -35,6 +35,7 @@ private val caseCodecs: List<CaseCodec> = listOf(
     caseCodec<SetStreamQuality>("setStreamQuality"),
     caseCodec<SetVideoEnabled>("setVideoEnabled"),
     caseCodec<RefreshSpacePreviews>("refreshSpacePreviews"),
+    caseCodec<RequestKeyframe>("requestKeyframe"),
     caseCodec<RefreshSourceThumbnails>("refreshSourceThumbnails"),
     caseCodec<WatchSourceThumbnails>("watchSourceThumbnails"),
     caseCodec<SetPrivacyMode>("setPrivacyMode"),

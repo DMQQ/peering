@@ -21,6 +21,7 @@ public struct AgentRoutineDraft: Equatable, Sendable {
     public var permissionMode: AgentPermissionMode
     public var isEnabled: Bool
     public var stopAfterMinutes: Int?
+    public var notifiesWhenDone: Bool
 
     /// Weekday mornings at nine, in the agent's most careful mode that runs unattended.
     public init(agentID: String, modes: [AgentPermissionMode], id: UUID = UUID()) {
@@ -38,6 +39,7 @@ public struct AgentRoutineDraft: Equatable, Sendable {
         permissionMode = AgentRoutineValidation.defaultMode(among: modes)
         isEnabled = true
         stopAfterMinutes = 30
+        notifiesWhenDone = true
     }
 
     public init(_ routine: AgentRoutine) {
@@ -47,6 +49,7 @@ public struct AgentRoutineDraft: Equatable, Sendable {
         prompt = routine.prompt
         isEnabled = routine.isEnabled
         stopAfterMinutes = routine.stopAfterMinutes
+        notifiesWhenDone = routine.notifiesWhenDone ?? true
         switch routine.schedule {
         case .every(let minutes):
             cadence = .interval
@@ -78,7 +81,8 @@ public struct AgentRoutineDraft: Equatable, Sendable {
             schedule: schedule,
             permissionMode: permissionMode,
             isEnabled: isEnabled,
-            stopAfterMinutes: stopAfterMinutes
+            stopAfterMinutes: stopAfterMinutes,
+            notifiesWhenDone: notifiesWhenDone
         )
     }
 

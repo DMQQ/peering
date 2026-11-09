@@ -45,7 +45,6 @@ impl PairingClient {
             client_name: self.name.clone(),
             protocol_version: peering_core::session::handshake::PROTOCOL_VERSION,
             wants_pairing: true,
-            capabilities: Default::default(),
             resume_source: None,
             lost_pairing: None,
             client_platform: Some("android".to_owned()),

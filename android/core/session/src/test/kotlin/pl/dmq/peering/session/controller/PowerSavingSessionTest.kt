@@ -33,7 +33,7 @@ class PowerSavingSessionTest {
         rig.controller.powerSavingChanged()
         settle()
         assertEquals(PowerSaving.UNCAPPED_FRAMES_PER_SECOND, rig.lastQuality().fps)
-        assertEquals(QualityTier.HIGH, rig.controller.state.value.qualityCeiling)
+        assertEquals(QualityTier.ULTRA, rig.controller.state.value.qualityCeiling)
     }
 
     @Test

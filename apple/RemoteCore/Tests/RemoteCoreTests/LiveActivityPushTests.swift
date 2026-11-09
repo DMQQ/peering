@@ -38,21 +38,6 @@ struct LiveActivityPushTests {
         #expect(decoded == ActivityTokenPayload(activity: .agentChat, pushToken: nil, pushToStartToken: "ff", environment: .production))
     }
 
-    @Test("the tokens go only to a host that declared it")
-    func supportGate() {
-        #expect(LiveActivityPushSupport.maySend(toHostDeclared: true))
-        #expect(!LiveActivityPushSupport.maySend(toHostDeclared: false))
-        #expect(!LiveActivityPushSupport.maySend(toHostDeclared: nil))
-    }
-
-    @Test("a server hello without the flag decodes as not supported and one with it as supported")
-    func helloFlag() throws {
-        let old = #"{"serverID":"s","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#
-        #expect(try MessageCodec.decode(ServerHello.self, from: Data(old.utf8)).supportsLiveActivityPush == nil)
-        let new = #"{"serverID":"s","hostName":"Mac","protocolVersion":20,"alreadyPaired":true,"supportsLiveActivityPush":true}"#
-        #expect(try MessageCodec.decode(ServerHello.self, from: Data(new.utf8)).supportsLiveActivityPush == true)
-    }
-
     @Test("only hex of even length is a plausible token")
     func plausibleTokens() {
         #expect(LiveActivityPushSupport.isPlausible("0a1B"))

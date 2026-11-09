@@ -14,7 +14,7 @@ enum SeededAgentChat {
     static func launch(scenario: String, plan: String = "pro") -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
-            "-Peering.hasSeenWelcome", "1", "-Peering.hasSeenTourConnect", "1",
+            "-Peering.hasSeenWelcome", "1", "-Peering.hasDismissedFirstConnection", "1", "-Peering.hasSeenTourConnect", "1",
             "-Peering.hasSeenTourServers", "1", "-Peering.hasSeenTourShell", "1",
             "-Peering.hasSeenTourTerminal", "1", "-Peering.hasSeenTourScreen", "1",
             "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
@@ -27,12 +27,23 @@ enum SeededAgentChat {
         return app
     }
 
+    /// The terminals hub, through the mode chooser a Mac connection opens on: its "Agents, files and terminals" tile, or the terminal button beside the Mac's name once a mode is already chosen.
+    @MainActor
+    static func openHub(_ app: XCUIApplication) {
+        let tile = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Agents, files and terminals'")).firstMatch
+        if tile.waitForExistence(timeout: 15) {
+            tile.tap()
+            return
+        }
+        let terminals = app.buttons["Open Mac terminals"]
+        XCTAssertTrue(terminals.waitForExistence(timeout: 5), "The pretend Mac never reached its session screen:\n\(app.debugDescription)")
+        terminals.tap()
+    }
+
     /// The Agents page of the terminals hub, where chats are listed.
     @MainActor
     static func openAgentsHub(_ app: XCUIApplication) {
-        let terminals = app.buttons["Open Mac terminals"]
-        XCTAssertTrue(terminals.waitForExistence(timeout: 15), "The pretend Mac never reached its session screen:\n\(app.debugDescription)")
-        terminals.tap()
+        openHub(app)
         // The tab's label carries the open count ("Agents, 1"), so match its start.
         let agents = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Agents'")).firstMatch
         if agents.waitForExistence(timeout: 3) { agents.tap() }

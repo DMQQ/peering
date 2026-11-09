@@ -152,9 +152,9 @@ write("relay.json", {
 def cmd(o): return {"json": js(o)}
 msgs = [
  ("clientHello", 0x02, {"clientID": "c-1", "clientName": "iPhone", "protocolVersion": 20, "wantsPairing": False}, "swift-test HandshakeTests.swift:179"),
- ("clientHello flags", 0x02, {"clientID": "c-1", "clientName": "Pixel", "protocolVersion": 20, "wantsPairing": True, "supportsAgentChat": True, "lostPairing": True}, "computed"),
+ ("clientHello flags", 0x02, {"clientID": "c-1", "clientName": "Pixel", "protocolVersion": 20, "wantsPairing": True, "lostPairing": True}, "computed"),
  ("serverHello minimal", 0x03, {"serverID": "server-1", "hostName": "Mac", "protocolVersion": 20, "alreadyPaired": True}, "swift-test HandshakeTests.swift:100"),
- ("serverHello flags", 0x03, {"serverID": "server-1", "hostName": "PC", "protocolVersion": 20, "alreadyPaired": False, "supportsVideoPause": True, "agentChatAgents": ["claude"]}, "computed"),
+ ("serverHello flags", 0x03, {"serverID": "server-1", "hostName": "PC", "protocolVersion": 20, "alreadyPaired": False, "agentChatAgents": ["claude"]}, "computed"),
  ("pairCommit", 0x0E, {"commitment": base64.b64encode(b"\x01" * 32).decode()}, "computed"),
  ("pairReveal", 0x0F, {"ephemeralPublicKey": base64.b64encode(b"\x04" + b"\x02" * 64).decode(), "nonce": base64.b64encode(b"\x03" * 32).decode()}, "computed"),
  ("pairConfirm proof", 0x04, {"accepted": True, "proof": base64.b64encode(b"\x09" * 32).decode()}, "computed"),

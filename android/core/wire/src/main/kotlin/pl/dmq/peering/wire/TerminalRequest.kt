@@ -13,7 +13,6 @@ sealed class TerminalRequest {
     @Serializable
     data object ListTerminals : TerminalRequest()
 
-    /** Sent only to a Mac that declared `supportsAgentList`. */
     @Serializable
     data object ListAgents : TerminalRequest()
 
@@ -37,7 +36,6 @@ sealed class TerminalRequest {
     @Serializable
     data class Close(val sessionID: String) : TerminalRequest()
 
-    /** Sent only to a Mac that declared `supportsFileBrowser`. */
     @Serializable
     data class StartBrowser(val id: String) : TerminalRequest()
 

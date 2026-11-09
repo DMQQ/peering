@@ -25,12 +25,11 @@ struct AgentChatLiveActivity: Widget {
         } dynamicIsland: { context in
             let chat = context.state.resolvedChat
             return DynamicIsland {
+                // The glyph alone on the left and the step count on the right: the sensor takes the middle of the top row, so a title put there was cut to "Claude Code ·…" with the rest of the island empty.
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(chat.title, systemImage: glyph(chat))
-                        .font(.caption.weight(.semibold))
+                    Image(systemName: glyph(chat))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(tone(chat).tint)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     if let number = chat.planStepNumber, chat.planTotal > 0 {
@@ -39,14 +38,20 @@ struct AgentChatLiveActivity: Widget {
                             .foregroundStyle(.white.opacity(0.75))
                     }
                 }
+                // Full width, so the title and what the agent is doing have room to read.
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(status(context.state))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(chat.title)
+                            .font(.headline)
+                            .foregroundStyle(tone(chat).tint)
                             .lineLimit(1)
+                        Text(status(context.state))
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(2)
                         if chat.hasUnfinishedPlan {
                             PlanSegments(done: chat.planDone, total: chat.planTotal)
+                                .padding(.top, 2)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

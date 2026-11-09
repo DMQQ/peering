@@ -15,14 +15,17 @@ extension MacSession {
         }
     }
 
-    /// Uncapped off the relay for every plan: two devices that reach each other directly spend nobody's bandwidth. A relayed session is the operator's link, and the lifetime purchase buys 20 Mbps there instead of 8.
+    /// Uncapped on the local network for every plan: nobody's bandwidth is spent. A direct path can run over mobile data, so it stops at High. A relayed session is the operator's link, and the lifetime purchase buys 20 Mbps there instead of 8.
     var videoCeiling: AutoQualityPolicy.Tier {
         PowerSavingPolicy.ceiling(planCeiling, isLowPowerMode: model.isLowPowerMode)
     }
 
     private var planCeiling: AutoQualityPolicy.Tier {
-        guard autoQualityPath == .relay else { return .high }
-        return model.storeManager.relayPlan.isUnlimited ? .high : .medium
+        switch autoQualityPath {
+        case .lan: return .ultra
+        case .direct: return .high
+        case .relay: return model.storeManager.relayPlan.isUnlimited ? .high : .medium
+        }
     }
 
     /// Every quality message carries the frame rate too, so the Mac's cap follows Low Power Mode both ways without this end remembering what it last said.

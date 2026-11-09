@@ -6,6 +6,9 @@ struct PeeringWidgetBundle: WidgetBundle {
     var body: some Widget {
         QuickConnectWidget()
         AgentsWidget()
+        ApprovalsWidget()
+        RoutinesWidget()
+        MacStatusWidget()
         SessionLiveActivity()
         TerminalLiveActivity()
         AgentChatLiveActivity()

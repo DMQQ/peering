@@ -14,7 +14,6 @@ struct JoystickView: View {
     var pointSize: CGSize
     var radius: CGFloat = 54
 
-    private static let travelPerSecond = 1.5
     /// A gap longer than this is a new gesture: otherwise the first sample of a drag carries all the time since the last and the cursor jumps.
     private static let maximumSampleGap: TimeInterval = 0.05
     private static let longPressDuration: TimeInterval = 0.45
@@ -146,8 +145,9 @@ struct JoystickView: View {
         lastSample = MonotonicStamp()
         guard interval > 0 else { return }
 
-        let dx = Double(offset.width / radius) * Self.travelPerSecond * pointSize.width * interval
-        let dy = Double(offset.height / radius) * Self.travelPerSecond * pointSize.height * interval
+        let step = PointerTravel.travel(offset: offset, radius: radius, pointSize: pointSize, interval: interval)
+        let dx = Double(step.width)
+        let dy = Double(step.height)
         guard dx.isFinite, dy.isFinite else { return }
 
         pendingDx += dx

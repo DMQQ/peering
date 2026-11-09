@@ -141,18 +141,3 @@ struct ClipboardTransferTests {
         #expect(wholeShot?.payload == payload(256 * 1024))
     }
 }
-
-@Suite("When a picture may be sent")
-struct ClipboardImagesTests {
-    @Test("only an explicit yes is permission")
-    func threeStates() {
-        // `nil` is a peer built before the field existed; reading it as not-false is an invisible mistake since both ends speak the same version.
-        #expect(ClipboardImages.maySend(toHostDeclared: true) == true)
-        #expect(ClipboardImages.maySend(toHostDeclared: false) == false)
-        #expect(ClipboardImages.maySend(toHostDeclared: nil) == false)
-
-        #expect(ClipboardImages.mayReceive(clientDeclared: true) == true)
-        #expect(ClipboardImages.mayReceive(clientDeclared: false) == false)
-        #expect(ClipboardImages.mayReceive(clientDeclared: nil) == false)
-    }
-}

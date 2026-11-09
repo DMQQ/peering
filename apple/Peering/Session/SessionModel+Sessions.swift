@@ -47,7 +47,7 @@ extension SessionModel {
     }
 
     /// Nothing is sent that could not be sent back, unlike `disconnect(deliberate:)`.
-    /// The pause is taken only if the user had not already asked for one and nothing else watches: a picture floating in PiP keeps arriving. A Mac too old to be asked for silence streams at nobody, the honest failure.
+    /// The pause is taken only if the user had not already asked for one and nothing else watches: a picture floating in PiP keeps arriving.
     func stepAwayFromSession() {
         guard isSessionOnScreen, let session = activeSession else { return }
         isSessionOnScreen = false

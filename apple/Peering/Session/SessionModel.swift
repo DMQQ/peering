@@ -237,6 +237,9 @@ final class SessionModel {
         renderer.onFirstFrame = { [weak self] in
             self?.frameArrived += 1
         }
+        renderer.onNeedsKeyframe = { [weak self] in
+            self?.activeSession?.send(.requestKeyframe)
+        }
         #if DEBUG
         installSeededMac()
         #endif

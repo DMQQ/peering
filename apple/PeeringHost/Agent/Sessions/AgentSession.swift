@@ -6,6 +6,8 @@ import RemoteCore
 final class AgentSession: @unchecked Sendable {
     let id: UUID
     let ownerClientID: String
+    /// Set on a routine's chat: true tells the phone when the run ends wherever it is, false never does. Nil leaves it to the phone's own alert settings.
+    var finishAlert: Bool?
     let agentID: String
     let title: String
     let directory: String

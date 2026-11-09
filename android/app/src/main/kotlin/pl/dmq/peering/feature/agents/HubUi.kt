@@ -27,7 +27,6 @@ data class HubUi(
     val sessions: List<SessionCard>,
     val history: List<SessionCard>,
     val resumable: List<ResumableCard>,
-    val canImport: Boolean,
     val selectedSessionID: String?,
     val agents: List<AgentOption>,
     val agentUsage: List<AgentUsage>,

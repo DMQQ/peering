@@ -33,14 +33,10 @@ data class RemoteUiState(
     val reconnecting: Boolean,
     /** What the computer's clipboard held when last asked, or null. */
     val hostClipboard: ClipboardContent?,
-    /** Whether the computer declared that it takes pictures on its clipboard. */
-    val clipboardImages: Boolean,
     /** What the computer can do beyond showing its screen, which the Apps panel offers only when it can. */
     val sourcesFeatures: SourcesFeatures = SourcesFeatures(),
     /** Whether the computer can be locked and its displays darkened from here: a Mac or a Windows host can. */
     val screenControls: Boolean = false,
-    /** Whether the computer declared that it can compose a mosaic. A Windows host does not. */
-    val supportsMosaic: Boolean = false,
     /** The mosaic on screen, or null while a single source is. */
     val mosaic: MosaicLayout? = null,
     /** The last mosaic asked for, which the panel offers a way back to. */
@@ -58,7 +54,7 @@ data class RemoteUiState(
 ) {
     val showsMosaic: Boolean get() = chosenSource is CaptureSource.Mosaic
 
-    val canReturnToMosaic: Boolean get() = supportsMosaic && !showsMosaic && rememberedMosaic != null
+    val canReturnToMosaic: Boolean get() = !showsMosaic && rememberedMosaic != null
 
     companion object {
         val INITIAL = RemoteUiState(
@@ -75,7 +71,6 @@ data class RemoteUiState(
             hostName = null,
             reconnecting = false,
             hostClipboard = null,
-            clipboardImages = false,
         )
     }
 }

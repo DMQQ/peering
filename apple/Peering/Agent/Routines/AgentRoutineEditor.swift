@@ -29,7 +29,7 @@ struct AgentRoutineEditor: View {
             .padding(16)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(ColorPalette.backdrop)
+        .background(ColorPalette.backdrop.ignoresSafeArea())
         .navigationTitle(isNew ? Text("New routine") : Text(verbatim: draft.name))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -107,6 +107,8 @@ struct AgentRoutineEditor: View {
                         .tag(Int?.some(minutes))
                 }
             }
+            Controls.divider
+            Controls.toggle(String(localized: "Notify me when it finishes"), systemImage: "bell", isOn: $draft.notifiesWhenDone)
             Controls.divider
             Controls.toggle(String(localized: "On"), systemImage: "power", isOn: $draft.isEnabled)
         }

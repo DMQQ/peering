@@ -19,6 +19,8 @@ pub trait SourceControl {
     fn set_source(&mut self, source: CaptureSource);
     fn set_quality(&mut self, fps: Option<u32>, bitrate_kbps: Option<u32>);
     fn set_video_enabled(&mut self, enabled: bool);
+    /// The next encoded frame is a keyframe preceded by the stream description.
+    fn request_keyframe(&mut self);
     fn lock_screen(&mut self);
 }
 
@@ -139,6 +141,7 @@ fn control(command: RemoteCommand, ctx: &mut DispatchContext<'_>) -> DispatchOut
             ctx.source.set_quality(requested_fps(fps), clamped_bitrate_kbps(bitrate_kbps));
         }
         RemoteCommand::SetVideoEnabled { enabled } => ctx.source.set_video_enabled(enabled),
+        RemoteCommand::RequestKeyframe {} => ctx.source.request_keyframe(),
         RemoteCommand::LockScreen {} => ctx.source.lock_screen(),
         _ => return DispatchOutcome::Ignored(IgnoreReason::NotSupportedHere),
     }

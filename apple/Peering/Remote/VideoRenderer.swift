@@ -46,6 +46,15 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     private var _onFirstFrame: (@MainActor @Sendable () -> Void)?
     private var _framesBelongTo: String?
 
+    private var keyframeRequests = KeyframeRequestPolicy()
+    private var _onNeedsKeyframe: (@MainActor @Sendable () -> Void)?
+
+    /// Called on the main actor when frames keep being dropped for want of a keyframe, so the session can ask the host for one.
+    var onNeedsKeyframe: (@MainActor @Sendable () -> Void)? {
+        get { lock.withLock { _onNeedsKeyframe } }
+        set { lock.withLock { _onNeedsKeyframe = newValue } }
+    }
+
     var onFirstFrame: (@MainActor @Sendable () -> Void)? {
         get { lock.withLock { _onFirstFrame } }
         set { lock.withLock { _onFirstFrame = newValue } }
@@ -173,6 +182,13 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         }
     }
 
+    /// Queue-confined, like ``keyframeRequests``.
+    private func askForKeyframeIfDue() {
+        guard keyframeRequests.noteDrop(at: ProcessInfo.processInfo.systemUptime) else { return }
+        let ask = lock.withLock { _onNeedsKeyframe }
+        Task { @MainActor in ask?() }
+    }
+
     /// Queue-confined half of ``enqueue(_:)``, also replays a keyframe that arrived before the display surface existed.
     private func enqueue(
         _ frame: EncodedVideoFrame,
@@ -192,18 +208,22 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
 
         // No keyframe yet means nothing to decode against: an inter frame here gives a decode error and a flush that costs frames that would have worked.
         let awaitingKeyframe = self.lock.withLock { self.snapshot.awaitingKeyframe }
-        if awaitingKeyframe && !frame.isKeyframe {
+        switch VideoFrameGate.admit(isKeyframe: frame.isKeyframe, awaitingKeyframe: awaitingKeyframe, rendererReady: renderer.isReadyForMoreMediaData) {
+        case .drop:
             self.lock.withLock { self.snapshot.framesDropped += 1 }
+            askForKeyframeIfDue()
             return
-        }
-
-        if !renderer.isReadyForMoreMediaData {
-            // Backpressure: a keyframe is worth flushing for, dropping it extends the wait for a recovery point; an inter frame costs one picture.
-            guard frame.isKeyframe else {
-                self.lock.withLock { self.snapshot.framesDropped += 1 }
-                return
+        case .dropAndAwaitKeyframe:
+            self.lock.withLock {
+                self.snapshot.framesDropped += 1
+                self.snapshot.awaitingKeyframe = true
             }
+            askForKeyframeIfDue()
+            return
+        case .flushThenEnqueue:
             renderer.flush()
+        case .enqueue:
+            break
         }
 
         guard let sample = Self.makeSampleBuffer(frame, format: format) else {
@@ -224,6 +244,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.snapshot.awaitingKeyframe = false
             self.snapshot.readyGeneration = self.snapshot.configGeneration
         }
+        keyframeRequests.noteRecovered()
         if firstOfConfig {
             let landed = lock.withLock { _onFirstFrame }
             Task { @MainActor in landed?() }

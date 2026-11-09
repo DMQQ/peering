@@ -4,7 +4,6 @@ import RemoteCore
 
 extension MacSession {
     func sendRoutineRequest(_ request: AgentRequest) {
-        guard hostSupportsAgentRoutines else { return }
         agentRoutinesAwaiting = true
         agentRoutineFailure = nil
         wire?.sendAgent(request)
@@ -12,8 +11,6 @@ extension MacSession {
 }
 
 extension SessionModel {
-    var hostSupportsAgentRoutines: Bool { activeSession?.hostSupportsAgentRoutines ?? false }
-
     var agentRoutines: [AgentRoutine]? { activeSession?.agentRoutines }
 
     var agentRoutineFailure: String? { activeSession?.agentRoutineFailure }

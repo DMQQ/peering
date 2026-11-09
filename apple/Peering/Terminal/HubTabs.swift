@@ -12,7 +12,6 @@ struct HubTabs: View {
     let terminalCount: Int
     let agentCount: Int
     let agentsBusy: Bool
-    let offersFiles: Bool
     /// For the navigation bar: shorter, titles only, and no margins of its own.
     var compact = false
 
@@ -22,7 +21,7 @@ struct HubTabs: View {
         HStack(spacing: 4) {
             tab(.agents, title: "Agents", symbol: "sparkles", count: agentCount, busy: agentsBusy)
             tab(.terminals, title: "Terminals", symbol: "terminal", count: terminalCount, busy: false)
-            if offersFiles { tab(.files, title: "Files", symbol: "folder", count: 0, busy: false) }
+            tab(.files, title: "Files", symbol: "folder", count: 0, busy: false)
         }
         .padding(compact ? 3 : 4)
         .background(.white.opacity(0.06), in: Capsule())

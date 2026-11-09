@@ -24,7 +24,6 @@ internal class SshFiles(server: LiveServer, resolver: ContentResolver, parent: C
     private val scope = CoroutineScope(parent.coroutineContext + SupervisorJob(parent.coroutineContext[Job]))
     private val downloads = SessionDownloads()
     private val browser = FileBrowser(
-        supportsFileBrowser = true,
         send = server.session::send,
         writeDownloadRange = downloads::writeRange,
         downloadBacklog = { downloads.backlog },

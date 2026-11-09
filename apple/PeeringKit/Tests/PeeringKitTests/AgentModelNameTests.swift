@@ -27,10 +27,9 @@ struct AgentModelNameTests {
         #expect(AgentModelName.suggestions(agentID: "codex", hostChoices: ["gpt-5", "o3"]) == ["gpt-5", "o3"])
     }
 
-    @Test func pickerIsOfferedOnlyForAgentsThatTakeAModelAndAHostThatCanSetIt() {
-        #expect(AgentModelName.offersPicker(agentID: "claude", hostSupportsPicker: true))
-        #expect(AgentModelName.offersPicker(agentID: "codex", hostSupportsPicker: true))
-        #expect(!AgentModelName.offersPicker(agentID: "opencode", hostSupportsPicker: true))
-        #expect(!AgentModelName.offersPicker(agentID: "claude", hostSupportsPicker: false))
+    @Test func pickerIsOfferedOnlyForAgentsThatTakeAModel() {
+        #expect(AgentModelName.offersPicker(agentID: "claude"))
+        #expect(AgentModelName.offersPicker(agentID: "codex"))
+        #expect(!AgentModelName.offersPicker(agentID: "opencode"))
     }
 }

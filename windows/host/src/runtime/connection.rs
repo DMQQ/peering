@@ -9,8 +9,7 @@ use peering_core::session::deps::{HostDeps, Random};
 use peering_core::session::handshake::{HostConfig, HostSession};
 use peering_core::session::liveness::{counts_as_life, LivenessTracker};
 use peering_wire::chunks::Reassembler;
-use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
-use peering_wire::handshake::{ClientCapabilities, ClientHello};
+use peering_wire::framing::{Frame, FrameDecoder};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::broadcast;
 use tokio::task::spawn_local;
@@ -45,7 +44,6 @@ pub(super) struct Connection {
     pub(super) session_id: u64,
     pub(super) liveness: LivenessTracker,
     /// What the client's hello declared, which decides the events it may be sent.
-    pub(super) client_flags: ClientCapabilities,
     pub(super) video_for_session: Option<u64>,
     pub(super) registered: bool,
     /// Clipboard commands too large for one frame arrive in chunks, which this puts back together.
@@ -96,7 +94,6 @@ where
         session: HostSession::new(config, deps),
         session_id,
         liveness: LivenessTracker::started_at(now),
-        client_flags: ClientCapabilities::default(),
         video_for_session: None,
         registered: false,
         clipboard_chunks: super::clipboard::new_reassembler(),
@@ -194,16 +191,7 @@ impl Connection {
             // A video connection only carries frames out; key and transport requests are answered on the control connection.
             return Flow::Open;
         }
-        if frame.kind == MessageKind::ClientHello {
-            self.note_hello(&frame);
-        }
         let actions = self.session.on_frame(frame);
         self.apply_all(actions)
-    }
-
-    fn note_hello(&mut self, frame: &Frame) {
-        if let Ok(hello) = serde_json::from_slice::<ClientHello>(&frame.payload) {
-            self.client_flags = hello.capabilities;
-        }
     }
 }

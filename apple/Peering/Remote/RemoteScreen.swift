@@ -182,6 +182,14 @@ struct RemoteScreen: View {
                     )
                 }
 
+                // Ready is the handshake, not the picture: the first keyframe follows, and a bare black screen in between reads as broken.
+                if model.phase == .ready, model.frameArrived == 0, !showsModePicker,
+                   model.activeSession?.mode != .workspace {
+                    ProgressOverlay(title: String(localized: "Waiting for the picture…"), detail: model.shownHostName)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+
                 if showsLandscapeHint, !isLandscape {
                     LandscapeHint(
                         rotationRefused: rotationRefused,
@@ -248,11 +256,7 @@ struct RemoteScreen: View {
         // window, and a second ask from here would rebuild the arrangement already being built.
         .onChange(of: deviceIsLandscape) { _, isLandscape in
             model.refreshMosaicForViewport()
-            // Gated the same way the Apps panel's thumbnail request is: an unrecognised command
-            // ends the session on a Mac built before it existed. See ``DeviceOrientationSupport``.
-            if model.hostSupportsDeviceOrientation {
-                model.send(.reportDeviceOrientation(isLandscape: isLandscape))
-            }
+            model.send(.reportDeviceOrientation(isLandscape: isLandscape))
         }
         // Here rather than on the pill: the pill is built in each orientation's own layout, so a
         // task on it restarted on every rotation and opened the pill again.

@@ -21,37 +21,20 @@ fn a_lock_request_locks_the_workstation_once() {
 }
 
 #[test]
-fn the_hello_advertises_chat_and_the_session_list_when_the_agent_cli_is_installed() {
+fn the_hello_lists_the_installed_agents() {
     run(async {
         let harness = harness();
         let hello = server_hello_for(&harness).await;
-        assert_eq!(hello.capabilities.supports_agent_chat, Some(true));
-        assert_eq!(hello.capabilities.supports_agent_list, Some(true));
         assert_eq!(hello.agent_chat_agents, Some(vec!["claude".to_owned(), "codex".to_owned(), "opencode".to_owned()]));
     });
 }
 
 #[test]
-fn the_hello_advertises_the_agent_features_the_manager_implements() {
-    run(async {
-        let harness = harness();
-        let capabilities = server_hello_for(&harness).await.capabilities;
-        assert_eq!(capabilities.supports_agent_model_picker, Some(true));
-        assert_eq!(capabilities.supports_agent_permission_modes, Some(true));
-        assert_eq!(capabilities.supports_agent_usage, Some(true));
-        assert_eq!(capabilities.supports_agent_pause, Some(true));
-    });
-}
-
-#[test]
-fn the_hello_does_not_advertise_chat_without_the_agent_cli() {
+fn the_hello_lists_no_agents_without_the_agent_cli() {
     run(async {
         let harness = harness_without_agent_cli();
         let hello = server_hello_for(&harness).await;
-        assert_eq!(hello.capabilities.supports_agent_chat, None);
-        assert_eq!(hello.capabilities.supports_agent_list, None);
         assert_eq!(hello.agent_chat_agents, None);
-        assert_eq!(hello.capabilities.supports_file_browser, Some(true), "browsing files does not need the CLI");
     });
 }
 

@@ -130,7 +130,7 @@ private fun LazyListScope.sourceLists(
             onPicked()
         }
     }
-    val showsVirtual = features.virtualDisplays && building == null
+    val showsVirtual = building == null
     if (showsVirtual) {
         item(key = "virtual") {
             VirtualDisplaysSection(catalog.displays.filter { it.isManagedVirtualDisplay }, marking, features, presenter, pick)

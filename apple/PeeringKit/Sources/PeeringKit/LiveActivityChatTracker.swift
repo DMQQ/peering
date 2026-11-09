@@ -40,6 +40,7 @@ public struct LiveActivityChatTracker: Sendable {
             switch session.state {
             case .awaitingApproval:
                 settled[session.id] = nil
+                stopping[session.id] = nil
                 busy.append(LiveActivityChat(id: session.id, symbol: symbol, state: .needsYou))
             case .working:
                 settled[session.id] = nil
@@ -55,8 +56,10 @@ public struct LiveActivityChatTracker: Sendable {
                     busy.append(LiveActivityChat(id: session.id, symbol: symbol, state: .working))
                 }
             case .failed where before != nil && before != .failed:
+                stopping[session.id] = nil
                 settled[session.id] = (.failed, now)
             case .idle, .failed, .exited:
+                stopping[session.id] = nil
                 if session.state == .exited { settled[session.id] = nil }
             }
         }

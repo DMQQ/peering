@@ -58,15 +58,9 @@ class ClipboardSessionTest {
     }
 
     @Test
-    fun aPictureGoesOnlyToAHostThatDeclaredPicturesAndIsKept() = runTest {
+    fun aPictureIsSentAsChunksAndKept() = runTest {
         val png = ByteArray(40_000) { (it % 97).toByte() }
-        val plain = lanRig(ScriptedMac())
-        plain.controller.connect()
-        settle()
-        assertEquals(ClipboardPush.Unsupported, plain.controller.sendClipboardImage(png))
-        assertTrue(plain.controller.clipboardHistory.entries.value.isEmpty())
-
-        val capable = lanRig(ScriptedMac(declare = { it.copy(supportsClipboardImages = true) }))
+        val capable = lanRig(ScriptedMac())
         capable.controller.connect()
         settle()
         assertEquals(ClipboardPush.Sent, capable.controller.sendClipboardImage(png))
@@ -79,7 +73,7 @@ class ClipboardSessionTest {
 
     @Test
     fun aPictureBeforeTheSessionIsReadyIsNotSent() = runTest {
-        val rig = lanRig(ScriptedMac(declare = { it.copy(supportsClipboardImages = true) }))
+        val rig = lanRig(ScriptedMac())
 
         assertEquals(ClipboardPush.NotReady, rig.controller.sendClipboardImage(ByteArray(8)))
     }
