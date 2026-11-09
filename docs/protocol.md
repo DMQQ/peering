@@ -11,11 +11,14 @@ synthesized `Codable` behaves and not yet confirmed by a test or a captured mess
 
 ## 1. Compatibility rules
 
-* `protocolVersion` in both hellos MUST equal 20 (`ProtocolInfo.swift:29`). Exact equality is enforced by both
+* `protocolVersion` in both hellos MUST equal 21 (`ProtocolInfo.swift`, `Vectors.kt`, `handshake.rs`). Exact equality is enforced by both
   sides (`ClientSession+Handshake.swift:38`, `HostSession+Handshake.swift:71`). Do not bump it for an addition.
-* Additions are optional fields or capability flags. A feature MUST NOT be used until the peer declared it.
+* Version 21 removed every `supports...` capability flag from the hellos: with exact equality, both ends always speak the same
+  commands. A new command or field needs a protocol bump, not a flag. The only host facts left in the hello are real
+  differences between hosts: `supportsVirtualDisplayManagement`, `pushesTerminalAlertsWhileConnected`, `agentChatAgents`,
+  `hostPlatform`.
 * Unknown JSON object keys are ignored. An unknown enum case makes the whole message fail to decode, and a failed
-  decode of a control message ends the session. This is why commands that an older peer cannot decode are guarded by flags.
+  decode of a control message ends the session.
 * A receiver MUST drop a control payload larger than 64 KiB (`maxControlPayload`, `ProtocolInfo.swift:32`) and a
   frame larger than 16 MiB. Senders are not stopped from exceeding the 64 KiB figure, so they MUST chunk. The 64 KiB
   figure is enforced before the session is ready (hello and pairing frames). After that, a shipped Mac host sends larger
@@ -85,15 +88,15 @@ or coalesced in one read, and MUST fail on an unknown kind (`Framing.swift:155-1
 | 0x19 | videoKeyRequest | C to H | empty |
 | 0x1A | videoKey | H to C | JSON `VideoKeyGrant` |
 | 0x1B | directProbe | both, UDP only | empty, sealed |
-| 0x1C | textFocus | H to C | JSON, only to a client that declared `supportsTextFocus` |
-| 0x1D | fieldState | H to C | JSON, only to a client that declared `supportsFieldState` |
+| 0x1C | textFocus | H to C | JSON |
+| 0x1D | fieldState | H to C | JSON |
 | 0x1E | agentRequest | C to H | JSON `AgentRequest` |
 | 0x1F | agentEvent | H to C | JSON `AgentEvent` |
 | 0x20 | previewRequest | C to H | JSON `PreviewProxyCommand` |
 | 0x21 | previewEvent | H to C | JSON `PreviewProxyEvent` |
-| 0x22 | pointerReport | H to C | JSON `NormalizedPoint`, only to a client that declared `supportsPointerReport` |
-| 0x23 | clientState | C to H | JSON `{"background": bool}`, only to a host that declared `supportsClientState` |
-| 0x24 | activityToken | C to H | JSON `ActivityTokenPayload`, only to a host that declared `supportsLiveActivityPush` |
+| 0x22 | pointerReport | H to C | JSON `NormalizedPoint` |
+| 0x23 | clientState | C to H | JSON `{"background": bool}` |
+| 0x24 | activityToken | C to H | JSON `ActivityTokenPayload` |
 
 (0x12 is unused.) A host that does not implement a kind it was never sent need not decode it. A host that receives
 a kind it does not implement MUST ignore it rather than close, unless it is malformed.
@@ -205,17 +208,10 @@ see relay.md). Reproduce these rules exactly:
 * Dictionaries with string keys are objects.
 * `Modifiers` is a bare integer (`RemoteCommand.swift:21-31`).
 
-Hello flags are the whole capability mechanism. A flag absent or false means unsupported.
-
-`ClientHello`: `clientID`, `clientName`, `protocolVersion`, `wantsPairing`, and optional `supportsClipboardImages`,
-`supportsTextFocus`, `supportsFieldState`, `supportsPointerReport`, `supportsAgentChat`, `supportsAgentPermissionModes`,
-`supportsAgentUsage`, `resumeSource` (a `CaptureSource`), `lostPairing`.
+`ClientHello`: `clientID`, `clientName`, `protocolVersion`, `wantsPairing`, and optional `resumeSource` (a `CaptureSource`), `lostPairing`.
 
 `ServerHello`: `serverID`, `hostName`, `protocolVersion`, `alreadyPaired`, and optional `macAddresses` (array of strings),
-`supportsVideoPause`, `supportsClipboardImages`, `supportsMosaic`, `supportsSourceThumbnails`, `supportsDeviceOrientation`,
-`supportsVirtualDisplayManagement`, `pushesTerminalAlertsWhileConnected`, `supportsAgentList`, `supportsAgentChat`,
-`supportsFileBrowser`, `supportsAgentModelPicker`, `agentChatAgents` (array of strings), `supportsAgentPermissionModes`,
-`supportsAgentUsage`, `supportsAgentSessionImport`, `supportsAgentPause`, `supportsClientState`, `supportsLiveActivityPush`.
+`supportsVirtualDisplayManagement`, `pushesTerminalAlertsWhileConnected`, `agentChatAgents` (array of strings).
 
 Additive fields, read by the Mac host from the build after the shipped one (older builds ignore them): `ClientHello.clientPlatform`,
 `ClientHello.videoCodecs` (ordered array of `"h264"`/`"hevc"`, best first), `ServerHello.hostPlatform` (`"macos"` from the Mac host).
@@ -237,18 +233,18 @@ JSON of `RemoteCommand` (`RemoteCommand.swift:75-132`). A command is never sent 
 | switchSpace | `{"switchSpace":{"direction":"left"}}` | host support |
 | switchToSpace | `{"switchToSpace":{"display":1,"index":2}}` | catalog `spaceInfo` present |
 | joystickMove | `{"joystickMove":{"dx":0,"dy":0}}` | none |
-| setCaptureSource | `{"setCaptureSource":{"_0":{"display":{"_0":1}}}}` | none for display/window/application; mosaic needs `supportsMosaic` |
+| setCaptureSource | `{"setCaptureSource":{"_0":{"display":{"_0":1}}}}` | none |
 | launchApplication | `{"launchApplication":{"bundleIdentifier":"x"}}` | host support |
 | setStreamQuality | `{"setStreamQuality":{"fps":0,"bitrateKbps":8000}}` | none; 0 means keep; host clamps to 100000 kbps and `fps` to 15..120 (a frame rate cap on what is sent; 120 lifts it) |
-| setVideoEnabled | `{"setVideoEnabled":{"_0":false}}` | `supportsVideoPause` |
-| refreshSpacePreviews, refreshSourceThumbnails | `{"refreshSourceThumbnails":{}}` | `supportsSourceThumbnails` for the latter |
-| watchSourceThumbnails | `{"watchSourceThumbnails":{"_0":true}}` | `supportsSourceThumbnails` |
+| setVideoEnabled | `{"setVideoEnabled":{"_0":false}}` | none |
+| refreshSpacePreviews, refreshSourceThumbnails | `{"refreshSourceThumbnails":{}}` | none |
+| watchSourceThumbnails | `{"watchSourceThumbnails":{"_0":true}}` | none |
 | setPrivacyMode | `{"setPrivacyMode":{"enabled":true}}` | host support |
 | lockScreen | `{"lockScreen":{}}` | `hostPlatform` in the ServerHello: a Mac (`"macos"`, or absent from a host that predates the field) can lock, a Windows host cannot; no `supportsLockScreen` flag exists |
 | requestClipboard | `{"requestClipboard":{}}` | none |
 | pushClipboard | `{"pushClipboard":{"text":"x"}}` | none |
-| pushClipboardImage | `{"pushClipboardImage":{"png":"<base64>"}}` | `supportsClipboardImages` |
-| reportDeviceOrientation | `{"reportDeviceOrientation":{"isLandscape":true}}` | `supportsDeviceOrientation` |
+| pushClipboardImage | `{"pushClipboardImage":{"png":"<base64>"}}` | none |
+| reportDeviceOrientation | `{"reportDeviceOrientation":{"isLandscape":true}}` | none |
 | addVirtualDisplay | `{"addVirtualDisplay":{"name":"","width":1170,"height":2532,"startLandscape":false}}` | `supportsVirtualDisplayManagement` |
 | removeVirtualDisplay, renameVirtualDisplay | `{"removeVirtualDisplay":{"displayID":5}}` | same |
 | performWindowAction | `{"performWindowAction":{"windowID":7,"action":"close"}}` | host support |
@@ -276,7 +272,7 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
 * `videoTransport` (0x18): `{transport:"primary"|"control", reason}`. The host may decline.
 * `clientState` (0x23): `{"background": true}` or `{"background": false}`, control lane, never answered. An OS may freeze a
   backgrounded client with its sockets open and tell the host nothing, so a client that leaves the foreground says so
-  first. A client MUST send it only to a host whose `ServerHello` carried `supportsClientState: true`, and only on a
+  first. A client sends it only on a
   change. On `true` the host stops sending video to that session exactly as for `setVideoEnabled(false)` and allows the
   session 180 s of silence instead of 60 s. On `false` it restores the 60 s limit, resumes video (with a keyframe) unless
   the client had paused the picture itself, and a client that never returns is still reaped at 180 s. A client that keeps
@@ -284,8 +280,7 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
 * `activityToken` (0x24): `{"activity":"session"|"agentChat","pushToken":"<hex>"|null,"pushToStartToken":"<hex>"|null,
   "environment":"production"|"sandbox"}`, control lane, never answered. The keys are always present, null included. It
   hands the host the iOS Live Activity push tokens so the host can keep a card moving through the relay
-  (`notifyActivity`, see relay.md) while iOS has the app frozen. A client MUST send it only to a host whose `ServerHello`
-  carried `supportsLiveActivityPush: true`, only once the session is ready, whenever a token appears or changes, and
+  (`notifyActivity`, see relay.md) while iOS has the app frozen. A client sends it only once the session is ready, whenever a token appears or changes, and
   again after each reconnect. Both tokens null means the activity ended; a client that still holds a push-to-start
   token keeps sending it with `pushToken` null, so the host can raise a new card. The host pushes only coded state (ids,
   states, counts, times, a short `hostKey` derived from the Mac id), never a Mac name, chat title or reply, and only while
@@ -296,24 +291,20 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
 * Windows terminals: a session belongs to the client id that created it and survives that client's connection; `list`
   answers a snapshot followed by the retained output (at most 512 KiB, sent in events of at most 32 KiB of raw output, so the base64 and JSON frame stays under 64 KiB). File requests
   are answered only for a running terminal of the client or a scope it opened with `startBrowser` (four per client).
-  The host sets `supportsAgentChat`, `supportsAgentList`, `agentChatAgents`, `supportsAgentModelPicker`, `supportsAgentPermissionModes`,
-  `supportsAgentUsage` and `supportsAgentPause` only while a `claude` binary can be found (checked at startup, then again on a hello
-  once the answer is 10 s old when missing and 5 minutes old when found). It sends `permissionModeChanged` and `usageChanged` only to a
-  client that declared `supportsAgentPermissionModes` or `supportsAgentUsage` as well as `supportsAgentChat`. It sets
-  `supportsFileBrowser` and `supportsClipboardImages` always. Listing, reading, upload (`beginWrite`, `writeChunk`), new file or folder,
+  The host sets `agentChatAgents` only while a `claude` binary can be found (checked at startup, then again on a hello
+  once the answer is 10 s old when missing and 5 minutes old when found). Listing, reading, upload (`beginWrite`, `writeChunk`), new file or folder,
   rename and delete (`changeFile`) work. `archiveFolder` zips the folder (deflate, the folder's own name as the top folder, links not
   followed, files that cannot be opened left out) into the host's data folder and answers `archiveReady`; the phone then reads the zip
   with `readRange` in 32 KiB pieces, and the host deletes it after the last piece. A zip over 512 MB, or with more than 65535 entries,
   is answered with `transferFailure`, as is a second zip while two are being made. An upload is limited to 2 GB and 32 KiB
   pieces, replaces its destination in one step when the last byte arrives, and a delete moves to the Recycle Bin.
   The hello of a paired client carries the hardware addresses of the Ethernet and Wi-Fi adapters in `macAddresses`. The host sends
-  `pointerReport` to a client that declared `supportsPointerReport`, and draws the pointer into the picture as well (Desktop
+  `pointerReport` to every client, and draws the pointer into the picture as well (Desktop
   Duplication delivers the shape and position beside the image; a window capture has the pointer drawn by the capture itself), so a
-  phone sees one pointer in the picture and may also draw its own. It sends `textFocus` to a client that declared
-  `supportsTextFocus` and `fieldState` to one that declared `supportsFieldState`, from UI Automation, with the Mac's rules: where
+  phone sees one pointer in the picture and may also draw its own. It sends `textFocus` and `fieldState` to every client, from UI Automation, with the Mac's rules: where
   focus is when watching starts is recorded and not announced, a password field sends no text and no caret, a terminal sends no
   text, and a field of more than 8000 UTF-16 units sends none; the selection counts UTF-16 units. It reads `activityToken` and
-  ignores it, and never sets `supportsLiveActivityPush`. A `videoChunk` on the control lane is reassembled (12 MiB at most) and run as a command, which is how a
+  ignores it. A `videoChunk` on the control lane is reassembled (12 MiB at most) and run as a command, which is how a
   clipboard text or picture too large for one frame arrives.
   A command the host recognises and will not carry out is answered with a `notice` (message, `symbol`, and a `code` where the iPhone has
   words for it, such as `privacyModeFailed` and `displayDisconnected`) that the host clears after 6 s, and never with an `error`
@@ -330,7 +321,7 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
   listed only if it is visible, not minimised or cloaked, titled, a top-level or taskbar window, not the host's own, and the system
   accepts it for Windows.Graphics.Capture. `setCaptureSource` with a window starts it, input is mapped into the window's frame, and a
   window that closes returns the picture to the primary display. `applications` and `installedApplications` are empty, `iconPNGData`
-  is absent, and `supportsMosaic` is not set. `supportsSourceThumbnails` is set: a window or display gets a `thumbnail` (240 px across, JPEG, at most
+  is absent, and a mosaic source is not offered by the host. A window or display gets a `thumbnail` (240 px across, JPEG, at most
   32 KiB) once a phone has sent `refreshSourceThumbnails`, or `watchSourceThumbnails(true)` (then again every 3 s until it sends false).
 * Windows pushes: a chat approval (`approvalRequested`) is pushed through the relay to a phone that registered a token, even while
   it is connected, and a finished turn only when the phone is not in the foreground, with the Mac's words in English and the
