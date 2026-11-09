@@ -84,6 +84,10 @@ data class SetVideoEnabled(@SerialName("_0") val enabled: Boolean) : RemoteComma
 @Serializable
 data object RefreshSpacePreviews : RemoteCommand()
 
+/** A viewer that dropped frames and is waiting for a picture it can decode from. */
+@Serializable
+data object RequestKeyframe : RemoteCommand()
+
 @Serializable
 data object RefreshSourceThumbnails : RemoteCommand()
 

@@ -22,6 +22,11 @@ interface VideoSink {
     /** The stream has ended, so the decoder can be released. */
     fun onStop()
 
+    /** Called when frames keep being dropped for want of a keyframe, so the session can ask the computer for one. A sink with no decoder never calls it. */
+    var onNeedsKeyframe: (() -> Unit)?
+        get() = null
+        set(_) = Unit
+
     /** True once the decoder gave up on the stream, until a config it can start arrives. */
     val decoderFailed: Boolean get() = false
 }

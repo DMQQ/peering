@@ -220,7 +220,7 @@ final class InputInjector: @unchecked Sendable {
             scheduleSettleReport()
 
         case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality,
-             .setVideoEnabled, .refreshSpacePreviews, .refreshSourceThumbnails, .watchSourceThumbnails,
+             .setVideoEnabled, .refreshSpacePreviews, .requestKeyframe, .refreshSourceThumbnails, .watchSourceThumbnails,
              .setPrivacyMode, .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
              .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,
              .performWindowAction, .openNewWindow:

@@ -64,6 +64,10 @@ impl SourceControl for CoordinatorControl<'_> {
         self.video.request(VideoIntent::SetVideoEnabled(enabled));
     }
 
+    fn request_keyframe(&mut self) {
+        self.video.request(VideoIntent::Resync);
+    }
+
     fn lock_screen(&mut self) {
         if let Err(error) = self.system.lock_workstation() {
             self.failure.get_or_insert_with(|| error.to_string());

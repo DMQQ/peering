@@ -11,6 +11,7 @@ pub struct RecordingSource {
     pub qualities: Vec<(Option<u32>, Option<u32>)>,
     pub video_enabled: Vec<bool>,
     pub locks: usize,
+    pub keyframe_requests: usize,
 }
 
 impl SourceControl for RecordingSource {
@@ -24,6 +25,10 @@ impl SourceControl for RecordingSource {
 
     fn set_video_enabled(&mut self, enabled: bool) {
         self.video_enabled.push(enabled);
+    }
+
+    fn request_keyframe(&mut self) {
+        self.keyframe_requests += 1;
     }
 
     fn lock_screen(&mut self) {

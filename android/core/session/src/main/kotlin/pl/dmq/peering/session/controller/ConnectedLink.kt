@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.controller
 
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -28,6 +29,7 @@ import pl.dmq.peering.session.video.VideoLanes
 import pl.dmq.peering.wire.AutoQualityPolicy
 import pl.dmq.peering.wire.ClientStatePayload
 import pl.dmq.peering.wire.Frame
+import pl.dmq.peering.wire.RequestKeyframe
 import pl.dmq.peering.wire.MessageKind
 import pl.dmq.peering.wire.WireJson
 import pl.dmq.peering.wire.ServerHello
@@ -82,7 +84,9 @@ internal class ConnectedLink(
         noteSeen()
         if (first) onPicture()
     }
-    private val streamRecord = StreamRecord(sink)
+    /** Set from the decoder's thread and read by the command tick, which owns [commands]. */
+    private val keyframeWanted = AtomicBoolean(false)
+    private val streamRecord = StreamRecord(sink).also { it.onNeedsKeyframe = { keyframeWanted.set(true) } }
     private val lanes = VideoLanes(PictureSink(streamRecord, onPicture = seen), clock, route.videoPeer, route.videoToken)
     private val router = FrameRouter(liveness, commands, lanes, selection, agent, files, terminals, preview)
     private val picture: PictureWatch = PictureWatch(
@@ -214,7 +218,12 @@ internal class ConnectedLink(
         direct?.let { runner ->
             launchLinkTask(ended, note) { every(PROBE_INTERVAL) { runner.tick(clock.monotonicSeconds()) } }
         }
-        launchLinkTask(ended, note) { every(COMMAND_INTERVAL) { commands.drain().forEach(writer::enqueue) } }
+        launchLinkTask(ended, note) {
+            every(COMMAND_INTERVAL) {
+                if (keyframeWanted.getAndSet(false)) commands.offer(RequestKeyframe)
+                commands.drain().forEach(writer::enqueue)
+            }
+        }
         launchLinkTask(ended, note) { every(PING_INTERVAL) { writer.enqueue(liveness.nextPing()) } }
         launchLinkTask(ended, note) {
             every(LANE_INTERVAL) {

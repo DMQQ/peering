@@ -8,6 +8,7 @@ import android.view.Surface
 import java.nio.ByteBuffer
 import pl.dmq.peering.platform.PlatformLog
 import pl.dmq.peering.session.ports.VideoSink
+import pl.dmq.peering.session.video.KeyframeRequestPolicy
 import pl.dmq.peering.wire.EncodedVideoFrame
 import pl.dmq.peering.wire.VideoCodecProbe
 import pl.dmq.peering.wire.VideoStreamConfig
@@ -22,6 +23,9 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
     private var codec: MediaCodec? = null
     private var current: VideoStreamConfig? = null
     private val keyframes = KeyframeLossPolicy()
+    private val keyframeRequests = KeyframeRequestPolicy()
+
+    override var onNeedsKeyframe: (() -> Unit)? = null
     private val recovery = DecoderRecovery()
     private val info = MediaCodec.BufferInfo()
 
@@ -37,7 +41,11 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
 
     override fun onFrame(frame: EncodedVideoFrame) {
         val decoder = codec ?: return
-        if (!keyframes.admit(frame.isKeyframe)) return
+        if (!keyframes.admit(frame.isKeyframe)) {
+            if (keyframeRequests.noteDrop(System.nanoTime() / NANOS_PER_SECOND)) onNeedsKeyframe?.invoke()
+            return
+        }
+        keyframeRequests.noteRecovered()
         try {
             val queued = queue(decoder, avccToAnnexB(frame.data), presentationMicros(frame))
             if (!queued && keyframes.onInputDropped()) decoder.flush()
@@ -154,6 +162,7 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
         const val TAG = "PeeringDecoder"
         const val NO_WAIT = 0L
         const val MICROS_PER_SECOND = 1_000_000.0
+        const val NANOS_PER_SECOND = 1_000_000_000.0
     }
 }
 

@@ -29,6 +29,7 @@ class RemoteCommandCasesTest {
         Case(SetStreamQuality(0, 8000), """{"setStreamQuality":{"fps":0,"bitrateKbps":8000}}"""),
         Case(SetVideoEnabled(false), """{"setVideoEnabled":{"_0":false}}""", critical = true),
         Case(RefreshSpacePreviews, """{"refreshSpacePreviews":{}}"""),
+        Case(RequestKeyframe, """{"requestKeyframe":{}}"""),
         Case(RefreshSourceThumbnails, """{"refreshSourceThumbnails":{}}"""),
         Case(WatchSourceThumbnails(true), """{"watchSourceThumbnails":{"_0":true}}"""),
         Case(SetPrivacyMode(true), """{"setPrivacyMode":{"enabled":true}}""", critical = true),

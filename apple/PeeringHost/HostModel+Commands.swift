@@ -19,6 +19,8 @@ extension HostModel {
             coordinator.setStreamQuality(fps: fps, bitrateKbps: bitrateKbps)
         case .refreshSpacePreviews:
             coordinator.refreshSpacePreviews()
+        case .requestKeyframe:
+            coordinator.requestKeyframe()
         case .refreshSourceThumbnails:
             coordinator.refreshSourceThumbnails()
         case .watchSourceThumbnails(let watching):

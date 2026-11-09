@@ -7,6 +7,11 @@ import RemoteCore
 import os
 
 extension VideoCoordinator {
+/// A viewer dropped frames and is waiting for a recovery point; the next encoded frame is a keyframe.
+    func requestKeyframe() {
+        pipeline.requestKeyframe()
+    }
+
     func refreshSpacePreviews() {
         pipeline.refreshSpacePreviews()
     }

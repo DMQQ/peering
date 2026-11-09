@@ -135,6 +135,8 @@ pub enum RemoteCommand {
         enabled: bool,
     },
     RefreshSpacePreviews {},
+    /// A viewer that dropped frames and is waiting for a picture it can decode from.
+    RequestKeyframe {},
     RefreshSourceThumbnails {},
     WatchSourceThumbnails {
         #[serde(rename = "_0")]
@@ -197,6 +199,7 @@ impl RemoteCommand {
             | Self::SetStreamQuality { .. }
             | Self::SetVideoEnabled { .. }
             | Self::RefreshSpacePreviews {}
+            | Self::RequestKeyframe {}
             | Self::RefreshSourceThumbnails {}
             | Self::WatchSourceThumbnails { .. }
             | Self::SetPrivacyMode { .. }
