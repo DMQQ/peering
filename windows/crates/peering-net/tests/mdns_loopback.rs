@@ -14,7 +14,7 @@ impl Drop for BrowserDaemon {
 
 #[test]
 fn the_advertised_service_is_browsable_on_the_loopback_network() {
-    let registry = match MdnsRegistry::new() {
+    let registry = match MdnsRegistry::new(&[]) {
         Ok(registry) => registry,
         Err(error) => {
             eprintln!("skipped: mDNS daemon unavailable here: {error}");
