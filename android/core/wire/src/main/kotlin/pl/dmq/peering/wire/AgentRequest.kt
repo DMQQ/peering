@@ -1,5 +1,6 @@
 package pl.dmq.peering.wire
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
@@ -65,6 +66,19 @@ sealed class AgentRequest {
     @Serializable
     data class Pause(val sessionID: String) : AgentRequest()
 
+    @Serializable
+    data object ListRoutines : AgentRequest()
+
+    /** Adds the routine, or replaces the one with its id. */
+    @Serializable
+    data class SaveRoutine(@SerialName("_0") val routine: AgentRoutine) : AgentRequest()
+
+    @Serializable
+    data class DeleteRoutine(val id: String) : AgentRequest()
+
+    @Serializable
+    data class RunRoutineNow(val id: String) : AgentRequest()
+
     fun toJson(): String = WireJson.encodeToString(AgentRequestSerializer, this)
 
     companion object {
@@ -90,6 +104,10 @@ internal object AgentRequestSerializer : SwiftCaseSerializer<AgentRequest>() {
         unionCase<AgentRequest, AgentRequest.ListResumable>("listResumable"),
         unionCase<AgentRequest, AgentRequest.Resume>("resume"),
         unionCase<AgentRequest, AgentRequest.Pause>("pause"),
+        unionCase<AgentRequest, AgentRequest.ListRoutines>("listRoutines"),
+        unionCase<AgentRequest, AgentRequest.SaveRoutine>("saveRoutine"),
+        unionCase<AgentRequest, AgentRequest.DeleteRoutine>("deleteRoutine"),
+        unionCase<AgentRequest, AgentRequest.RunRoutineNow>("runRoutineNow"),
     )
 
     override fun encodeCase(value: AgentRequest): JsonObject = encodeUnion(cases, value)

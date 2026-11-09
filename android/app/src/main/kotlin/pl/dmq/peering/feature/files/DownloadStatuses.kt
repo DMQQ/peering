@@ -17,6 +17,7 @@ internal object DownloadStatuses {
     private fun problem(reason: DownloadFailure): DownloadProblem = when (reason) {
         DownloadFailure.TooLarge -> DownloadProblem.TooLarge
         DownloadFailure.ShortRead -> DownloadProblem.ShortRead
+        DownloadFailure.Corrupt -> DownloadProblem.Corrupt
         is DownloadFailure.Transfer -> DownloadProblem.Transfer(reason.message)
     }
 }

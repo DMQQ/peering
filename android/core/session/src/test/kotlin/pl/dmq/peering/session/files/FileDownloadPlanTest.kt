@@ -53,6 +53,16 @@ class FileDownloadPlanTest {
     }
 
     @Test
+    fun theChecksumFromThePieceAtZeroSurvivesPiecesThatArriveFirstAndGoesToTheFinish() {
+        val total = chunk * 2
+        val (started, _) = fileDownload().start()
+        val early = started.onFileRange("/a.bin", chunk, total, chunk.toInt()) as DownloadStep.Continue
+        assertEquals(null, early.plan.expectedMd5)
+        val done = early.plan.onFileRange("/a.bin", 0, total, chunk.toInt(), md5 = "ABCDEF") as DownloadStep.Complete
+        assertEquals("abcdef", done.plan.expectedMd5)
+    }
+
+    @Test
     fun pieceForAnotherPathIsIgnored() {
         assertEquals(DownloadStep.Ignored, fileDownload().onFileRange("/b.bin", 0, 10, 10))
     }

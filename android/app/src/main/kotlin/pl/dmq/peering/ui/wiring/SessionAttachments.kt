@@ -20,6 +20,7 @@ import pl.dmq.peering.session.files.FileUpload
 import pl.dmq.peering.session.files.TransferLimits
 import pl.dmq.peering.session.files.UploadFailure
 import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.wire.FileChecksum
 
 /** Chat attachments over the session's file browser: documents are sent as they are, photos as a JPEG. */
 internal class SessionAttachments(
@@ -40,8 +41,9 @@ internal class SessionAttachments(
             ?: return AttachmentOutcome.Failed(uri.lastPathSegment.orEmpty(), UploadFailure.Unreadable)
         onNamed(document.name)
         try {
+            val md5 = document.open().use { FileChecksum.of(it, document.size) }
             document.open().use { input ->
-                browser.uploadInto(folder, document.name, document.size, InputChunks(input, TransferLimits.UPLOAD_CHUNK_BYTES))
+                browser.uploadInto(folder, document.name, document.size, InputChunks(input, TransferLimits.UPLOAD_CHUNK_BYTES), md5)
             }
         } catch (failure: IOException) {
             return AttachmentOutcome.Failed(document.name, UploadFailure.Unreadable)
@@ -60,7 +62,7 @@ internal class SessionAttachments(
         } catch (failure: OutOfMemoryError) {
             null
         } ?: return AttachmentOutcome.Failed(name, UploadFailure.Unreadable)
-        browser.uploadInto(folder, name, jpeg.size.toLong(), InputChunks(ByteArrayInputStream(jpeg), TransferLimits.UPLOAD_CHUNK_BYTES))
+        browser.uploadInto(folder, name, jpeg.size.toLong(), InputChunks(ByteArrayInputStream(jpeg), TransferLimits.UPLOAD_CHUNK_BYTES), FileChecksum.of(jpeg))
         return outcome(name, folder, uri.toString())
     }
 

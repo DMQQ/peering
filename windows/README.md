@@ -217,3 +217,13 @@ Not verified, and not run on any machine yet:
   unconnected socket is treated as a dropped datagram but has not been seen on Windows).
 - Settings persistence: `settings.txt` is written and read by tested code, but the window's switches have not been used on a Windows
   machine. The start at login box reads the Run key when the window opens.
+
+## Routines and file integrity
+
+`peering-agent/src/routines/` holds the scheduler, planner, validation and store (`routines.json` beside the other host
+state), and `peering-wire/src/agent/routine.rs` the wire types, shaped as the Swift encoding. A run starts a chat owned
+by the requesting client, and `notifiesWhenDone` decides whether its result is pushed. File transfers carry an MD5
+(`peering-core/src/files/checksum.rs`): a download sends the whole file's hash on the first piece, and an upload is
+hashed as it reaches the staging file, which is discarded on a mismatch. The Windows-only host wiring (`WindowsZone`,
+the on-disk store) has not been compiled on Windows, and a run planned across a daylight-saving change can land an
+hour off until the next check.

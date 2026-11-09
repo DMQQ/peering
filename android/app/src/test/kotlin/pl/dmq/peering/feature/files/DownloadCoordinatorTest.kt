@@ -31,6 +31,37 @@ class DownloadCoordinatorTest {
     private fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
 
     @Test
+    fun aFileThatMatchesTheMacsChecksumIsCommittedEvenWhenPiecesArriveOutOfOrder() {
+        val sink = RecordingSink()
+        val coordinator = DownloadCoordinator(sink)
+        coordinator.accept(2, bytes(3))
+        coordinator.accept(0, bytes(1, 2))
+        coordinator.complete(expectedMd5 = "5289DF737DF57326FCDD22597AFB1FAC")
+        assertEquals(DownloadOutcome.Committed, coordinator.outcome)
+        assertTrue(sink.committed)
+    }
+
+    @Test
+    fun aFileThatDoesNotMatchTheMacsChecksumIsDiscardedNotCommitted() {
+        val sink = RecordingSink()
+        val coordinator = DownloadCoordinator(sink)
+        coordinator.accept(0, bytes(1, 2, 4))
+        coordinator.complete(expectedMd5 = "5289df737df57326fcdd22597afb1fac")
+        assertEquals(DownloadOutcome.Corrupt, coordinator.outcome)
+        assertEquals(1, sink.discarded)
+        assertEquals(false, sink.committed)
+    }
+
+    @Test
+    fun noChecksumFromTheMacMeansNothingToCheck() {
+        val sink = RecordingSink()
+        val coordinator = DownloadCoordinator(sink)
+        coordinator.accept(0, bytes(9))
+        coordinator.complete(expectedMd5 = null)
+        assertEquals(DownloadOutcome.Committed, coordinator.outcome)
+    }
+
+    @Test
     fun piecesInOrderAreWrittenAsTheyArrive() {
         val sink = RecordingSink()
         val coordinator = DownloadCoordinator(sink)

@@ -33,6 +33,24 @@ class AgentRequestTest {
         AgentRequest.ListResumable to """{"listResumable":{}}""",
         AgentRequest.Resume("claude", "c0ffee") to """{"resume":{"agentID":"claude","cliSessionID":"c0ffee"}}""",
         AgentRequest.Pause(sessionID) to """{"pause":{"sessionID":"$sessionID"}}""",
+        AgentRequest.ListRoutines to """{"listRoutines":{}}""",
+        AgentRequest.DeleteRoutine(sessionID) to """{"deleteRoutine":{"id":"$sessionID"}}""",
+        AgentRequest.RunRoutineNow(sessionID) to """{"runRoutineNow":{"id":"$sessionID"}}""",
+        AgentRequest.SaveRoutine(
+            AgentRoutine(
+                id = sessionID,
+                name = "Morning",
+                agentID = "claude",
+                directory = "/Users/me/app",
+                prompt = "Review",
+                schedule = AgentRoutineSchedule.Daily(9, 0, listOf(2, 3)),
+                permissionMode = AgentPermissionMode.PLAN,
+                isEnabled = true,
+                stopAfterMinutes = 30,
+                notifiesWhenDone = true,
+            ),
+        ) to
+            """{"saveRoutine":{"_0":{"id":"$sessionID","name":"Morning","agentID":"claude","directory":"/Users/me/app","prompt":"Review","schedule":{"daily":{"hour":9,"minute":0,"weekdays":[2,3]}},"permissionMode":"plan","isEnabled":true,"stopAfterMinutes":30,"notifiesWhenDone":true}}}""",
     )
 
     @Test

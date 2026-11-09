@@ -2,9 +2,9 @@ use peering_wire::agent::{AgentQuestion, AgentToolOption};
 
 use super::*;
 
-const AWAY: Reach = Reach { has_token: true, foreground: false };
-const WATCHING: Reach = Reach { has_token: true, foreground: true };
-const NO_TOKEN: Reach = Reach { has_token: false, foreground: false };
+const AWAY: Reach = Reach { has_token: true, foreground: false, finish_alert: None };
+const WATCHING: Reach = Reach { has_token: true, foreground: true, finish_alert: None };
+const NO_TOKEN: Reach = Reach { has_token: false, foreground: false, finish_alert: None };
 
 fn call(name: &str, detail: Option<&str>) -> AgentToolCall {
     AgentToolCall {
@@ -176,4 +176,43 @@ fn chats_are_kept_apart() {
     planner.observe("one", &AgentStreamPayload::TextFinal { text: "first".to_owned() }, "Claude Code", AWAY);
     let other = planner.observe("two", &finished(true, false, None), "Claude Code", AWAY).expect("a push");
     assert_eq!(other.body, "The turn finished.");
+}
+
+fn away_with(finish_alert: Option<bool>) -> Reach {
+    Reach { finish_alert, ..AWAY }
+}
+
+#[test]
+fn a_chat_that_asks_for_the_alert_pushes_it_even_to_a_phone_in_the_foreground() {
+    let mut planner = AgentPushPlanner::default();
+    let watching = Reach { finish_alert: Some(true), ..WATCHING };
+    assert!(planner.observe("s1", &finished(true, false, None), "Claude Code", watching).is_some());
+}
+
+#[test]
+fn a_chat_that_declines_the_alert_never_pushes_a_finished_turn() {
+    let mut planner = AgentPushPlanner::default();
+    assert_eq!(planner.observe("s1", &finished(true, false, None), "Claude Code", away_with(Some(false))), None);
+}
+
+#[test]
+fn a_requested_alert_still_needs_a_token() {
+    let mut planner = AgentPushPlanner::default();
+    let no_token = Reach { finish_alert: Some(true), ..NO_TOKEN };
+    assert_eq!(planner.observe("s1", &finished(true, false, None), "Claude Code", no_token), None);
+}
+
+#[test]
+fn a_chat_with_no_opinion_follows_the_phones_presence() {
+    let mut planner = AgentPushPlanner::default();
+    assert!(planner.observe("s1", &finished(true, false, None), "Claude Code", away_with(None)).is_some());
+    assert_eq!(planner.observe("s1", &finished(true, false, None), "Claude Code", WATCHING), None);
+}
+
+#[test]
+fn a_failed_routine_run_is_pushed_too_and_offers_no_continue_button() {
+    let mut planner = AgentPushPlanner::default();
+    let push = planner.observe("s1", &finished(false, false, None), "Claude Code", away_with(Some(true))).expect("a push");
+    assert_eq!(push.title, "Claude Code failed");
+    assert_eq!(push.action, None);
 }

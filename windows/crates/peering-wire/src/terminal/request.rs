@@ -64,6 +64,9 @@ pub enum TerminalRequest {
         session_id: String,
         path: String,
         total_bytes: i64,
+        /// The whole file's MD5, lowercase hex.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        md5: Option<String>,
     },
     WriteChunk {
         #[serde(rename = "sessionID")]

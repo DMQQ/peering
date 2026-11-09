@@ -18,6 +18,8 @@ import pl.dmq.peering.feature.agents.attach.AttachmentSender
 import pl.dmq.peering.feature.agents.changes.ChangesOverlay
 import pl.dmq.peering.feature.agents.review.ReviewInbox
 import pl.dmq.peering.feature.agents.review.ReviewScreen
+import pl.dmq.peering.feature.agents.routines.RoutinesPresenter
+import pl.dmq.peering.feature.agents.routines.RoutinesScreen
 import pl.dmq.peering.feature.remote.HubTab
 import pl.dmq.peering.feature.remote.ReportHubPage
 import pl.dmq.peering.session.agent.DirectoryLister
@@ -57,7 +59,10 @@ fun AgentsRoute(
     val lister = remember(port) { DirectoryLister(port::browse, scope, System::currentTimeMillis) }
     val hints = remember(composer, lister) { ComposerHints(composer.ui, lister, scope) }
     val review = remember(port, guideStore) { ReviewInbox(port, ReviewMarkStore(guideStore), scope, System::currentTimeMillis) }
+    val routines = remember(port, declaredAgentIDs) { RoutinesPresenter(port, declaredAgentIDs, folders, recents, scope) }
+    val routineList by port.routines.collectAsState()
     var reviewing by remember { mutableStateOf(false) }
+    var routining by remember { mutableStateOf(false) }
     var reviewedFile by remember { mutableStateOf<Pair<String, String>?>(null) }
     val chatState by port.chats.collectAsState()
     val hubUi by hub.ui.collectAsState()
@@ -71,6 +76,8 @@ fun AgentsRoute(
         }
     }
 
+    LaunchedEffect(port) { if (port.routinesOffered) port.listRoutines() }
+
     LaunchedEffect(folders) {
         port.browseEvents.collect {
             folders.onEvent(it)
@@ -81,7 +88,7 @@ fun AgentsRoute(
     val twoPane = rememberWidthClass().twoPane
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
         val chatOpen = showingChat && chatState.selected != null
-        ReportHubPage(HubTab.AGENTS, atRoot = !chatOpen && !reviewing && hubUi.newChat !is NewChatStep.ChoosingFolder)
+        ReportHubPage(HubTab.AGENTS, atRoot = !chatOpen && !reviewing && !routining && hubUi.newChat !is NewChatStep.ChoosingFolder)
         BackHandler(enabled = chatOpen && !twoPane) { showingChat = false }
         Box(Modifier.fillMaxSize()) {
             AgentsPanes(
@@ -93,6 +100,8 @@ fun AgentsRoute(
                         guide = guide,
                         review = review,
                         onOpenReview = { reviewing = true },
+                        routinesCount = routineList?.size,
+                        onOpenRoutines = if (port.routinesOffered) ({ routining = true }) else null,
                         folders = folders,
                         onSessionOpened = { showingChat = true },
                         onChatStarted = { sessionsBeforeStart = chatState.sessions.map { it.id }.toSet() },
@@ -113,6 +122,7 @@ fun AgentsRoute(
             if (reviewing) {
                 ReviewScreen(review, onOpenFile = { chat, path -> reviewedFile = chat to path }, onClose = { reviewing = false })
             }
+            if (routining) RoutinesScreen(routines, folders, onClose = { routining = false })
             reviewedFile?.let { (chatId, path) ->
                 ChangesOverlay(port, chatId, onClose = { reviewedFile = null }, initialPath = path)
             }

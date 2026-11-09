@@ -7,6 +7,9 @@ sealed class DownloadFailure {
     /** The Mac sent an empty piece before the size it declared was reached. */
     data object ShortRead : DownloadFailure()
 
+    /** The finished file did not match the checksum the Mac sent, so it was not kept. */
+    data object Corrupt : DownloadFailure()
+
     /** The Mac said the transfer failed; [message] is its own text. */
     data class Transfer(val message: String) : DownloadFailure()
 }

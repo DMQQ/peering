@@ -105,19 +105,21 @@ struct FileBrowserPanel: View {
         }
     }
 
-    /// Read while the new folder renders, before `onChange` records it, so it still holds the folder being left.
-    @State private var shownDepth = 0
-
-    private var folderTransition: AnyTransition {
-        let deeper = Self.depth(of: path) >= shownDepth
-        return .asymmetric(
-            insertion: .move(edge: deeper ? .trailing : .leading),
-            removal: .move(edge: deeper ? .leading : .trailing).combined(with: .opacity)
-        )
-    }
+    /// Not a transition: a leaving view keeps the direction it was drawn with, which made every second move slide the wrong way. This view stays, and is moved aside and eased back, so the direction is the one known at that moment.
+    @State private var slide: CGFloat = 0
+    @State private var panelWidth: CGFloat = 0
 
     private static func depth(of path: String?) -> Int {
         path?.split(separator: "/").count ?? 0
+    }
+
+    private func slideIn(from old: String?, to new: String?) {
+        guard panelWidth > 0 else { return }
+        slide = Self.depth(of: new) >= Self.depth(of: old) ? panelWidth : -panelWidth
+        // The next turn of the run loop, so the jump above is drawn before the ease back.
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.28)) { slide = 0 }
+        }
     }
 
     var body: some View {
@@ -155,10 +157,14 @@ struct FileBrowserPanel: View {
                     Text(pendingRename?.name ?? "")
                 }
             if let progress { progressLine(progress) }
+            // The list alone slides, inside its own clip: the search field below stays where it is.
             content
-                .id(path)
-                .transition(folderTransition)
                 .refreshable { onReload() }
+                .background(ColorPalette.backdrop)
+                .offset(x: slide)
+                .opacity(slide == 0 ? 1 : 0.5)
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { panelWidth = $0 }
+                .clipped()
                 // Over the list rather than below it, so rows scroll under the field as on the other screens.
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(spacing: 0) {
@@ -210,12 +216,11 @@ struct FileBrowserPanel: View {
             withAnimation(.easeOut(duration: 0.25)) { waitingLongEnough = true }
         }
         // Cleared per folder: a stale filter would hide rows for no visible reason.
-        .onChange(of: path) { _, new in
+        .onChange(of: path) { old, new in
             query = ""
-            shownDepth = Self.depth(of: new)
+            slideIn(from: old, to: new)
         }
-        .animation(.easeInOut(duration: 0.28), value: path)
-        .clipped()
+
         // The one guard between a tap and a program running on the machine, here so neither browser can forget it. Cancel is first with the cancel role; Run is not the default action.
         .alert(
             "Run this file?",

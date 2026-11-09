@@ -31,6 +31,7 @@ internal class SessionDownloads : DownloadWriter {
     @Volatile private var closed = false
     private var coordinator: DownloadCoordinator? = null
     private val mutableDestinationFailed = MutableStateFlow(false)
+    private val mutableCorrupt = MutableStateFlow(false)
     private val pending = AtomicInteger(0)
     private val caughtUp = Channel<Unit>(Channel.CONFLATED)
 
@@ -39,9 +40,13 @@ internal class SessionDownloads : DownloadWriter {
     /** True once the chosen destination could not be opened or written; the download it belonged to has ended. */
     val destinationFailed: StateFlow<Boolean> = mutableDestinationFailed.asStateFlow()
 
+    /** True once a finished download did not match the Mac's checksum and was discarded. */
+    val corrupt: StateFlow<Boolean> = mutableCorrupt.asStateFlow()
+
     /** Routes the next download's bytes to [sink]. Call it before the request for the download is sent. */
     fun begin(sink: DownloadSink) {
         mutableDestinationFailed.value = false
+        mutableCorrupt.value = false
         submit { coordinator = DownloadCoordinator(sink) }
     }
 
@@ -63,8 +68,8 @@ internal class SessionDownloads : DownloadWriter {
         if (!queued) pending.decrementAndGet()
     }
 
-    fun commit() {
-        submit { settle { complete() } }
+    fun commit(expectedMd5: String? = null) {
+        submit { settle { complete(expectedMd5) } }
     }
 
     fun discard() {
@@ -91,9 +96,12 @@ internal class SessionDownloads : DownloadWriter {
                 discard()
             }
         }
+        launch {
+            corrupt.filter { it }.collect { browser.reportCorruptDownload() }
+        }
         browser.state.map { it.transfer }.distinctUntilChanged().collect { transfer ->
             when (transfer) {
-                is FileTransfer.Finished -> commit()
+                is FileTransfer.Finished -> commit(transfer.expectedMd5)
                 is FileTransfer.Failed -> discard()
                 else -> Unit
             }
@@ -122,6 +130,7 @@ internal class SessionDownloads : DownloadWriter {
         }
         val outcome = current.outcome ?: return
         if (outcome is DownloadOutcome.Failed) mutableDestinationFailed.value = true
+        if (outcome is DownloadOutcome.Corrupt) mutableCorrupt.value = true
         coordinator = null
     }
 }

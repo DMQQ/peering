@@ -4,11 +4,14 @@
 mod clients;
 mod commands;
 mod fit;
+mod routines;
 mod session;
 mod transcript;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_routines;
 #[cfg(test)]
 mod tests_transcript;
 
@@ -76,9 +79,14 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
             AgentRequest::Changes { session_id }
             | AgentRequest::Commit { session_id, .. }
             | AgentRequest::Push { session_id } => vec![failed(Some(&session_id), NOT_SUPPORTED)],
-            AgentRequest::Browse { .. } | AgentRequest::ListResumable {} | AgentRequest::Resume { .. } => {
-                vec![failed(None, NOT_SUPPORTED)]
-            }
+            AgentRequest::Browse { .. }
+            | AgentRequest::ListResumable {}
+            | AgentRequest::Resume { .. }
+            // The routine requests belong to the scheduler, which answers them before they reach a manager.
+            | AgentRequest::ListRoutines {}
+            | AgentRequest::SaveRoutine { .. }
+            | AgentRequest::DeleteRoutine { .. }
+            | AgentRequest::RunRoutineNow { .. } => vec![failed(None, NOT_SUPPORTED)],
         }
     }
 
@@ -105,9 +113,9 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
     }
 
     /// `None` for an agent this host does not know.
-    fn new_session(&mut self, agent_id: &str, directory: &Path) -> Option<ManagedSession> {
+    fn new_session(&mut self, agent_id: &str, directory: &Path, resume: AgentResume) -> Option<ManagedSession> {
         let name = agent_name(agent_id)?;
-        let adapter = self.make_adapter(agent_id, directory, AgentResume::default())?;
+        let adapter = self.make_adapter(agent_id, directory, resume)?;
         self.started += 1;
         let id = session_id(self.started);
         let folder = folder_name(directory);

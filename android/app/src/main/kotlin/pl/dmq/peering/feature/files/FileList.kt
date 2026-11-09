@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.files
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -23,34 +27,46 @@ import pl.dmq.peering.ui.theme.PeeringColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileList(ui: FileListUi, presenter: FileListPresenter, modifier: Modifier = Modifier) {
-    PullToRefreshBox(isRefreshing = ui.isRefreshing, onRefresh = presenter::refresh, modifier = modifier.fillMaxSize()) {
-        if (ui.status == FileListStatus.CONTENT) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                if (ui.canGoUp) {
-                    item(key = UP_KEY) {
-                        UpRow(onClick = { presenter.up() })
-                        if (ui.entries.isNotEmpty()) RowDivider()
-                    }
-                }
-                itemsIndexed(ui.entries, key = { _, row -> row.name }) { index, row ->
-                    if (index > 0) RowDivider()
-                    FileEntryRow(row, onClick = { presenter.tap(row) }, onLongClick = { presenter.toggleSelected(row) })
-                }
-                if (ui.isTruncated) {
-                    item {
-                        if (ui.entries.isNotEmpty()) RowDivider()
-                        Text(
-                            stringResource(R.string.files_truncated),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = PeeringColors.faint,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        )
-                    }
+    val slide = rememberFolderSlide(ui.path)
+    Box(modifier.fillMaxSize().clipToBounds()) {
+        PullToRefreshBox(
+            isRefreshing = ui.isRefreshing,
+            onRefresh = presenter::refresh,
+            modifier = Modifier.fillMaxSize().onSizeChanged(slide.onWidth).graphicsLayer(slide.layer),
+        ) {
+            FileListContent(ui, presenter)
+        }
+    }
+}
+
+@Composable
+private fun FileListContent(ui: FileListUi, presenter: FileListPresenter) {
+    if (ui.status == FileListStatus.CONTENT) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            if (ui.canGoUp) {
+                item(key = UP_KEY) {
+                    UpRow(onClick = { presenter.up() })
+                    if (ui.entries.isNotEmpty()) RowDivider()
                 }
             }
-        } else {
-            FileListMessage(ui, onRetry = presenter::refresh, modifier = Modifier.verticalScroll(rememberScrollState()))
+            itemsIndexed(ui.entries, key = { _, row -> row.name }) { index, row ->
+                if (index > 0) RowDivider()
+                FileEntryRow(row, onClick = { presenter.tap(row) }, onLongClick = { presenter.toggleSelected(row) })
+            }
+            if (ui.isTruncated) {
+                item {
+                    if (ui.entries.isNotEmpty()) RowDivider()
+                    Text(
+                        stringResource(R.string.files_truncated),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PeeringColors.faint,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+            }
         }
+    } else {
+        FileListMessage(ui, onRetry = presenter::refresh, modifier = Modifier.verticalScroll(rememberScrollState()))
     }
 }
 

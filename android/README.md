@@ -76,3 +76,13 @@ The Servers tab (after Connect, as on the iPhone) opens shells on machines added
 * The terminal renderer, key deck, quick commands and file browser in `feature/terminal` and `feature/files` are reused as they are; `feature/ssh` is the list, the editor, the key and lock sheets, the host key prompts and the port forwards.
 
 A changed host key stops the connection with a warning and no way to continue; the only route past it is Forget its key in the server's menu.
+
+## Routines, widgets and file integrity
+
+- **Routines** (`feature/agents/routines/`, `core/session/agent/routines/`, `core/wire/AgentRoutine.kt`): a card on the
+  Agents hub opens the list and editor. It is offered only for a Mac host, and the wire form matches the Swift
+  encoding, including the optional `notifiesWhenDone` (absent means notify).
+- **Widgets:** Quick Connect, Agents, Waiting on you, Routines and Computer status, all fed from the same stores the
+  app publishes to.
+- **Files:** the folder list slides in from the side, one view moved aside and eased back, with the search and bottom
+  bars still. Downloads and uploads carry an MD5 (`FileChecksum`); a mismatch discards the file.

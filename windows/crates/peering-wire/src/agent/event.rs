@@ -3,6 +3,7 @@
 //! `directory` entries, the `changes` report, the `gitResult` and the `resumable` listing stay as raw JSON here:
 //! their models belong to the file browser and git features, and a decode of this enum must not fail on them.
 
+use super::routine::AgentRoutine;
 use super::session::{AgentPermissionMode, AgentSessionInfo, AgentUsage};
 use super::stream::AgentStreamEvent;
 use serde::{Deserialize, Serialize};
@@ -82,5 +83,10 @@ pub enum AgentEvent {
     Resumable {
         #[serde(rename = "_0")]
         sessions: Vec<Value>,
+    },
+    /// Sent only in answer to a routine request: every routine of the requesting client.
+    Routines {
+        #[serde(rename = "_0")]
+        routines: Vec<AgentRoutine>,
     },
 }

@@ -8,6 +8,7 @@ use peering_agent::browse::AgentBrowser;
 use peering_agent::adapter::AGENTS;
 use peering_agent::manager::ClientAgents;
 use peering_agent::push::AgentPushPlanner;
+use peering_agent::routines::RoutineScheduler;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::notice::NoticeTracker;
@@ -86,6 +87,7 @@ impl HostState {
             extras,
         };
         let mut state = Self::assemble(opened);
+        state.show_routine_problem();
         if let Some(problem) = pins_problem {
             state.set_problem(ProblemSource::PairedDevices, problem);
         }
@@ -114,6 +116,7 @@ impl HostState {
             agents: ClientAgents::new(StdLauncher::default).with_codex_home(super::agent::codex_home()),
             agent_availability: agent_availability(agent_binaries, now),
             agent_pushes: AgentPushPlanner::default(),
+            routines: RoutineScheduler::new(extras.routines.storage, extras.routines.environment, extras.routines.zone),
             terminals,
             notifications: WaitingNotifications::default(),
             sessions: HashMap::new(),

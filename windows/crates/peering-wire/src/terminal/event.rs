@@ -83,6 +83,9 @@ pub enum TerminalEvent {
         total_bytes: i64,
         #[serde(with = "base64_bytes")]
         data: Vec<u8>,
+        /// The whole file's MD5, lowercase hex, on the piece at offset 0 only.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        md5: Option<String>,
     },
     ArchiveReady {
         #[serde(rename = "sessionID")]

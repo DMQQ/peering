@@ -50,9 +50,13 @@ class WidgetPublisher internal constructor(
                 .throttled()
                 .collectSurvivingFailures(onFailure = ::logFailure) { snapshot ->
                     store.write(snapshot)
-                    refresh { QuickConnectWidget().updateAll(appContext) }
+                    refresh {
+                        QuickConnectWidget().updateAll(appContext)
+                        MacStatusWidget().updateAll(appContext)
+                    }
                 }
         }
+        scope.publishRoutines(active)
         scope.launch {
             active
                 .flatMapLatest { session -> session?.let { chatsOf(it) } ?: flowOf(null) }
@@ -61,9 +65,26 @@ class WidgetPublisher internal constructor(
                 .throttled()
                 .collectSurvivingFailures(onFailure = ::logFailure) { chats ->
                     store.write(AgentsSnapshot(chats, publishedAtSeconds = clock.unixSeconds()))
-                    refresh { AgentsWidget().updateAll(appContext) }
+                    refresh {
+                        AgentsWidget().updateAll(appContext)
+                        WaitingWidget().updateAll(appContext)
+                    }
                 }
         }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun CoroutineScope.publishRoutines(active: Flow<ActiveSession?>) = launch {
+        active
+            .flatMapLatest { session -> session?.controller?.agentChat?.routines ?: flowOf(null) }
+            .map { routines -> routines?.let(RoutineEntries::from) }
+            .distinctUntilChanged()
+            .throttled()
+            .collectSurvivingFailures(onFailure = ::logFailure) { entries ->
+                if (entries == null) return@collectSurvivingFailures
+                store.write(RoutinesSnapshot(entries))
+                refresh { RoutinesWidget().updateAll(appContext) }
+            }
     }
 
     /** A snapshot from a previous process still names the computer that process was connected to. */

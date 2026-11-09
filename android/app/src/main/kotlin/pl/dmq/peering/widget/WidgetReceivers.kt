@@ -10,3 +10,15 @@ class QuickConnectWidgetReceiver : GlanceAppWidgetReceiver() {
 class AgentsWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = AgentsWidget()
 }
+
+class WaitingWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = WaitingWidget()
+}
+
+class RoutinesWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = RoutinesWidget()
+}
+
+class MacStatusWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = MacStatusWidget()
+}

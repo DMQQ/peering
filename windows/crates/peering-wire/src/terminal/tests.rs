@@ -29,7 +29,7 @@ fn requests() -> Vec<String> {
         format!(r#"{{"readFile":{{"sessionID":"{SESSION_ID}","path":"/Users/me/notes.txt"}}}}"#),
         format!(r#"{{"readRange":{{"sessionID":"{SESSION_ID}","path":"/Users/me/movie.mov","offset":1048576}}}}"#),
         format!(r#"{{"archiveFolder":{{"sessionID":"{SESSION_ID}","path":"/Users/me/Projects"}}}}"#),
-        format!(r#"{{"beginWrite":{{"sessionID":"{SESSION_ID}","path":"/Users/me/a.txt","totalBytes":5}}}}"#),
+        format!(r#"{{"beginWrite":{{"sessionID":"{SESSION_ID}","path":"/Users/me/a.txt","totalBytes":5,"md5":"5d41402abc4b2a76b9719d911017c592"}}}}"#),
         format!(r#"{{"writeChunk":{{"sessionID":"{SESSION_ID}","path":"/Users/me/a.txt","data":"aGVsbG8=","isLast":true}}}}"#),
         format!(
             r#"{{"changeFile":{{"sessionID":"{SESSION_ID}","operation":{{"create":{{"path":"/Users/me/new","kind":"folder"}}}}}}}}"#
@@ -101,6 +101,9 @@ fn every_terminal_event_case_round_trips() {
             r#"{{"fileRange":{{"sessionID":"{SESSION_ID}","path":"/Users/me/movie.mov","offset":1048576,"totalBytes":2097152,"data":"AQI="}}}}"#
         ),
         format!(
+            r#"{{"fileRange":{{"sessionID":"{SESSION_ID}","path":"/Users/me/movie.mov","offset":0,"totalBytes":2,"data":"AQI=","md5":"5d41402abc4b2a76b9719d911017c592"}}}}"#
+        ),
+        format!(
             r#"{{"archiveReady":{{"sessionID":"{SESSION_ID}","folder":"/Users/me/Projects","archivePath":"/tmp/p.zip","totalBytes":900}}}}"#
         ),
         format!(r#"{{"transferFailure":{{"sessionID":"{SESSION_ID}","path":"/a","message":"Too large"}}}}"#),
@@ -131,4 +134,11 @@ fn a_command_finished_without_a_command_decodes_as_none() {
     ))
     .expect("decodes");
     assert!(matches!(event, TerminalEvent::CommandFinished { command: None, .. }));
+}
+
+#[test]
+fn a_write_request_without_a_checksum_decodes_with_none_and_encodes_without_the_key() {
+    let json = format!(r#"{{"beginWrite":{{"sessionID":"{SESSION_ID}","path":"/a.txt","totalBytes":5}}}}"#);
+    assert!(matches!(serde_json::from_str::<TerminalRequest>(&json), Ok(TerminalRequest::BeginWrite { md5: None, .. })));
+    assert_wire::<TerminalRequest>(&json);
 }

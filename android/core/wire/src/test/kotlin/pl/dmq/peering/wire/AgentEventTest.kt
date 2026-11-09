@@ -34,6 +34,7 @@ class AgentEventTest {
         """{"resumable":{"_0":[{"agentID":"claude","cliSessionID":"c0ffee","title":"Refactor"}]}}""" to
             AgentEvent.Resumable(listOf(WireJson.parseToJsonElement("""{"agentID":"claude","cliSessionID":"c0ffee","title":"Refactor"}"""))),
         """{"resumable":{"_0":[]}}""" to AgentEvent.Resumable(emptyList()),
+        """{"routines":{"_0":[]}}""" to AgentEvent.Routines(emptyList()),
     )
 
     @Test

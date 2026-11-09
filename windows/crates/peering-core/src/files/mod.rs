@@ -2,6 +2,7 @@
 
 pub mod archive;
 pub mod browse;
+pub mod checksum;
 pub mod changes;
 pub mod disk;
 pub mod fake;

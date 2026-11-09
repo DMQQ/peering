@@ -4,10 +4,11 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use peering_wire::agent::{AgentEvent, AgentRequest};
+use peering_wire::agent::{AgentEvent, AgentRequest, AgentRoutine};
 
 use super::AgentSessionManager;
 use crate::claude_adapter::ProcessLauncher;
+use crate::routines::{ChatStatus, RoutineChats};
 
 pub struct ClientAgents<L: ProcessLauncher> {
     managers: BTreeMap<String, AgentSessionManager<L>>,
@@ -28,18 +29,25 @@ impl<L: ProcessLauncher> ClientAgents<L> {
 
     /// The events `request` produces for `client_id`, starting that client's manager on first use.
     pub fn handle(&mut self, client_id: &str, request: AgentRequest) -> Vec<AgentEvent> {
+        self.manager_of(client_id).handle(request)
+    }
+
+    fn manager_of(&mut self, client_id: &str) -> &mut AgentSessionManager<L> {
         let launcher = &mut self.new_launcher;
         let codex_home = &self.codex_home;
-        self.managers
-            .entry(client_id.to_owned())
-            .or_insert_with(|| {
-                let mut manager = AgentSessionManager::new(launcher());
-                if let Some(home) = codex_home {
-                    manager.set_codex_home(home.clone());
-                }
-                manager
-            })
-            .handle(request)
+        self.managers.entry(client_id.to_owned()).or_insert_with(|| {
+            let mut manager = AgentSessionManager::new(launcher());
+            if let Some(home) = codex_home {
+                manager.set_codex_home(home.clone());
+            }
+            manager
+        })
+    }
+
+    /// Whether a finished turn of one of `client_id`'s chats is pushed whatever the phone is doing: `Some(true)` always,
+    /// `Some(false)` never, `None` by the phone's own presence.
+    pub fn finish_alert_of(&self, client_id: &str, session_id: &str) -> Option<bool> {
+        self.managers.get(client_id)?.finish_alert_of(session_id)
     }
 
     /// The folder of one of `client_id`'s chats; `None` for a chat that is not theirs or is gone.
@@ -54,6 +62,23 @@ impl<L: ProcessLauncher> ClientAgents<L> {
             events.extend(manager.poll().into_iter().map(|event| (client_id.clone(), event)));
         }
         events
+    }
+}
+
+impl<L: ProcessLauncher> RoutineChats for ClientAgents<L> {
+    fn start_routine_chat(&mut self, client_id: &str, routine: &AgentRoutine) -> Result<(String, Vec<AgentEvent>), String> {
+        self.manager_of(client_id).start_routine_chat(routine)
+    }
+
+    fn routine_chat_status(&self, client_id: &str, session_id: &str) -> ChatStatus {
+        match self.managers.get(client_id) {
+            Some(manager) => manager.routine_chat_status(session_id),
+            None => ChatStatus { state: None, finished_ok: None },
+        }
+    }
+
+    fn interrupt_routine_chat(&mut self, client_id: &str, session_id: &str) {
+        self.manager_of(client_id).handle(AgentRequest::Interrupt { session_id: session_id.to_owned() });
     }
 }
 

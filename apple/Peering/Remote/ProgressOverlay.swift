@@ -19,3 +19,19 @@ struct ProgressOverlay: View {
         }
     }
 }
+
+/// A quiet wait for the first picture: a spinner and the Mac's name on the black, with no card over it.
+struct PicturePlaceholder: View {
+    let hostName: String?
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ProgressView().tint(.white.opacity(0.6))
+            if let hostName {
+                Text(hostName)
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+        }
+    }
+}

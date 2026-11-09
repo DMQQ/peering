@@ -5,12 +5,14 @@ use peering_wire::frame_budget::{longest_prefix, CONTROL_LIST_BUDGET};
 use peering_wire::files::RemoteDirectoryEntry;
 use peering_wire::terminal::{TerminalEvent, TerminalRequest};
 
+use super::checksum::FileChecksum;
 use super::path::{self, VirtualPath};
 use super::pieces::in_pieces;
 use super::preview::{self, NOT_A_FILE, RANGE_CHUNK_BYTES};
 use super::vfs::{FileSystem, RawEntry};
 
 pub const MAXIMUM_LISTING_ENTRIES: usize = 2_000;
+const HASH_PIECE_BYTES: usize = 1024 * 1024;
 const NOT_A_PATH: &str = "That is not a path this PC can open.";
 
 pub struct FileBrowser<F: FileSystem> {
@@ -122,6 +124,15 @@ impl<F: FileSystem> FileBrowser<F> {
         };
         let total = size_of(&stat);
         let start = u64::try_from(offset).unwrap_or(0).min(total);
+        // Only the first piece carries the hash: the phone checks the finished file against it.
+        let md5 = if offset == 0 {
+            match self.hash_of(&native, total) {
+                Ok(hash) => Some(hash),
+                Err(error) => return transfer_failure(session_id, &shown, &preview::message(error)),
+            }
+        } else {
+            None
+        };
         match self.fs.read(&native, start, RANGE_CHUNK_BYTES) {
             Ok(data) => TerminalEvent::FileRange {
                 session_id: session_id.to_owned(),
@@ -129,9 +140,25 @@ impl<F: FileSystem> FileBrowser<F> {
                 offset,
                 total_bytes: i64::try_from(total).unwrap_or(i64::MAX),
                 data,
+                md5,
             },
             Err(error) => transfer_failure(session_id, &shown, &preview::message(error)),
         }
+    }
+
+    /// Reads the file in pieces, so a file of any size is never held in memory.
+    fn hash_of(&self, native: &str, total: u64) -> Result<String, super::vfs::FsError> {
+        let mut checksum = FileChecksum::default();
+        let mut position = 0;
+        while position < total {
+            let piece = self.fs.read(native, position, HASH_PIECE_BYTES)?;
+            if piece.is_empty() {
+                break;
+            }
+            position += piece.len() as u64;
+            checksum.update(&piece);
+        }
+        Ok(checksum.finalized())
     }
 }
 

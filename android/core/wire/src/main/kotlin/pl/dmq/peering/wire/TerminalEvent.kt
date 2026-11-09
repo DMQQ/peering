@@ -71,7 +71,10 @@ sealed class TerminalEvent {
         val dataBytes: ByteArray get() = data.fromBase64()
     }
 
-    /** One piece of a download. Pieces may arrive out of order, which is why each names its [offset]. */
+    /**
+     * One piece of a download. Pieces may arrive out of order, which is why each names its [offset]. [md5] is the whole
+     * file's checksum (lowercase hex), carried by the piece at offset 0 only.
+     */
     @Serializable
     data class FileRange(
         val sessionID: String,
@@ -79,6 +82,7 @@ sealed class TerminalEvent {
         val offset: Long,
         val totalBytes: Long,
         val data: String,
+        val md5: String? = null,
     ) : TerminalEvent() {
         val dataBytes: ByteArray get() = data.fromBase64()
     }

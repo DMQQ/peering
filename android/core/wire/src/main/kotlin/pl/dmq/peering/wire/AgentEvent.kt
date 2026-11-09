@@ -69,6 +69,10 @@ sealed class AgentEvent {
     @Serializable
     data class Resumable(@SerialName("_0") val sessions: List<JsonElement>) : AgentEvent()
 
+    /** Sent only in answer to a routine request. */
+    @Serializable
+    data class Routines(@SerialName("_0") val routines: List<JsonElement>) : AgentEvent()
+
     fun toJson(): String = WireJson.encodeToString(AgentEventSerializer, this)
 
     companion object {
@@ -93,6 +97,7 @@ internal object AgentEventSerializer : SwiftCaseSerializer<AgentEvent>() {
         unionCase<AgentEvent, AgentEvent.UsageChanged>("usageChanged"),
         unionCase<AgentEvent, AgentEvent.Failed>("failed"),
         unionCase<AgentEvent, AgentEvent.Resumable>("resumable"),
+        unionCase<AgentEvent, AgentEvent.Routines>("routines"),
     )
 
     override fun encodeCase(value: AgentEvent): JsonObject = encodeUnion(cases, value)

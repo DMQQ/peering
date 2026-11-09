@@ -52,8 +52,14 @@ sealed class TerminalRequest {
     @Serializable
     data class ArchiveFolder(val sessionID: String, val path: String) : TerminalRequest()
 
+    /** [md5] is the whole file's checksum, lowercase hex; a Mac that predates it ignores the field. */
     @Serializable
-    data class BeginWrite(val sessionID: String, val path: String, val totalBytes: Long) : TerminalRequest()
+    data class BeginWrite(
+        val sessionID: String,
+        val path: String,
+        val totalBytes: Long,
+        val md5: String? = null,
+    ) : TerminalRequest()
 
     @Serializable
     data class WriteChunk(

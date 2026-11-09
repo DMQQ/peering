@@ -15,4 +15,5 @@ pub enum ProblemSource {
     /// The relay refused the registration because this PC's clock is off.
     RelayClock,
     PairedDevices,
+    Routines,
 }

@@ -22,6 +22,7 @@ internal object AgentChatReducer {
         is AgentEvent.Changes,
         is AgentEvent.GitResult,
         is AgentEvent.Resumable,
+        is AgentEvent.Routines,
         -> AgentChatStep(state)
     }
 

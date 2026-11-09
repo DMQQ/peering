@@ -14,3 +14,4 @@ pub mod opencode_stream;
 pub mod per_turn;
 pub mod process_tree;
 pub mod push;
+pub mod routines;

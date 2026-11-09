@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.review.ReviewInbox
 import pl.dmq.peering.feature.agents.review.ToReviewCard
+import pl.dmq.peering.feature.agents.routines.RoutinesEntry
 import pl.dmq.peering.ui.kit.listItemMotion
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.EmptyState
@@ -42,6 +43,8 @@ internal fun HubList(
     guide: HubGuidePresenter,
     review: ReviewInbox,
     onOpenReview: () -> Unit,
+    routinesCount: Int?,
+    onOpenRoutines: (() -> Unit)?,
     onClose: (SessionCard) -> Unit,
     onRename: (SessionCard) -> Unit,
     onSessionOpened: () -> Unit,
@@ -65,6 +68,7 @@ internal fun HubList(
             val queue by review.queue.collectAsState()
             ToReviewCard(queue, onOpenReview)
         }
+        if (onOpenRoutines != null) item(key = "routines") { RoutinesEntry(routinesCount, onOpenRoutines) }
         if (ui.sessions.isNotEmpty()) {
             section(key = "chats", label = R.string.agents_chats_title, icon = AgentIcons.chats) {
                 sessionCards(ui.sessions, presenter, onRename, onClose, onSessionOpened, onChatStarted)

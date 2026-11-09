@@ -26,7 +26,7 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
         if !Path::new(directory).is_absolute() {
             return vec![failed(None, "That is not a folder this host can open.")];
         }
-        let Some(mut session) = self.new_session(agent_id, Path::new(directory)) else {
+        let Some(mut session) = self.new_session(agent_id, Path::new(directory), AgentResume::default()) else {
             return vec![failed(None, &format!("{agent_id} is not supported on this host yet."))];
         };
         session.adapter.start(&mut self.launcher);

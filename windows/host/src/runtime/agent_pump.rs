@@ -13,7 +13,7 @@ use super::supervise::{record_problem, Pass, Supervised};
 use super::video::{deliver, Outgoing};
 use super::HostProfile;
 use peering_agent::push::{AgentPush, Reach};
-use peering_wire::agent::AgentEvent;
+use peering_wire::agent::{AgentEvent, AgentRequest};
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::relay_messages::RelayClientMessage;
 
@@ -24,8 +24,10 @@ const AGENT_NAME: &str = "Claude Code";
 impl HostState {
     /// Reads every client's CLIs. An event for a client that is not connected is dropped: the chat's transcript keeps it,
     /// and `history` replays it when the phone returns.
-    pub fn pump_agents(&mut self) -> Vec<Outgoing> {
-        let events = self.agents.poll();
+    pub fn pump_agents(&mut self, unix_now: i64) -> Vec<Outgoing> {
+        let mut events = self.agents.poll();
+        events.extend(self.routines.check(unix_now, &mut self.agents));
+        self.show_routine_problem();
         let mut outgoing = Vec::new();
         for (client_id, event) in events {
             self.plan_agent_push(&client_id, &event);
@@ -41,6 +43,20 @@ impl HostState {
 }
 
 impl HostState {
+    /// The events a client's agent request produces. The routine requests are the scheduler's; every other is a chat's.
+    pub fn handle_agent_request(&mut self, client_id: &str, request: AgentRequest, unix_now: i64) -> Vec<AgentEvent> {
+        let answered = self.routines.handle(client_id, &request, unix_now, &mut self.agents);
+        self.show_routine_problem();
+        answered.unwrap_or_else(|| self.agents.handle(client_id, request))
+    }
+
+    pub(super) fn show_routine_problem(&mut self) {
+        match self.routines.problem().map(str::to_owned) {
+            Some(text) => self.set_problem(ProblemSource::Routines, text),
+            None => self.clear_problem(ProblemSource::Routines),
+        }
+    }
+
     /// Queues the push an event calls for, when the phone that owns the chat registered a token. The relay carries it once the
     /// host is registered with it.
     fn plan_agent_push(&mut self, client_id: &str, event: &AgentEvent) {
@@ -49,7 +65,8 @@ impl HostState {
         };
         let token = self.terminals.push_token_for(client_id);
         let foreground = self.sessions.values().any(|slot| slot.client_id == client_id && !slot.background);
-        let reach = Reach { has_token: token.is_some(), foreground };
+        let finish_alert = self.agents.finish_alert_of(client_id, session_id);
+        let reach = Reach { has_token: token.is_some(), foreground, finish_alert };
         let Some(push) = self.agent_pushes.observe(session_id, &event.payload, AGENT_NAME, reach) else {
             return;
         };
@@ -90,7 +107,8 @@ async fn run(shared: Shared, profile: Arc<HostProfile>) {
     loop {
         ticks.tick().await;
         let now = profile.clock.now_seconds();
-        deliver(supervised_pass(&mut supervised, &shared, ProblemSource::Agents, now, HostState::pump_agents));
+        let unix_now = i64::try_from(profile.clock.unix_seconds()).unwrap_or(i64::MAX);
+        deliver(supervised_pass(&mut supervised, &shared, ProblemSource::Agents, now, |state| state.pump_agents(unix_now)));
     }
 }
 
@@ -189,6 +207,57 @@ mod tests {
         registered(&mut state, "phone");
         state.plan_agent_push("phone", &AgentEvent::Closed { session_id: "chat".to_owned() });
         assert_eq!(state.notifications.next(), None);
+    }
+
+    fn saved_routine() -> peering_wire::agent::AgentRoutine {
+        #[cfg(windows)]
+        let directory = "C:\\work";
+        #[cfg(not(windows))]
+        let directory = "/work";
+        peering_wire::agent::AgentRoutine {
+            id: "11111111-2222-4333-8444-555555555555".to_owned(),
+            name: "Review".to_owned(),
+            agent_id: "claude".to_owned(),
+            directory: directory.to_owned(),
+            prompt: "Review".to_owned(),
+            schedule: peering_wire::agent::AgentRoutineSchedule::Every { minutes: 60 },
+            permission_mode: peering_wire::agent::AgentPermissionMode::Plan,
+            is_enabled: true,
+            stop_after_minutes: None,
+            notifies_when_done: None,
+            last_run: None,
+            next_run_at: None,
+        }
+    }
+
+    #[test]
+    fn a_saved_routine_is_answered_with_the_list_and_belongs_to_its_client() {
+        let shared = shared();
+        let mut state = shared.lock();
+        let events = state.handle_agent_request("phone", AgentRequest::SaveRoutine { routine: saved_routine() }, 1_000);
+        assert!(matches!(events.as_slice(), [AgentEvent::Routines { routines }] if routines.len() == 1));
+        let other = state.handle_agent_request("other", AgentRequest::ListRoutines {}, 1_000);
+        assert!(matches!(other.as_slice(), [AgentEvent::Routines { routines }] if routines.is_empty()));
+    }
+
+    #[test]
+    fn a_chat_request_still_reaches_the_chats() {
+        let shared = shared();
+        let mut state = shared.lock();
+        let events = state.handle_agent_request("phone", AgentRequest::List {}, 1_000);
+        assert!(matches!(events.as_slice(), [AgentEvent::Snapshot { sessions }] if sessions.is_empty()));
+    }
+
+    #[test]
+    fn a_due_routine_on_a_pc_without_the_agent_is_skipped_and_nothing_is_sent() {
+        let shared = shared();
+        let mut state = shared.lock();
+        state.handle_agent_request("phone", AgentRequest::SaveRoutine { routine: saved_routine() }, 1_000);
+        assert!(state.pump_agents(1_000 + 3_600).is_empty());
+        let listed = state.handle_agent_request("phone", AgentRequest::ListRoutines {}, 1_000 + 3_600);
+        let [AgentEvent::Routines { routines }] = listed.as_slice() else { panic!("{listed:?}") };
+        let run = routines[0].last_run.as_ref().expect("the skip is recorded");
+        assert_eq!(run.outcome, peering_wire::agent::AgentRoutineOutcome::Skipped);
     }
 
     #[test]

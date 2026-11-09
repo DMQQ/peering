@@ -18,6 +18,12 @@ class UploadPlanTest {
     }
 
     @Test
+    fun beginWriteCarriesTheWholeFilesChecksum() {
+        val requests = UploadPlan.requests(sessionID, "/a.bin", 5, pieces(5), md5 = "abc").toList()
+        assertEquals(TerminalRequest.BeginWrite(sessionID, "/a.bin", 5, md5 = "abc"), requests.first())
+    }
+
+    @Test
     fun theLastPieceIsTheOneThatReachesTheDeclaredSize() {
         val requests = UploadPlan.requests(sessionID, "/a.bin", 10, pieces(4, 4, 2)).toList().drop(1)
         assertEquals(listOf(false, false, true), requests.map { (it as TerminalRequest.WriteChunk).isLast })

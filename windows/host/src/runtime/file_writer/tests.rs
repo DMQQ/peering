@@ -52,7 +52,7 @@ impl Rig {
 }
 
 fn begin(total_bytes: i64) -> TerminalRequest {
-    TerminalRequest::BeginWrite { session_id: SESSION.to_owned(), path: PATH.to_owned(), total_bytes }
+    TerminalRequest::BeginWrite { session_id: SESSION.to_owned(), path: PATH.to_owned(), total_bytes, md5: None }
 }
 
 fn piece(data: &[u8], is_last: bool) -> TerminalRequest {

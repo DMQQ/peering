@@ -6,7 +6,8 @@ sealed class FileTransfer {
 
     data class Running(val plan: FileDownloadPlan) : FileTransfer()
 
-    data class Finished(val sourcePath: String) : FileTransfer()
+    /** [expectedMd5] is what the Mac read, for the writer to check the finished file against; null when it sent none. */
+    data class Finished(val sourcePath: String, val expectedMd5: String? = null) : FileTransfer()
 
     data class Failed(val sourcePath: String, val reason: DownloadFailure) : FileTransfer()
 }
