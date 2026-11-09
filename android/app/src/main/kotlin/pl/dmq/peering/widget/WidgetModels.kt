@@ -45,6 +45,9 @@ data class AgentsSnapshot(
     val waiting: Int get() = chats.count { it.tone == AgentChatTone.NEEDS_YOU }
     val working: Int get() = chats.count { it.tone == AgentChatTone.WORKING }
 
+    /** The chats asking for an answer, which the Waiting on you widget lists. */
+    val needingYou: List<AgentChatEntry> get() = chats.filter { it.tone == AgentChatTone.NEEDS_YOU }
+
     /** A list the app stopped refreshing (it was closed) reads as old, not live. */
     fun isStale(nowSeconds: Long): Boolean = chats.isNotEmpty() && nowSeconds - publishedAtSeconds > STALE_AFTER_SECONDS
 
@@ -52,3 +55,18 @@ data class AgentsSnapshot(
         const val STALE_AFTER_SECONDS = 600L
     }
 }
+
+/** How a routine's last run went, in the terms the Routines widget draws. */
+enum class RoutineTone { NEVER_RUN, RUNNING, SUCCEEDED, FAILED, STOPPED, SKIPPED }
+
+/** [nextRunAtMillis] is Unix time in milliseconds, or null when the Mac has not scheduled one. */
+data class RoutineEntry(
+    val id: String,
+    val name: String,
+    val tone: RoutineTone,
+    val nextRunAtMillis: Long?,
+    val isEnabled: Boolean,
+)
+
+/** The routines of the computer the phone last looked at, running ones first. */
+data class RoutinesSnapshot(val routines: List<RoutineEntry> = emptyList())

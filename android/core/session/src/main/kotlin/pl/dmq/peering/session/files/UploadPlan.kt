@@ -6,7 +6,7 @@ import pl.dmq.peering.wire.toBase64
 
 object UploadPlan {
     /**
-     * The requests that send one file: `beginWrite` with the declared size, then `writeChunk` pieces, the last one
+     * The requests that send one file: `beginWrite` with the declared size and the whole file's [md5], then `writeChunk` pieces, the last one
      * marked `isLast`. [pieces] is read lazily, so a large file never sits in memory whole. A file that ends before
      * its declared size, or an empty file, still gets a final empty `isLast` piece, which tells the Mac to finish.
      */
@@ -15,8 +15,9 @@ object UploadPlan {
         path: String,
         totalBytes: Long,
         pieces: Iterator<ByteArray>,
+        md5: String? = null,
     ): Sequence<TerminalRequest> = sequence {
-        yield(TerminalRequest.BeginWrite(sessionID, path, totalBytes))
+        yield(TerminalRequest.BeginWrite(sessionID, path, totalBytes, md5))
         var sent = 0L
         var finished = false
         while (!finished) {

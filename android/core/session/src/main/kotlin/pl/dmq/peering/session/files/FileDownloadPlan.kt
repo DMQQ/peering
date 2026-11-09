@@ -12,6 +12,8 @@ data class FileDownloadPlan(
     val isFolder: Boolean,
     val readPath: String?,
     val window: FileDownloadWindow = FileDownloadWindow(),
+    /** The whole file's checksum, which the Mac sends with the piece at offset 0; null until that piece arrives. */
+    val expectedMd5: String? = null,
 ) {
     /** Zipping on the Mac has not finished, so no piece can be asked for yet. */
     val isZipping: Boolean get() = readPath == null
@@ -37,11 +39,11 @@ data class FileDownloadPlan(
      * A piece of [readPath] arrived; the caller has written its bytes at [offset] already. The size is checked
      * before the piece is accepted, so a file over the limit is refused without a single request for its data.
      */
-    fun onFileRange(path: String, offset: Long, totalBytes: Long, byteCount: Int): DownloadStep {
+    fun onFileRange(path: String, offset: Long, totalBytes: Long, byteCount: Int, md5: String? = null): DownloadStep {
         if (path != readPath) return DownloadStep.Ignored
         if (totalBytes > TransferLimits.MAXIMUM_DOWNLOAD_BYTES) return DownloadStep.Failed(DownloadFailure.TooLarge)
         val (nextWindow, offsets) = window.received(byteCount, totalBytes)
-        val next = copy(window = nextWindow)
+        val next = copy(window = nextWindow, expectedMd5 = md5?.lowercase() ?: expectedMd5)
         if (nextWindow.isComplete) return DownloadStep.Complete(next)
         if (byteCount == 0 && offsets.isEmpty()) return DownloadStep.Failed(DownloadFailure.ShortRead)
         return DownloadStep.Continue(next, offsets.map { TerminalRequest.ReadRange(sessionID, path, it) })

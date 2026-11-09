@@ -9,6 +9,7 @@ import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentResumableSession
+import pl.dmq.peering.wire.AgentRoutine
 
 /**
  * What the agents screens ask of the session layer. The session controller implements it by sending the matching
@@ -21,6 +22,15 @@ interface AgentsPort {
     val resumable: StateFlow<List<AgentResumableSession>?>
 
     val browseEvents: Flow<AgentEvent>
+
+    /** Every routine on the computer; null until it has listed them. */
+    val routines: StateFlow<List<AgentRoutine>?>
+
+    /** Why the computer refused the last routine request. */
+    val routineFailure: StateFlow<String?>
+
+    /** False for a host that does not run routines, so nothing about them is offered. */
+    val routinesOffered: Boolean
 
     /** What git says about each chat's folder, and the commit or push in flight. */
     val changes: StateFlow<AgentChangesByChat>
@@ -63,4 +73,12 @@ interface AgentsPort {
     fun commitChanges(sessionID: String, paths: List<String>, message: String)
 
     fun pushChanges(sessionID: String)
+
+    fun listRoutines()
+
+    fun saveRoutine(routine: AgentRoutine)
+
+    fun deleteRoutine(id: String)
+
+    fun runRoutineNow(id: String)
 }

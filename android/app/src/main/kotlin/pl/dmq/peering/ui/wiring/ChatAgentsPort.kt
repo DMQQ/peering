@@ -11,18 +11,27 @@ import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentResumableSession
+import pl.dmq.peering.wire.AgentRoutine
 
 /**
  * The agents screens over the session's agent chat. The chat acts on the selected session, so each call that names a
  * session selects it first.
  */
-internal class ChatAgentsPort(private val chat: AgentChat, override val preview: PreviewProxyClient?) : AgentsPort {
+internal class ChatAgentsPort(
+    private val chat: AgentChat,
+    override val preview: PreviewProxyClient?,
+    override val routinesOffered: Boolean,
+) : AgentsPort {
     override val chats: StateFlow<AgentChatState> get() = chat.state
 
 
     override val resumable: StateFlow<List<AgentResumableSession>?> get() = chat.resumable
 
     override val browseEvents: Flow<AgentEvent> get() = chat.browseEvents
+
+    override val routines: StateFlow<List<AgentRoutine>?> get() = chat.routines
+
+    override val routineFailure: StateFlow<String?> get() = chat.routineFailure
 
     override val changes: StateFlow<AgentChangesByChat> get() = chat.changes
 
@@ -72,4 +81,12 @@ internal class ChatAgentsPort(private val chat: AgentChat, override val preview:
         chat.commitChanges(sessionID, paths, message)
 
     override fun pushChanges(sessionID: String) = chat.pushChanges(sessionID)
+
+    override fun listRoutines() = chat.listRoutines()
+
+    override fun saveRoutine(routine: AgentRoutine) = chat.saveRoutine(routine)
+
+    override fun deleteRoutine(id: String) = chat.deleteRoutine(id)
+
+    override fun runRoutineNow(id: String) = chat.runRoutineNow(id)
 }

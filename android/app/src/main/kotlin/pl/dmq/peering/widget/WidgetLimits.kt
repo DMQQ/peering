@@ -4,6 +4,7 @@ package pl.dmq.peering.widget
 internal object WidgetLimits {
     const val MAX_CHATS = 30
     const val MAX_COMPUTERS = 50
+    const val MAX_ROUTINES = 20
     const val MAX_TEXT = 120
 
     fun text(value: String): String = value.take(MAX_TEXT)

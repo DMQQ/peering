@@ -11,8 +11,9 @@ import pl.dmq.peering.session.agent.changes.AgentChangesReducer
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentRequest
-import pl.dmq.peering.wire.AgentResumableSession
+import pl.dmq.peering.wire.AgentRoutine
 import pl.dmq.peering.wire.decoded
+import pl.dmq.peering.wire.AgentResumableSession
 
 /**
  * The agent chat screen's state, driven by Mac events and user intents. Folder listings are not chat state: they go to [browseEvents], which the
@@ -28,7 +29,20 @@ class AgentChat(
 
     private val mutableChanges = MutableStateFlow<AgentChangesByChat>(emptyMap())
 
+    private val mutableRoutines = MutableStateFlow<List<AgentRoutine>?>(null)
+
+    private val mutableRoutineFailure = MutableStateFlow<String?>(null)
+
+    /** True from a routine request until the Mac answers it, so a failure with no chat is read as the answer to it. */
+    private var awaitingRoutines = false
+
     val state: StateFlow<AgentChatState> = mutableState.asStateFlow()
+
+    /** Every routine on the Mac; null until it has listed them. */
+    val routines: StateFlow<List<AgentRoutine>?> = mutableRoutines.asStateFlow()
+
+    /** Why the Mac refused the last routine request; cleared by the next one. */
+    val routineFailure: StateFlow<String?> = mutableRoutineFailure.asStateFlow()
 
     /** What git says about each chat's folder, and the commit or push in flight. */
     val changes: StateFlow<AgentChangesByChat> = mutableChanges.asStateFlow()
@@ -42,6 +56,17 @@ class AgentChat(
     fun onEvent(event: AgentEvent) {
         if (event is AgentEvent.Resumable) {
             mutableResumable.value = event.decoded()
+            return
+        }
+        if (event is AgentEvent.Routines) {
+            mutableRoutines.value = event.decoded()
+            mutableRoutineFailure.value = null
+            awaitingRoutines = false
+            return
+        }
+        if (event is AgentEvent.Failed && event.sessionID == null && awaitingRoutines) {
+            mutableRoutineFailure.value = event.message
+            awaitingRoutines = false
             return
         }
         AgentChangesReducer.onEvent(mutableChanges.value, event)?.let {
@@ -115,6 +140,20 @@ class AgentChat(
     /** Stops the chat's process and keeps its conversation; the next prompt picks it up. */
     fun pause(sessionID: String) {
         send(AgentRequest.Pause(sessionID))
+    }
+
+    fun listRoutines() = sendRoutineRequest(AgentRequest.ListRoutines)
+
+    fun saveRoutine(routine: AgentRoutine) = sendRoutineRequest(AgentRequest.SaveRoutine(routine))
+
+    fun deleteRoutine(id: String) = sendRoutineRequest(AgentRequest.DeleteRoutine(id))
+
+    fun runRoutineNow(id: String) = sendRoutineRequest(AgentRequest.RunRoutineNow(id))
+
+    private fun sendRoutineRequest(request: AgentRequest) {
+        awaitingRoutines = true
+        mutableRoutineFailure.value = null
+        send(request)
     }
 
     fun listResumable() {

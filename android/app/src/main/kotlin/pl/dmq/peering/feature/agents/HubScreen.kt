@@ -26,6 +26,8 @@ fun HubScreen(
     guide: HubGuidePresenter,
     review: ReviewInbox,
     onOpenReview: () -> Unit,
+    routinesCount: Int?,
+    onOpenRoutines: (() -> Unit)?,
     onSessionOpened: () -> Unit,
     onChatStarted: () -> Unit,
     modifier: Modifier = Modifier,
@@ -45,7 +47,7 @@ fun HubScreen(
                 onBack = presenter::cancelNewChat,
             )
         } else {
-            HubBody(ui, presenter, guide, review, onOpenReview, onSessionOpened, onChatStarted)
+            HubBody(ui, presenter, guide, review, onOpenReview, routinesCount, onOpenRoutines, onSessionOpened, onChatStarted)
         }
     }
 }
@@ -57,6 +59,8 @@ private fun HubBody(
     guide: HubGuidePresenter,
     review: ReviewInbox,
     onOpenReview: () -> Unit,
+    routinesCount: Int?,
+    onOpenRoutines: (() -> Unit)?,
     onSessionOpened: () -> Unit,
     onChatStarted: () -> Unit,
 ) {
@@ -69,6 +73,8 @@ private fun HubBody(
             guide = guide,
             review = review,
             onOpenReview = onOpenReview,
+            routinesCount = routinesCount,
+            onOpenRoutines = onOpenRoutines,
             onClose = { closing = it },
             onRename = { renaming = it },
             onSessionOpened = onSessionOpened,

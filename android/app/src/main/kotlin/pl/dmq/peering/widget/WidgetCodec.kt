@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -70,6 +71,37 @@ object WidgetCodec {
             publishedAtSeconds = root.long("publishedAt"),
         )
     } ?: AgentsSnapshot()
+
+    fun encode(snapshot: RoutinesSnapshot): String = buildJsonObject {
+        put("routines", buildJsonArray {
+            snapshot.routines.forEach { routine ->
+                add(buildJsonObject {
+                    put("id", routine.id)
+                    put("name", routine.name)
+                    put("tone", routine.tone.name)
+                    put("nextRunAt", routine.nextRunAtMillis)
+                    put("isEnabled", routine.isEnabled)
+                })
+            }
+        })
+    }.toString()
+
+    fun decodeRoutines(text: String?): RoutinesSnapshot = parse(text) { root ->
+        RoutinesSnapshot(
+            root.array("routines").mapNotNull { element ->
+                val item = element.jsonObject
+                val id = item.string("id") ?: return@mapNotNull null
+                val tone = RoutineTone.entries.firstOrNull { it.name == item.string("tone") } ?: return@mapNotNull null
+                RoutineEntry(
+                    id = id,
+                    name = item.string("name").orEmpty(),
+                    tone = tone,
+                    nextRunAtMillis = (item["nextRunAt"] as? JsonPrimitive)?.longOrNull,
+                    isEnabled = (item["isEnabled"] as? JsonPrimitive)?.booleanOrNull ?: true,
+                )
+            },
+        )
+    } ?: RoutinesSnapshot()
 
     private fun <T> parse(text: String?, read: (JsonObject) -> T): T? {
         if (text.isNullOrBlank()) return null

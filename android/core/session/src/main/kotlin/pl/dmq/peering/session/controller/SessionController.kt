@@ -77,6 +77,9 @@ class SessionController(
     /** The agent ids the host declared for chats (Claude Code and Codex for a host that predates the list), or none while no session is ready. */
     val declaredAgentIDs: List<String> get() = link?.hello?.let(::declaredAgents).orEmpty()
 
+    /** Whether the host runs scheduled agent routines: a Mac does, a Windows host does not. */
+    val routinesOffered: Boolean get() = link?.hello?.let(HostCapability.MacControls::declaredBy) == true
+
     /** Starts the session. Does nothing while one is already running. */
     fun connect() {
         if (job?.isActive == true) return

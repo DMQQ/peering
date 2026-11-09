@@ -61,6 +61,16 @@ class FileBrowser(
 
     fun cancelDownload() = commit(FileBrowserIntents.cancelDownload(mutableState.value))
 
+    /** The writer found the finished file does not match the Mac's checksum, so the download ends as failed. */
+    fun reportCorruptDownload() = mutableState.update { state ->
+        val transfer = state.transfer
+        if (transfer is FileTransfer.Finished) {
+            state.copy(transfer = FileTransfer.Failed(transfer.sourcePath, DownloadFailure.Corrupt))
+        } else {
+            state
+        }
+    }
+
     /** Makes [name] in the folder on screen. A name the computer would refuse is not sent. */
     fun create(name: String, kind: RemoteEntryKind) = changeInFolder {
         if (RemoteFileName.isValid(name)) listOf(RemoteFileOperation.Create(FilePath.child(it, name), kind)) else emptyList()
@@ -85,22 +95,22 @@ class FileBrowser(
      * Sends [pieces] as a file called [name] in the folder on screen and returns once the computer has answered or
      * the upload was cancelled. Reading a piece may block, so call it off the main thread.
      */
-    suspend fun upload(name: String, totalBytes: Long, pieces: Iterator<ByteArray>) {
+    suspend fun upload(name: String, totalBytes: Long, pieces: Iterator<ByteArray>, md5: String? = null) {
         val folder = mutableState.value.listing?.path ?: return
-        sendFile(folder, name, totalBytes, pieces)
+        sendFile(folder, name, totalBytes, pieces, md5)
     }
 
     /**
      * Sends [pieces] as a file called [name] in [folder], which need not be the one on screen: an agent chat sends
      * attachments to its own folder. The browsing scope is opened first, since no folder was listed to open it.
      */
-    suspend fun uploadInto(folder: String, name: String, totalBytes: Long, pieces: Iterator<ByteArray>) {
+    suspend fun uploadInto(folder: String, name: String, totalBytes: Long, pieces: Iterator<ByteArray>, md5: String? = null) {
         if (mutableState.value.upload is FileUpload.Running) return
         send(TerminalRequest.StartBrowser(browserID))
-        sendFile(folder, name, totalBytes, pieces)
+        sendFile(folder, name, totalBytes, pieces, md5)
     }
 
-    private suspend fun sendFile(folder: String, name: String, totalBytes: Long, pieces: Iterator<ByteArray>) {
+    private suspend fun sendFile(folder: String, name: String, totalBytes: Long, pieces: Iterator<ByteArray>, md5: String?) {
         if (mutableState.value.upload is FileUpload.Running) return
         val path = FilePath.child(folder, name)
         val refusal = when {
@@ -117,7 +127,7 @@ class FileBrowser(
                     failUpload(path, UploadFailure.Host(UPLOAD_TIMED_OUT))
                 }
                 try {
-                    for (request in UploadPlan.requests(browserID, path, totalBytes, counting(path, totalBytes, pieces))) {
+                    for (request in UploadPlan.requests(browserID, path, totalBytes, counting(path, totalBytes, pieces), md5)) {
                         if (mutableState.value.upload !is FileUpload.Running) return@coroutineScope
                         send(request)
                         yield()

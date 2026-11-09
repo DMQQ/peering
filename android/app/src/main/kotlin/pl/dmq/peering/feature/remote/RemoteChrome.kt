@@ -33,7 +33,7 @@ fun RemoteChrome(
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val insets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
     Box(modifier.fillMaxSize().windowInsetsPadding(insets)) {
-        PictureStatus(state.overlay.picture, handlers.onRetry, Modifier.align(Alignment.Center))
+        PictureStatus(state.overlay.picture, state.overlay.hostName, handlers.onRetry, Modifier.align(Alignment.Center))
         AnimatedVisibility(visible = state.shown, enter = Motion.enter, exit = Motion.leave) {
             if (landscape) LandscapeChrome(state, handlers, panel) else PortraitChrome(state, handlers, panel)
         }

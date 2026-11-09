@@ -28,6 +28,8 @@ class TerminalRequestTest {
         TerminalRequest.ArchiveFolder(sessionID, "/src") to """{"archiveFolder":{"sessionID":"$sessionID","path":"/src"}}""",
         TerminalRequest.BeginWrite(sessionID, "/a.txt", 11) to
             """{"beginWrite":{"sessionID":"$sessionID","path":"/a.txt","totalBytes":11}}""",
+        TerminalRequest.BeginWrite(sessionID, "/a.txt", 11, md5 = "49f68a5c8493ec2c0bf489821c21fc3b") to
+            """{"beginWrite":{"sessionID":"$sessionID","path":"/a.txt","totalBytes":11,"md5":"49f68a5c8493ec2c0bf489821c21fc3b"}}""",
         TerminalRequest.WriteChunk(sessionID, "/a.txt", "aGk=", isLast = true) to
             """{"writeChunk":{"sessionID":"$sessionID","path":"/a.txt","data":"aGk=","isLast":true}}""",
         TerminalRequest.ChangeFile(sessionID, RemoteFileOperation.Delete("/old")) to

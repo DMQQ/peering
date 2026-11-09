@@ -31,6 +31,8 @@ class TerminalEventTest {
             TerminalEvent.FileContents(sessionID, "/a.txt", RemoteFileKind.TEXT, 0, 2, "aGk=", isLast = true),
         """{"fileRange":{"sessionID":"$sessionID","path":"/a.bin","offset":4096,"totalBytes":8192,"data":"AQID"}}""" to
             TerminalEvent.FileRange(sessionID, "/a.bin", 4096, 8192, "AQID"),
+        """{"fileRange":{"sessionID":"$sessionID","path":"/a.bin","offset":0,"totalBytes":3,"data":"AQID","md5":"5289df737df57326fcdd22597afb1fac"}}""" to
+            TerminalEvent.FileRange(sessionID, "/a.bin", 0, 3, "AQID", md5 = "5289df737df57326fcdd22597afb1fac"),
         """{"archiveReady":{"sessionID":"$sessionID","folder":"/src","archivePath":"/tmp/src.zip","totalBytes":900}}""" to
             TerminalEvent.ArchiveReady(sessionID, "/src", "/tmp/src.zip", 900),
         """{"transferFailure":{"sessionID":"$sessionID","path":"/a","message":"Too big"}}""" to

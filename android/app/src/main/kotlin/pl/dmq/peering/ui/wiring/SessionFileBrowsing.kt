@@ -22,6 +22,7 @@ import pl.dmq.peering.session.files.FileUpload
 import pl.dmq.peering.session.files.ShellPath
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.files.TransferLimits
+import pl.dmq.peering.wire.FileChecksum
 import pl.dmq.peering.wire.RemoteDirectoryEntry
 import pl.dmq.peering.wire.RemoteEntryKind
 import java.io.IOException
@@ -133,8 +134,9 @@ internal class SessionFileBrowsing(
                 return false
             }
             name = document.name
+            val md5 = document.open().use { FileChecksum.of(it, document.size) }
             document.open().use { input ->
-                browser.upload(document.name, document.size, InputChunks(input, TransferLimits.UPLOAD_CHUNK_BYTES))
+                browser.upload(document.name, document.size, InputChunks(input, TransferLimits.UPLOAD_CHUNK_BYTES), md5)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled

@@ -50,6 +50,7 @@ fun PreviewDownload(status: DownloadStatus, presenter: FilePreviewPresenter) {
             when (val problem = status.problem) {
                 DownloadProblem.TooLarge -> stringResource(R.string.preview_too_large)
                 DownloadProblem.ShortRead -> stringResource(R.string.preview_short_read)
+                DownloadProblem.Corrupt -> stringResource(R.string.preview_corrupt)
                 DownloadProblem.Destination -> stringResource(R.string.preview_destination_failed)
                 is DownloadProblem.Transfer -> problem.message.ifBlank { stringResource(R.string.preview_download_failed) }
             },

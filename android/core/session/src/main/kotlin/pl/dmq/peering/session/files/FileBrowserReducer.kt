@@ -75,14 +75,14 @@ internal object FileBrowserReducer {
     private fun fileRange(state: FileBrowserState, event: TerminalEvent.FileRange): FileBrowserStep {
         val running = state.transfer as? FileTransfer.Running ?: return FileBrowserStep(state)
         val piece = event.dataBytes
-        return when (val step = running.plan.onFileRange(event.path, event.offset, event.totalBytes, piece.size)) {
+        return when (val step = running.plan.onFileRange(event.path, event.offset, event.totalBytes, piece.size, event.md5)) {
             is DownloadStep.Continue -> FileBrowserStep(
                 state.copy(transfer = FileTransfer.Running(step.plan)),
                 step.requests,
                 DownloadPiece(event.offset, piece),
             )
             is DownloadStep.Complete -> FileBrowserStep(
-                state.copy(transfer = FileTransfer.Finished(step.plan.sourcePath)),
+                state.copy(transfer = FileTransfer.Finished(step.plan.sourcePath, step.plan.expectedMd5)),
                 piece = DownloadPiece(event.offset, piece),
             )
             is DownloadStep.Failed -> FileBrowserStep(

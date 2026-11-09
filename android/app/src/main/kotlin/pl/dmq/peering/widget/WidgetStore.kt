@@ -10,6 +10,12 @@ class WidgetStore(context: Context) {
 
     fun agents(): AgentsSnapshot = WidgetCodec.decodeAgents(preferences.getString(AGENTS, null))
 
+    fun routines(): RoutinesSnapshot = WidgetCodec.decodeRoutines(preferences.getString(ROUTINES, null))
+
+    fun write(snapshot: RoutinesSnapshot) {
+        preferences.edit().putString(ROUTINES, WidgetCodec.encode(snapshot)).apply()
+    }
+
     fun write(snapshot: QuickConnectSnapshot) {
         preferences.edit().putString(QUICK_CONNECT, WidgetCodec.encode(snapshot)).apply()
     }
@@ -22,5 +28,6 @@ class WidgetStore(context: Context) {
         const val FILE = "peering_widgets"
         const val QUICK_CONNECT = "quick_connect"
         const val AGENTS = "agents"
+        const val ROUTINES = "routines"
     }
 }

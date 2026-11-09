@@ -11,6 +11,7 @@ import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentResumableSession
+import pl.dmq.peering.wire.AgentRoutine
 
 class FakeAgentsPort(
     initial: AgentChatState = AgentChatState(),
@@ -20,6 +21,16 @@ class FakeAgentsPort(
     val calls = mutableListOf<String>()
 
     val changesState = MutableStateFlow<AgentChangesByChat>(emptyMap())
+
+    val routineList = MutableStateFlow<List<AgentRoutine>?>(null)
+    val routineProblem = MutableStateFlow<String?>(null)
+    val saved = mutableListOf<AgentRoutine>()
+
+    override val routines: StateFlow<List<AgentRoutine>?> get() = routineList
+
+    override val routineFailure: StateFlow<String?> get() = routineProblem
+
+    override val routinesOffered: Boolean = true
 
     override val preview: PreviewProxyClient? = null
 
@@ -93,6 +104,23 @@ class FakeAgentsPort(
 
     override fun commitChanges(sessionID: String, paths: List<String>, message: String) {
         calls += "commit:$sessionID:${paths.joinToString(",")}:$message"
+    }
+
+    override fun listRoutines() {
+        calls += "listRoutines"
+    }
+
+    override fun saveRoutine(routine: AgentRoutine) {
+        saved += routine
+        calls += "saveRoutine:${routine.id}"
+    }
+
+    override fun deleteRoutine(id: String) {
+        calls += "deleteRoutine:$id"
+    }
+
+    override fun runRoutineNow(id: String) {
+        calls += "runRoutineNow:$id"
     }
 
     override fun pushChanges(sessionID: String) {

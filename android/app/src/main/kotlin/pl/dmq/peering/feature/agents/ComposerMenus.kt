@@ -129,21 +129,21 @@ private fun OptionChip(title: String, icon: ImageVector, onClick: () -> Unit) {
     }
 }
 
-private fun permissionIcon(mode: AgentPermissionMode): ImageVector = when (mode) {
+internal fun permissionIcon(mode: AgentPermissionMode): ImageVector = when (mode) {
     AgentPermissionMode.MANUAL -> AgentIcons.hand
     AgentPermissionMode.ACCEPT_EDITS -> AgentIcons.acceptEdits
     AgentPermissionMode.PLAN -> AgentIcons.review
     AgentPermissionMode.AUTO -> AgentIcons.auto
 }
 
-private fun permissionTitle(mode: AgentPermissionMode): Int = when (mode) {
+internal fun permissionTitle(mode: AgentPermissionMode): Int = when (mode) {
     AgentPermissionMode.MANUAL -> R.string.permission_manual
     AgentPermissionMode.ACCEPT_EDITS -> R.string.permission_accept_edits
     AgentPermissionMode.PLAN -> R.string.permission_plan
     AgentPermissionMode.AUTO -> R.string.permission_auto
 }
 
-private fun permissionDetail(detail: PermissionDetail): Int = when (detail) {
+internal fun permissionDetail(detail: PermissionDetail): Int = when (detail) {
     PermissionDetail.ASKS_BEFORE_ACTING -> R.string.permission_detail_asks
     PermissionDetail.EDITS_WITHOUT_ASKING -> R.string.permission_detail_edits
     PermissionDetail.WORKS_INSIDE_FOLDER -> R.string.permission_detail_folder
