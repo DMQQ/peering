@@ -18,7 +18,7 @@ class QualityCeilingTest {
 
     @Test
     fun localAndDirectSessionsAreNeverCapped() {
-        assertEquals(QualityTier.HIGH, QualityCeiling.of(SessionRecord.Path.LAN, unlimitedRelay = false))
-        assertEquals(QualityTier.HIGH, QualityCeiling.of(SessionRecord.Path.DIRECT, unlimitedRelay = false))
+        assertEquals(QualityTier.ULTRA, QualityCeiling.of(SessionRecord.Path.LAN, unlimitedRelay = false))
+        assertEquals(QualityTier.ULTRA, QualityCeiling.of(SessionRecord.Path.DIRECT, unlimitedRelay = false))
     }
 }

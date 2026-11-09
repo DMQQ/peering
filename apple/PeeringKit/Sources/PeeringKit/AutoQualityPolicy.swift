@@ -10,15 +10,16 @@ public struct AutoQualityPolicy: Sendable {
     }
 
     public enum Tier: Int, Sendable, Equatable {
-        case low, medium, high
+        case low, medium, high, ultra
 
-        /// Read from ``VideoQualityTier``, because the host caps a stream at the same three
+        /// Read from ``VideoQualityTier``, because the host caps a stream at the same
         /// numbers: a table written out twice is two ends that can disagree about a tier.
         public var bitrateKbps: Int {
             switch self {
             case .low: return VideoQualityTier.low.rawValue
             case .medium: return VideoQualityTier.medium.rawValue
             case .high: return VideoQualityTier.high.rawValue
+            case .ultra: return VideoQualityTier.ultra.rawValue
             }
         }
 
@@ -27,11 +28,13 @@ public struct AutoQualityPolicy: Sendable {
             case .low: return 0
             case .medium: return 1
             case .high: return 2
+            case .ultra: return 3
             }
         }
 
         var lower: Tier {
             switch self {
+            case .ultra: return .high
             case .high: return .medium
             case .medium, .low: return .low
             }
@@ -40,7 +43,8 @@ public struct AutoQualityPolicy: Sendable {
         var higher: Tier {
             switch self {
             case .low: return .medium
-            case .medium, .high: return .high
+            case .medium: return .high
+            case .high, .ultra: return .ultra
             }
         }
     }
@@ -52,7 +56,7 @@ public struct AutoQualityPolicy: Sendable {
     private let ceiling: Tier
     private var healthySamples = 0
 
-    public init(path: Path, ceiling: Tier = .high) {
+    public init(path: Path, ceiling: Tier = .ultra) {
         self.path = path
         self.ceiling = ceiling
         tier = path == .relay ? .medium : .high

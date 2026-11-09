@@ -131,7 +131,7 @@ final class DialRace {
         }
         session.wire = winner.wire
         session.connectionPath = winner.path
-        session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
+        session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath, ceiling: session.videoCeiling)
         winner.wire.videoFallbackEnabled = winner.path != .lan
         session.dialRace = nil
         for event in winner.buffer { session.apply(event) }

@@ -21,7 +21,7 @@ extension MacSession {
     }
 
     private var planCeiling: AutoQualityPolicy.Tier {
-        guard autoQualityPath == .relay else { return .high }
+        guard autoQualityPath == .relay else { return .ultra }
         return model.storeManager.relayPlan.isUnlimited ? .high : .medium
     }
 

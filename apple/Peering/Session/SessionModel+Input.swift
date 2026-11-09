@@ -371,7 +371,7 @@ extension SessionModel {
     }
 
     var videoCeiling: AutoQualityPolicy.Tier {
-        activeSession?.videoCeiling ?? .high
+        activeSession?.videoCeiling ?? .ultra
     }
 
     /// The Settings tab is unreachable mid-session, so the no-session branch is the case it exists for: it writes the choice down and the next session reads it back.

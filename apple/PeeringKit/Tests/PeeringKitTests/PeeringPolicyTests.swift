@@ -24,6 +24,18 @@ final class PeeringPolicyTests: XCTestCase {
         XCTAssertEqual(AutoQualityPolicy(path: .relay).tier, .medium)
     }
 
+    func testAutoQualityClimbsPastHighOnlyWhereTheCeilingAllowsIt() {
+        var lan = AutoQualityPolicy(path: .lan)
+        var capped = AutoQualityPolicy(path: .lan, ceiling: .high)
+        for _ in 0..<(AutoQualityPolicy.healthySamplesForUpgrade - 1) {
+            XCTAssertNil(lan.observe(latencyMilliseconds: 20, newDroppedFrames: 0))
+            XCTAssertNil(capped.observe(latencyMilliseconds: 20, newDroppedFrames: 0))
+        }
+        XCTAssertEqual(lan.observe(latencyMilliseconds: 20, newDroppedFrames: 0), .ultra)
+        XCTAssertNil(capped.observe(latencyMilliseconds: 20, newDroppedFrames: 0))
+        XCTAssertEqual(lan.observe(latencyMilliseconds: 190, newDroppedFrames: 0), .high)
+    }
+
     func testAutoQualityDropsImmediatelyWhenLatencyOrDropsRise() {
         var policy = AutoQualityPolicy(path: .lan)
 

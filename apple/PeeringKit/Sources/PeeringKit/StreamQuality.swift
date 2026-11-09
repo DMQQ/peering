@@ -73,7 +73,7 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
         switch tier {
         case .low: self = .low
         case .medium: self = .medium
-        case .high: self = .high
+        case .high, .ultra: self = .high
         }
     }
 }
