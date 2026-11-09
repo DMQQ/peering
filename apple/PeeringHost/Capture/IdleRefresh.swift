@@ -7,14 +7,14 @@ import RemoteCore
 /// The refresh frames are the real last buffer, not synthetic ones (see ``CapturePipeline/idleFramesEnabled``).
 final class IdleRefresh: @unchecked Sendable {
     private let queue = DispatchQueue(label: "pl.dmq.peering.capture.idle-refresh", qos: .userInitiated)
-    /// Guards every property below. Held across the refresh so a real frame's ``note(_:source:)`` waits for it and presentation times stay increasing.
+    /// Guards every property below, and is held across the refresh on purpose: a real frame's ``note(_:)`` waits for a refresh in flight, so a stale picture can never be encoded after a newer one. The real frame encodes inline on the capture thread too, so this adds no new wait for the encoder.
     private let lock = NSLock()
-    private var pending: DispatchWorkItem?
+    /// Bumped by every real frame and by ``cancel()``; a scheduled repeat that finds a different number is stale and does nothing.
+    private var generation = 0
     private var last: (frame: CapturedFrame, notedAt: DispatchTime)?
-
     private var repeatsDone = 0
 
-    /// Called on `queue` with the last frame, and a presentation time later than any already encoded.
+    /// Called on `queue` with the last frame and a presentation time later than that frame's.
     private let refresh: @Sendable (CapturedFrame, CMTime) -> Void
 
     init(refresh: @escaping @Sendable (CapturedFrame, CMTime) -> Void) {
@@ -24,7 +24,7 @@ final class IdleRefresh: @unchecked Sendable {
     /// Call before a real frame is encoded: it replaces the held picture and restarts the wait.
     func note(_ frame: CapturedFrame) {
         lock.withLock {
-            pending?.cancel()
+            generation &+= 1
             last = (frame, DispatchTime.now())
             repeatsDone = 0
             schedule(repeat: 0)
@@ -34,30 +34,28 @@ final class IdleRefresh: @unchecked Sendable {
     /// Releases the held picture, so a stopped stream does not keep one of the capture pool's buffers.
     func cancel() {
         lock.withLock {
-            pending?.cancel()
-            pending = nil
+            generation &+= 1
             last = nil
         }
     }
 
-    /// Call with `lock` held.
-    private func schedule(repeat index: Int) {
-        guard let delay = StillPictureRefresh.delayMilliseconds(beforeRepeat: index) else { return }
-        let work = DispatchWorkItem { [weak self] in self?.fire() }
-        pending = work
-        queue.asyncAfter(deadline: .now() + .milliseconds(delay), execute: work)
+    /// False when `index` is past the last repeat. Call with `lock` held.
+    @discardableResult
+    private func schedule(repeat index: Int) -> Bool {
+        guard let delay = StillPictureRefresh.delayMilliseconds(beforeRepeat: index) else { return false }
+        let scheduledFor = generation
+        queue.asyncAfter(deadline: .now() + .milliseconds(delay)) { [weak self] in self?.fire(generation: scheduledFor) }
+        return true
     }
 
-    private func fire() {
+    private func fire(generation scheduledFor: Int) {
         lock.withLock {
-            guard let held = last, pending?.isCancelled == false else { return }
+            guard scheduledFor == generation, let held = last else { return }
             repeatsDone += 1
-            pending = nil
-            schedule(repeat: repeatsDone)
+            // The pool buffer is needed only until the last repeat; holding it longer starves the capture stream while the screen is still.
+            if !schedule(repeat: repeatsDone) { last = nil }
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - held.notedAt.uptimeNanoseconds) / 1_000_000_000
-            let time = CMTimeAdd(held.frame.presentationTime, CMTime(seconds: elapsed, preferredTimescale: 1_000_000))
-            // Called with the lock held on purpose: the encoder does not call back into this type.
-            refresh(held.frame, time)
+            refresh(held.frame, CMTimeAdd(held.frame.presentationTime, CMTime(seconds: elapsed, preferredTimescale: 1_000_000)))
         }
     }
 }

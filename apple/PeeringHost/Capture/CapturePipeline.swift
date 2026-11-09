@@ -116,6 +116,7 @@ final class CapturePipeline: @unchecked Sendable {
         self.preferredCodec = codec
         self.activeCodec = codec
         self.overlay = nil
+        _ = idleRefresh
     }
 
     var currentSource: CaptureSource? {

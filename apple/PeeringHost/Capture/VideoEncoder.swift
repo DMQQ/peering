@@ -11,6 +11,8 @@ private let encoderLog = Logger(subsystem: "pl.dmq.peering.host", category: "enc
 /// The session is created once: rebuilding costs a keyframe and a stall, so nothing tears it down to change an option. Keyframes are asked per frame via requestKeyframe().
 final class VideoEncoder: @unchecked Sendable {
     private let lock = NSLock()
+    /// Guarded by ``lock``. Presentation times handed to the session only go up, whichever path a frame came by.
+    private var lastPresentationSeconds: Double?
     private var session: VTCompressionSession?
     private var forceKeyframePending = false
     private var encodedCount = 0
@@ -117,7 +119,7 @@ final class VideoEncoder: @unchecked Sendable {
         Self.setRate(session, bitsPerSecond: bitRate)
         Self.set(session, kVTCompressionPropertyKey_ProfileLevel, codec.profileLevel)
 
-// A safety net, not the recovery path: a client that joins or drops frames asks for a keyframe (see StillPictureRefresh and RemoteCommand.requestKeyframe). A keyframe at 5K is a burst of megabytes, so they are kept rare.
+// A safety net, not the recovery path: a client that joins or drops frames asks for a keyframe (RemoteCommand.requestKeyframe). A keyframe at 5K is a burst of megabytes, so they are kept rare.
         Self.set(session, kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration, NSNumber(value: KeyframeInterval.seconds))
 
 // Reordering defaults to true and must be off: it buffers frames, which shows up as permanent latency. A screen share has no B-frames.
@@ -160,6 +162,7 @@ final class VideoEncoder: @unchecked Sendable {
             properties = [kVTEncodeFrameOptionKey_ForceKeyFrame: true] as CFDictionary
         }
 
+        let presentationTime = orderedPresentationTime(frame.presentationTime)
         let duration = frame.duration.isValid ? frame.duration : CMTime(value: 1, timescale: CMTimeScale(frameRate))
         // Capture the small value, not `frame`: retaining the whole frame in VideoToolbox's
         // asynchronous callback would also retain the pixel buffer after it has been submitted.
@@ -171,7 +174,7 @@ final class VideoEncoder: @unchecked Sendable {
         let status = VTCompressionSessionEncodeFrame(
             session,
             imageBuffer: frame.pixelBuffer,
-            presentationTimeStamp: frame.presentationTime,
+            presentationTimeStamp: presentationTime,
             duration: duration,
             frameProperties: properties,
             infoFlagsOut: &infoFlags
@@ -192,6 +195,14 @@ final class VideoEncoder: @unchecked Sendable {
 // The block gets its own copy of the flags and finish runs for every frame; counting both would double-count drops.
         if infoFlags.contains(.frameDropped) {
             encoderLog.debug("frame dropped on submit")
+        }
+    }
+
+    private func orderedPresentationTime(_ time: CMTime) -> CMTime {
+        lock.withLock {
+            let ordered = PresentationTimeOrder.strictlyAfter(time.seconds, last: lastPresentationSeconds)
+            lastPresentationSeconds = ordered
+            return ordered == time.seconds ? time : CMTime(seconds: ordered, preferredTimescale: 1_000_000_000)
         }
     }
 
