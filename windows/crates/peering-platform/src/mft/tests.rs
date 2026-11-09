@@ -41,7 +41,7 @@ fn zero_frame_rate_is_rejected() {
 
 #[test]
 fn the_keyframe_interval_is_two_seconds_of_frames() {
-    assert_eq!(EncoderSettings::new(1920, 1080, 60, 0).unwrap().gop_size(), 120);
+    assert_eq!(EncoderSettings::new(1920, 1080, 60, 0).unwrap().gop_size(), 600);
 }
 
 #[test]

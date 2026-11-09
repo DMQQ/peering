@@ -117,8 +117,8 @@ final class VideoEncoder: @unchecked Sendable {
         Self.setRate(session, bitsPerSecond: bitRate)
         Self.set(session, kVTCompressionPropertyKey_ProfileLevel, codec.profileLevel)
 
-// Worst case for a client joining mid-stream and cap on how long corruption lasts; new clients use requestKeyframe() instead.
-        Self.set(session, kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration, NSNumber(value: 2))
+// A safety net, not the recovery path: a client that joins or drops frames asks for a keyframe (see StillPictureRefresh and RemoteCommand.requestKeyframe). A keyframe at 5K is a burst of megabytes, so they are kept rare.
+        Self.set(session, kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration, NSNumber(value: KeyframeInterval.seconds))
 
 // Reordering defaults to true and must be off: it buffers frames, which shows up as permanent latency. A screen share has no B-frames.
         let reordering = VTSessionSetProperty(
