@@ -22,6 +22,17 @@ struct AgentRoutineWireTests {
         let run = AgentRoutineRun(startedAt: Date(timeIntervalSince1970: 1_800_000_000), outcome: .skipped, detail: "Not installed")
         let routine = AgentRoutine(
             name: "Hourly", agentID: "codex", directory: "/tmp", prompt: "Check CI.",
+
+    @Test func aRoutineSavedBeforeTheNotifyFieldDecodesAsUnset() throws {
+        let routine = AgentRoutine(
+            name: "Old", agentID: "claude", directory: "/tmp", prompt: "Go.",
+            schedule: .every(minutes: 60), permissionMode: .plan
+        )
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(routine)) as? [String: Any])
+        object.removeValue(forKey: "notifiesWhenDone")
+        let decoded = try JSONDecoder().decode(AgentRoutine.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.notifiesWhenDone == nil)
+    }
             schedule: .every(minutes: 60), permissionMode: .acceptEdits, lastRun: run
         )
         let decoded = try JSONDecoder().decode(AgentEvent.self, from: JSONEncoder().encode(AgentEvent.routines([routine])))

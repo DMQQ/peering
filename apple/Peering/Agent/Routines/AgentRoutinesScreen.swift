@@ -32,6 +32,7 @@ struct AgentRoutinesScreen: View {
                 .navigationDestination(for: AgentRoutineRoute.self, destination: page)
         }
         .preferredColorScheme(.dark)
+        .presentationBackground(ColorPalette.backdrop)
         .onAppear { model.refreshAgentRoutines() }
     }
 
@@ -43,6 +44,8 @@ struct AgentRoutinesScreen: View {
                 AgentRoutineEditor(draft: binding, isNew: !isSaved(binding.wrappedValue.id), chooseFolder: {
                     path.append(.folder(binding.wrappedValue.directory))
                 }, close: { path = [] })
+            } else {
+                ColorPalette.backdrop.ignoresSafeArea()
             }
         case .folder(let directory):
             AgentFolderPicker(
@@ -76,7 +79,7 @@ struct AgentRoutinesScreen: View {
             }
             .padding(16)
         }
-        .background(ColorPalette.backdrop)
+        .background(ColorPalette.backdrop.ignoresSafeArea())
         .refreshable { model.refreshAgentRoutines() }
     }
 

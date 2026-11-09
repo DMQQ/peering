@@ -25,6 +25,7 @@ extension AgentSessionManager {
             forget(old.id)
             sink?(.closed(sessionID: old.id))
         }
+        session.finishAlert = routine.notifiesWhenDone ?? true
         attach(adapter, to: session)
         sink?(.created(lock.withLock { session.info }))
         persist(session)

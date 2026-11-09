@@ -14,6 +14,8 @@ public struct AgentRoutine: Codable, Equatable, Sendable, Identifiable {
     public var schedule: AgentRoutineSchedule
     public var permissionMode: AgentPermissionMode
     public var isEnabled: Bool
+    /// Whether the phone is told when a run ends, wherever the phone is. Nil means yes, which is what a routine saved before this field existed did not say.
+    public var notifiesWhenDone: Bool?
     /// The Mac stops the run once it has gone on this long. Nil lets it finish.
     public var stopAfterMinutes: Int?
     /// Kept by the Mac: whatever the phone sends here is ignored.
@@ -29,6 +31,7 @@ public struct AgentRoutine: Codable, Equatable, Sendable, Identifiable {
         prompt: String,
         schedule: AgentRoutineSchedule,
         permissionMode: AgentPermissionMode,
+        notifiesWhenDone: Bool? = nil,
         isEnabled: Bool = true,
         stopAfterMinutes: Int? = nil,
         lastRun: AgentRoutineRun? = nil,
@@ -41,6 +44,7 @@ public struct AgentRoutine: Codable, Equatable, Sendable, Identifiable {
         self.prompt = prompt
         self.schedule = schedule
         self.permissionMode = permissionMode
+        self.notifiesWhenDone = notifiesWhenDone
         self.isEnabled = isEnabled
         self.stopAfterMinutes = stopAfterMinutes
         self.lastRun = lastRun
