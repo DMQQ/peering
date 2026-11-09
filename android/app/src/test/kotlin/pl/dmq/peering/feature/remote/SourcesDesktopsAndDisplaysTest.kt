@@ -21,7 +21,7 @@ import pl.dmq.peering.wire.WindowAction
 class SourcesDesktopsAndDisplaysTest {
     private val sink = RecordingCommandSink()
     private val presenter = SourcesPresenter(sink)
-    private val mac = SourcesFeatures(windowControls = true, virtualDisplays = true, desktops = true)
+    private val mac = SourcesFeatures(windowControls = true, desktops = true)
 
     @Test
     fun `switching to a desktop sends the display and its position`() {
@@ -107,7 +107,6 @@ class SourcesDesktopsAndDisplaysTest {
 
         assertEquals(listOf(TileAction.REMOVE, TileAction.RENAME), presenter.actionsFor(added, mac))
         assertEquals(emptyList<TileAction>(), presenter.actionsFor(real, mac))
-        assertEquals(emptyList<TileAction>(), presenter.actionsFor(added, SourcesFeatures(windowControls = true)))
 
         presenter.perform(added, TileAction.REMOVE)
         assertEquals(listOf<RemoteCommand>(RemoveVirtualDisplay(5)), sink.sent)

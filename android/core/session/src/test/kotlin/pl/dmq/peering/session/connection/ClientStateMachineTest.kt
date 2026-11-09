@@ -109,16 +109,6 @@ class ClientStateMachineTest {
     }
 
     @Test
-    fun theHelloDeclaresTheTextFocusFieldStateAndPointerReportFramesItReads() {
-        val actions = machine().start()
-
-        val hello = WireJson.decodeFromString(ClientHello.serializer(), actions[1].sentFrame().payload.decodeToString())
-        assertEquals(true, hello.supportsTextFocus)
-        assertEquals(true, hello.supportsFieldState)
-        assertEquals(true, hello.supportsPointerReport)
-    }
-
-    @Test
     fun aHostPinnedAndDialledDoesNotAskForPairing() {
         val pins = FakePinStore(mapOf(HostFrames.HOST_ID to HostFrames.hostKey))
         val actions = machine(pins, dialled = HostFrames.HOST_ID).start()

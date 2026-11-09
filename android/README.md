@@ -41,7 +41,7 @@ computer, returns to the session when tapped and has a Disconnect button. The se
 (Android refuses to start one from the background) and stops when the session ends. The Settings row "Keep sessions in
 the background" turns it off.
 
-* The phone tells the host it is in the background (`clientState`, only to a host that declared `supportsClientState`),
+* The phone tells the host it is in the background (`clientState`),
   so the Mac pauses the picture, and the host may stay silent for 30 s instead of 3 s before the link counts as lost.
 * With the service off, or when Android refuses to start it, Android may stop the connection of a backgrounded app (Doze,
   app standby, battery limits). A session lost while the app was away is started once more when the app returns, and a

@@ -6,7 +6,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentGitOperation
@@ -18,7 +17,7 @@ class AgentChangesTest {
     private val sent = mutableListOf<AgentRequest>()
     private val id = "A"
 
-    private fun chat(chat: Boolean = true) = AgentChat(AgentCapabilities(chat = chat)) { sent += it }
+    private fun chat() = AgentChat { sent += it }
 
     private fun changes(json: String) = AgentEvent.parse("""{"changes":{"sessionID":"$id","report":$json}}""")
 
@@ -35,16 +34,6 @@ class AgentChangesTest {
         val state = chat.changes.value.getValue(id)
         assertFalse(state.loading)
         assertNotNull(state.report)
-    }
-
-    @Test
-    fun nothingIsSentToAComputerThatDidNotDeclareChat() {
-        val chat = chat(chat = false)
-        chat.loadChanges(id)
-        chat.commitChanges(id, listOf("a"), "m")
-        chat.pushChanges(id)
-        assertTrue(sent.isEmpty())
-        assertTrue(chat.changes.value.isEmpty())
     }
 
     @Test

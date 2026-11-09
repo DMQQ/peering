@@ -46,7 +46,7 @@ class RelayConnectTest {
         val sent = signalling.sent.single() as RelayClientMessage.ConnectToHost
         assertEquals("host-1", sent.hostId)
         assertEquals("client-1", sent.clientId)
-        assertEquals(20, sent.protocolVersion)
+        assertEquals(21, sent.protocolVersion)
         assertEquals("paid", sent.plan)
         assertEquals("token", sent.playPurchaseToken)
         assertEquals("pro", sent.playProductId)

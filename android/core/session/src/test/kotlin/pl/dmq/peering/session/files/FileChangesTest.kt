@@ -22,7 +22,6 @@ class FileChangesTest {
 
     private fun start(changes: ScriptedFileHost = ScriptedFileHost(folders = emptyMap())) {
         browser = FileBrowser(
-            supportsFileBrowser = true,
             browserID = SCOPE,
             send = { request ->
                 sent += request

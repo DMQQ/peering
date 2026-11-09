@@ -3,7 +3,6 @@ package pl.dmq.peering.ui.wiring
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import pl.dmq.peering.feature.agents.AgentsPort
-import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
@@ -20,7 +19,6 @@ import pl.dmq.peering.wire.AgentResumableSession
 internal class ChatAgentsPort(private val chat: AgentChat, override val preview: PreviewProxyClient?) : AgentsPort {
     override val chats: StateFlow<AgentChatState> get() = chat.state
 
-    override val capabilities: AgentCapabilities get() = chat.capabilities
 
     override val resumable: StateFlow<List<AgentResumableSession>?> get() = chat.resumable
 

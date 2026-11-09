@@ -21,8 +21,8 @@ import pl.dmq.peering.wire.MessageKind
 
 class AgentSessionTest {
     @Test
-    fun anAgentChatIsOfferedAndItsRequestsAreSentWhenTheHostDeclaresIt() = runTest {
-        val mac = ScriptedMac(declare = { it.copy(supportsAgentChat = true) })
+    fun anAgentChatIsOfferedAndItsRequestsAreSent() = runTest {
+        val mac = ScriptedMac()
         val rig = lanRig(mac)
         rig.controller.connect()
         settle()
@@ -35,17 +35,6 @@ class AgentSessionTest {
         mac.connections.single().deliver(Frame(MessageKind.AgentEvent, AgentEvent.Snapshot(listOf(SESSION)).toJson().toByteArray()))
         settle()
         assertEquals(listOf(SESSION.id), chat.state.value.sessions.map { it.id })
-    }
-
-    @Test
-    fun withoutTheDeclarationThereIsNoAgentChatAndNothingIsSent() = runTest {
-        val mac = ScriptedMac()
-        val rig = lanRig(mac)
-        rig.controller.connect()
-        settle()
-
-        assertNull(rig.controller.agentChat)
-        assertTrue(mac.connections.single().phoneFrames.ofKind(MessageKind.AgentRequest).isEmpty())
     }
 
     private fun TestScope.lanRig(mac: ScriptedMac): ControllerRig = ControllerRig(

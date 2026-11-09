@@ -27,14 +27,10 @@ sealed interface ComposerHint {
     ) : ComposerHint
 }
 
-/** What the hints depend on besides the draft: which in-app commands the computer supports. */
-data class HintOffers(val usage: Boolean, val model: Boolean)
-
 /** Works out the hint for a draft, and asks the computer for the folders it needs. */
 class ComposerHints(
     ui: StateFlow<ComposerUi>,
     private val lister: DirectoryLister,
-    private val offers: HintOffers,
     scope: CoroutineScope,
 ) {
     val hint: StateFlow<ComposerHint> = combine(ui, lister.listings) { composer, listings -> derive(composer, listings) }
@@ -46,7 +42,7 @@ class ComposerHints(
         val slash = AgentSlash.query(ui.text)
         if (slash != null) {
             AgentSlash.folders(ui.directory, agentId).forEach(lister::request)
-            val items = AgentSlash.suggestions(slash, agentId, ui.directory, offers.usage, offers.model) { listings[it]?.entries }
+            val items = AgentSlash.suggestions(slash, agentId, ui.directory) { listings[it]?.entries }
             return ComposerHint.Slash(items)
         }
         val mention = MentionQuery.of(ui.text) ?: return ComposerHint.None

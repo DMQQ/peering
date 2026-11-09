@@ -48,7 +48,7 @@ class ReconnectSessionTest {
 
     @Test
     fun aPicturePausedBeforeAReconnectIsPausedAgainOnTheNewLink() = runTest {
-        val mac = ScriptedMac(declare = { it.copy(supportsVideoPause = true) })
+        val mac = ScriptedMac()
         val rig = lanRig(mac)
         rig.controller.connect()
         settle()
@@ -68,7 +68,7 @@ class ReconnectSessionTest {
 
     @Test
     fun aPauseAskedForBetweenLinksIsSentOnceOnTheNextLink() = runTest {
-        val mac = ScriptedMac(declare = { it.copy(supportsVideoPause = true) })
+        val mac = ScriptedMac()
         val rig = lanRig(mac)
         rig.controller.connect()
         settle()

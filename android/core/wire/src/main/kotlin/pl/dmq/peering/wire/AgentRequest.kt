@@ -4,8 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
 /**
- * Requests an authenticated client sends for an agent chat session. Sent only to a Mac that declared
- * `supportsAgentChat`. The cases that need a newer declaration are named in their KDoc.
+ * Requests an authenticated client sends for an agent chat session.
  */
 @Serializable(with = AgentRequestSerializer::class)
 sealed class AgentRequest {
@@ -57,15 +56,12 @@ sealed class AgentRequest {
     @Serializable
     data class Push(val sessionID: String) : AgentRequest()
 
-    /** Sent only to a Mac that declared `supportsAgentSessionImport`. */
     @Serializable
     data object ListResumable : AgentRequest()
 
-    /** Sent only to a Mac that declared `supportsAgentSessionImport`. */
     @Serializable
     data class Resume(val agentID: String, val cliSessionID: String) : AgentRequest()
 
-    /** Sent only to a Mac that declared `supportsAgentPause`. */
     @Serializable
     data class Pause(val sessionID: String) : AgentRequest()
 

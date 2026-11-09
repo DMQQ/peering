@@ -6,6 +6,6 @@ import org.junit.Test
 class ModuleTest {
     @Test
     fun theModuleBuildsAndSeesTheWireModule() {
-        assertEquals(20, pl.dmq.peering.wire.PROTOCOL_VERSION)
+        assertEquals(21, pl.dmq.peering.wire.PROTOCOL_VERSION)
     }
 }

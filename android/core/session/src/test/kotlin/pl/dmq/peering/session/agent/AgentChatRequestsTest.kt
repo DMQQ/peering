@@ -6,17 +6,15 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentRequest
 import pl.dmq.peering.wire.AgentSessionInfo
 import pl.dmq.peering.wire.AgentSessionState
-import pl.dmq.peering.wire.AgentUsage
 import pl.dmq.peering.wire.RemoteDirectoryEntry
 
-class AgentChatCapabilitiesTest {
+class AgentChatRequestsTest {
     private val sent = mutableListOf<AgentRequest>()
 
     private fun info(id: String) = AgentSessionInfo(
@@ -29,44 +27,28 @@ class AgentChatCapabilitiesTest {
         createdAt = 0.0,
     )
 
-    private fun chat(capabilities: AgentCapabilities) = AgentChat(capabilities) { sent += it }
-
-    private val everything = AgentCapabilities(chat = true, modelPicker = true, permissionModes = true, usage = true)
+    private fun chat() = AgentChat { sent += it }
 
     @Test
-    fun modelAndPermissionRequestsAreSentOnlyWhenTheHostDeclaresThem() {
-        val withoutPicker = chat(AgentCapabilities(chat = true, permissionModes = true))
-        withoutPicker.setModel("A", "opus")
-        withoutPicker.setPermissionMode("A", AgentPermissionMode.ACCEPT_EDITS)
-        assertEquals(listOf<AgentRequest>(AgentRequest.SetPermissionMode("A", AgentPermissionMode.ACCEPT_EDITS)), sent)
-
-        sent.clear()
-        chat(everything).setModel("A", null)
-        assertEquals(listOf<AgentRequest>(AgentRequest.SetModel("A", null)), sent)
+    fun modelAndPermissionRequestsAreSent() {
+        val chat = chat()
+        chat.setModel("A", null)
+        chat.setPermissionMode("A", AgentPermissionMode.ACCEPT_EDITS)
+        assertEquals(
+            listOf<AgentRequest>(AgentRequest.SetModel("A", null), AgentRequest.SetPermissionMode("A", AgentPermissionMode.ACCEPT_EDITS)),
+            sent,
+        )
     }
 
     @Test
-    fun browseIsSentOnlyWithChatSupport() {
-        chat(AgentCapabilities(modelPicker = true)).browse("/work")
-        assertEquals(emptyList<AgentRequest>(), sent)
-        chat(everything).browse(null)
+    fun browseIsSent() {
+        chat().browse(null)
         assertEquals(listOf<AgentRequest>(AgentRequest.Browse(null)), sent)
     }
 
     @Test
-    fun modelAndUsageEventsAreIgnoredWhenTheHostDidNotDeclareThem() {
-        val chat = chat(AgentCapabilities(chat = true))
-        chat.onEvent(AgentEvent.Snapshot(listOf(info("A"))))
-        chat.onEvent(AgentEvent.ModelChanged("A", "opus"))
-        chat.onEvent(AgentEvent.UsageChanged("A", AgentUsage(inputTokens = 1, cachedTokens = 0, outputTokens = 0, limits = emptyList())))
-        val session = chat.state.value.selected!!
-        assertNull(session.info.model)
-        assertNull(session.info.usage)
-    }
-
-    @Test
-    fun modelAndPermissionEventsAreAppliedToTheChatTheyNameWhenDeclared() {
-        val chat = chat(everything)
+    fun modelAndPermissionEventsAreAppliedToTheChatTheyName() {
+        val chat = chat()
         chat.onEvent(AgentEvent.Snapshot(listOf(info("A"))))
         chat.onEvent(AgentEvent.ModelChanged("A", "opus"))
         chat.onEvent(AgentEvent.PermissionModeChanged("A", AgentPermissionMode.ACCEPT_EDITS))
@@ -77,7 +59,7 @@ class AgentChatCapabilitiesTest {
 
     @Test
     fun folderEventsReachTheBrowseFlowAndNotTheChatState() = runTest {
-        val chat = chat(everything)
+        val chat = chat()
         val received = mutableListOf<AgentEvent>()
         val job = launch(StandardTestDispatcher(testScheduler), start = CoroutineStart.UNDISPATCHED) {
             chat.browseEvents.collect { received += it }

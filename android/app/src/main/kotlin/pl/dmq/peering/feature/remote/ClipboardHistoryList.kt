@@ -67,7 +67,7 @@ internal fun ClipboardHistoryList(actions: ClipboardActions, onBack: () -> Unit,
                 HistoryEntryRow(
                     entry = entry,
                     copied = justCopied == entry.id,
-                    canSend = actions.ready && (entry.content !is ClipboardContent.Image || actions.imagesAllowed),
+                    canSend = actions.ready,
                     onCopy = {
                         scope.launch {
                             manager.copyContent(context, context.getString(R.string.clipboard_history), entry.content)

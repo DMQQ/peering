@@ -43,7 +43,6 @@ import pl.dmq.peering.wire.MAX_CLIPBOARD_IMAGE_BYTES
 class ClipboardActions(
     val ready: Boolean,
     val host: ClipboardContent?,
-    val imagesAllowed: Boolean,
     val history: List<ClipboardEntry>,
     val onRequestHost: () -> Unit,
     val onSend: (String) -> Unit,
@@ -143,7 +142,7 @@ private fun PhoneClipboardRow(
     }
     val text = (phone as? PhoneClip.Text)?.text
     val pictureUri = (phone as? PhoneClip.Image)?.uri
-    val canSend = actions.ready && (text != null || (pictureUri != null && actions.imagesAllowed))
+    val canSend = actions.ready && (text != null || pictureUri != null)
     fun send(paste: Boolean, sendText: (String) -> Unit) {
         if (pictureUri != null) {
             sendPhoneImage(pictureUri, paste)
@@ -155,7 +154,7 @@ private fun PhoneClipboardRow(
     ClipboardRow(
         icon = SessionIcons.phone,
         title = stringResource(R.string.clipboard_phone),
-        detail = phoneDetail(phone, feedback, actions.imagesAllowed),
+        detail = phoneDetail(phone, feedback),
         empty = phone == PhoneClip.Empty,
         confirmed = confirmed,
     ) {
@@ -186,7 +185,7 @@ private fun ComputerClipboardRow(host: ClipboardContent?, confirmed: Boolean, on
 }
 
 @Composable
-private fun phoneDetail(phone: PhoneClip, feedback: ClipboardFeedback, imagesAllowed: Boolean): String {
+private fun phoneDetail(phone: PhoneClip, feedback: ClipboardFeedback): String {
     val context = LocalContext.current
     return when {
         feedback is ClipboardFeedback.TooLarge -> stringResource(
@@ -197,7 +196,7 @@ private fun phoneDetail(phone: PhoneClip, feedback: ClipboardFeedback, imagesAll
         feedback is ClipboardFeedback.Unsupported -> stringResource(R.string.clipboard_image_unsupported)
         phone == PhoneClip.Empty -> stringResource(R.string.clipboard_nothing_copied)
         phone == PhoneClip.Other -> stringResource(R.string.clipboard_other_copied)
-        phone is PhoneClip.Image -> stringResource(if (imagesAllowed) R.string.clipboard_image_copied else R.string.clipboard_image_unsupported)
+        phone is PhoneClip.Image -> stringResource(R.string.clipboard_image_copied)
         phone is PhoneClip.Text -> phone.text
         else -> stringResource(R.string.clipboard_nothing_copied)
     }

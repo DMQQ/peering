@@ -76,19 +76,6 @@ class RemoteStatesTest {
     }
 
     @Test
-    fun theMosaicEntryIsOfferedOnlyWhereTheHostDeclaredIt() {
-        fun supports(capabilities: Set<HostCapability>) = remoteUiState(
-            SessionUiState(phase = SessionPhase.Ready("Studio", capabilities, SessionRecord.Path.DIRECT)),
-            pixels,
-            capabilities = HubCapabilities.NONE,
-            relayMinutesLeft = null,
-        ).supportsMosaic
-
-        assertEquals(true, supports(setOf(HostCapability.Mosaic)))
-        assertEquals(false, supports(setOf(HostCapability.VideoPause)))
-    }
-
-    @Test
     fun aMosaicOnScreenHasTilesNoSourceTitleAndNoWayBackToItself() {
         val layout = MosaicLayout(
             PixelSize(1280.0, 720.0),
@@ -99,7 +86,7 @@ class RemoteStatesTest {
             15,
         )
         val session = SessionUiState(
-            phase = SessionPhase.Ready("Studio", setOf(HostCapability.Mosaic), SessionRecord.Path.DIRECT),
+            phase = SessionPhase.Ready("Studio", setOf(HostCapability.MacControls), SessionRecord.Path.DIRECT),
             activeSource = CaptureSource.Mosaic(layout),
             rememberedMosaic = layout,
         )

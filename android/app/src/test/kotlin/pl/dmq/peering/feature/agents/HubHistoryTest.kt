@@ -15,7 +15,7 @@ class HubHistoryTest {
     )
 
     private fun hub(history: List<SessionCard>, resumable: List<ResumableCard>) = HubUi(
-        sessions = emptyList(), history = history, resumable = resumable, canImport = true, selectedSessionID = null,
+        sessions = emptyList(), history = history, resumable = resumable, selectedSessionID = null,
         agents = emptyList(), agentUsage = emptyList(), selectedAgentID = null, newChat = NewChatStep.Closed,
         failure = null, recentFolders = emptyList(),
     )

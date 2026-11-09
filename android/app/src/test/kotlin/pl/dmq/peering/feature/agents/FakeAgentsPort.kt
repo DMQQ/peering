@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
-import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.ApprovalAnswer
 import pl.dmq.peering.session.agent.changes.AgentChangesByChat
 import pl.dmq.peering.session.preview.PreviewProxyClient
@@ -15,7 +14,6 @@ import pl.dmq.peering.wire.AgentResumableSession
 
 class FakeAgentsPort(
     initial: AgentChatState = AgentChatState(),
-    override val capabilities: AgentCapabilities = AgentCapabilities(chat = true, modelPicker = true, permissionModes = true, usage = true, sessionImport = true, pause = true),
 ) : AgentsPort {
     val chatState = MutableStateFlow(initial)
     val resumableList = MutableStateFlow<List<AgentResumableSession>?>(null)

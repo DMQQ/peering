@@ -9,7 +9,7 @@ class AgentSlashAndMentionTest {
     private fun entry(name: String, directory: Boolean = false) = RemoteDirectoryEntry(name, directory, false, 0, "rw-")
 
     private fun slash(typed: String, agent: String = "claude", listing: (String) -> List<RemoteDirectoryEntry>? = { null }) =
-        AgentSlash.suggestions(typed, agent, "/Users/me/app", offersUsage = true, offersModel = true, listing = listing)
+        AgentSlash.suggestions(typed, agent, "/Users/me/app", listing = listing)
 
     @Test
     fun `a slash query is the first word only while the draft is one word`() {
@@ -32,10 +32,8 @@ class AgentSlashAndMentionTest {
     }
 
     @Test
-    fun `the app's own commands come first and a host without usage or model leaves them out`() {
+    fun `the app's own commands come first`() {
         assertEquals(listOf("model", "rename", "usage", "clear", "compact"), slash("").map { it.name })
-        val bare = AgentSlash.suggestions("", "codex", "/p", offersUsage = false, offersModel = false) { null }
-        assertEquals(listOf("rename"), bare.map { it.name })
     }
 
     @Test

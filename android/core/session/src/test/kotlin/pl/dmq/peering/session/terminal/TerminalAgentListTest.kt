@@ -12,27 +12,19 @@ import pl.dmq.peering.wire.TerminalSessionInfo
 class TerminalAgentListTest {
     private val sent = mutableListOf<TerminalRequest>()
 
-    private fun sessions(supported: Boolean) = TerminalSessions(send = { sent += it }, listsAgents = { supported })
+    private fun sessions() = TerminalSessions(send = { sent += it })
 
     @Test
-    fun aComputerThatDeclaredTheListIsAskedForIt() {
-        val sessions = sessions(supported = true)
+    fun theComputerIsAskedForItsAgentList() {
+        val sessions = sessions()
         sessions.refreshAgents()
         assertEquals(listOf(TerminalRequest.ListAgents), sent)
         assertTrue(sessions.state.value.agentListPending)
     }
 
     @Test
-    fun aComputerThatDidNotDeclareTheListIsNeverAsked() {
-        val sessions = sessions(supported = false)
-        sessions.refreshAgents()
-        assertTrue(sent.isEmpty())
-        assertFalse(sessions.state.value.agentListPending)
-    }
-
-    @Test
     fun theAnswerIsKeptAndSurvivesARelist() {
-        val sessions = sessions(supported = true)
+        val sessions = sessions()
         assertNull(sessions.state.value.installedAgents)
         sessions.refreshAgents()
         sessions.onEvent(TerminalEvent.Agents(listOf("claude", "codex")))

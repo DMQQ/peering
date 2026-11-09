@@ -15,7 +15,7 @@ class AgentRenameTest {
         AgentSessionInfo("A", "claude", title, "/work", AgentSessionState.IDLE, 0L, createdAt = 0.0)
 
     private fun chat(): AgentChat {
-        val chat = AgentChat(AgentCapabilities(chat = true)) { sent += it }
+        val chat = AgentChat { sent += it }
         chat.onEvent(AgentEvent.Snapshot(listOf(info("Fix the build"))))
         sent.clear()
         return chat
@@ -50,13 +50,5 @@ class AgentRenameTest {
     fun renamingSendsNothingToTheComputer() {
         chat().rename("A", "Release prep")
         assertTrue(sent.isEmpty())
-    }
-
-    @Test
-    fun noNameIsKeptWhenTheComputerNeverDeclaredChat() {
-        val chat = AgentChat(AgentCapabilities(chat = false)) { sent += it }
-        chat.onEvent(AgentEvent.Snapshot(listOf(info("Fix the build"))))
-        chat.rename("A", "Release prep")
-        assertEquals("Fix the build", chat.state.value.session("A")!!.title)
     }
 }

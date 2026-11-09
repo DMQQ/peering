@@ -227,8 +227,6 @@ internal fun AgentsScreen(
             FolderRecents(folderRecents, active.target.hostId.orEmpty())
         },
         declaredAgentIDs = active.controller.declaredAgentIDs,
-        chatSupported = true,
-        modelPickerSupported = chat.capabilities.modelPicker,
         draftStore = drafts,
         guideStore = guideStore,
         clock = clock,

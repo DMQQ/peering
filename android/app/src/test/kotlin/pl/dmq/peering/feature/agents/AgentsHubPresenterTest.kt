@@ -29,7 +29,6 @@ class AgentsHubPresenterTest {
     private class Harness(
         port: FakeAgentsPort,
         declared: List<String> = listOf("claude", "codex"),
-        supported: Boolean = true,
         clock: FakeClock = FakeClock(),
     ) {
         val folderRequests = mutableListOf<String?>()
@@ -39,7 +38,7 @@ class AgentsHubPresenterTest {
         init {
             val scope = CoroutineScope(UnconfinedTestDispatcher())
             folders = FolderPicker({ folderRequests += it }, scope)
-            presenter = AgentsHubPresenter(port, declared, supported, folders, FolderRecents(InMemoryFolderRecentsStore(), "mac"), clock, scope)
+            presenter = AgentsHubPresenter(port, declared, folders, FolderRecents(InMemoryFolderRecentsStore(), "mac"), clock, scope)
         }
     }
 
@@ -197,14 +196,6 @@ class AgentsHubPresenterTest {
         assertEquals(NewChatStep.ChoosingAgent, harness.presenter.ui.value.newChat)
         assertEquals(null, harness.presenter.ui.value.selectedAgentID)
         assertTrue(harness.folderRequests.isEmpty())
-    }
-
-    @Test
-    fun withoutChatSupportNoAgentsAreOfferedAndNoFlowOpens() = runTest {
-        val harness = Harness(FakeAgentsPort(), supported = false)
-        harness.presenter.beginNewChat()
-        assertTrue(harness.presenter.ui.value.agents.isEmpty())
-        assertEquals(NewChatStep.Closed, harness.presenter.ui.value.newChat)
     }
 
     @Test

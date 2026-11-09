@@ -8,7 +8,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChatSession
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.TranscriptRow
@@ -38,8 +37,8 @@ class ChatPresenterTest {
 
     private fun presenter(port: FakeAgentsPort) = ChatPresenter(port, CoroutineScope(UnconfinedTestDispatcher()))
 
-    private fun port(session: AgentChatSession, capabilities: AgentCapabilities = AgentCapabilities(chat = true, usage = true, pause = true)) =
-        FakeAgentsPort(AgentChatState(sessions = listOf(session), selectedSessionID = "A"), capabilities)
+    private fun port(session: AgentChatSession) =
+        FakeAgentsPort(AgentChatState(sessions = listOf(session), selectedSessionID = "A"))
 
     @Test
     fun theHeaderNamesTheChatAndItsAgent() {
@@ -50,11 +49,8 @@ class ChatPresenterTest {
     }
 
     @Test
-    fun usageShowsOnlyWhenTheComputerDeclaredIt() {
+    fun usageShowsAChipWhenTheCliReportedIt() {
         assertNotNull(presenter(port(session())).ui.value.chip)
-        val undeclared = presenter(port(session(), AgentCapabilities(chat = true))).ui.value
-        assertNull(undeclared.chip)
-        assertFalse(undeclared.usageSupported)
     }
 
     @Test
@@ -63,11 +59,10 @@ class ChatPresenterTest {
     }
 
     @Test
-    fun pauseIsOfferedOnlyToAQuietChatWithAConversationOnAHostThatDeclaredIt() {
+    fun pauseIsOfferedOnlyToAQuietChatWithAConversation() {
         assertTrue(presenter(port(session())).ui.value.canPause)
         assertFalse(presenter(port(session(state = AgentSessionState.WORKING))).ui.value.canPause)
         assertFalse(presenter(port(session(rows = emptyList()))).ui.value.canPause)
-        assertFalse(presenter(port(session(), AgentCapabilities(chat = true))).ui.value.canPause)
     }
 
     @Test

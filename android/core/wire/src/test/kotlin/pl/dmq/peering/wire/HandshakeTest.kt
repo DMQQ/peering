@@ -62,18 +62,16 @@ class HandshakeTest {
     fun videoTransportVectorRoundTrips() = assertVectorsRoundTrip<VideoTransportRequest>("videoTransport")
 
     @Test
-    fun missingCapabilityFlagsDecodeAsNull() {
+    fun absentOptionalFieldsDecodeAsNull() {
         val hello = WireJson.decodeFromString<ClientHello>(
             """{"clientID":"c","clientName":"p","protocolVersion":20,"wantsPairing":false}""",
         )
-        assertNull(hello.supportsAgentChat)
         assertNull(hello.lostPairing)
         assertNull(hello.resumeSource)
 
         val server = WireJson.decodeFromString<ServerHello>(
             """{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true}""",
         )
-        assertNull(server.supportsVideoPause)
         assertNull(server.macAddresses)
         assertNull(server.agentChatAgents)
     }
@@ -87,25 +85,7 @@ class HandshakeTest {
     }
 
     @Test
-    fun supportsClientStateIsOptionalOnTheServerHello() {
-        val absent = WireJson.decodeFromString<ServerHello>("""{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true}""")
-        assertNull(absent.supportsClientState)
-        val declared = WireJson.decodeFromString<ServerHello>(
-            """{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true,"supportsClientState":true}""",
-        )
-        assertEquals(true, declared.supportsClientState)
-    }
-
-    @Test
-    fun explicitNullFlagsDecodeAsNull() {
-        val hello = WireJson.decodeFromString<ClientHello>(
-            """{"clientID":"c","clientName":"p","protocolVersion":20,"wantsPairing":true,"supportsAgentChat":null}""",
-        )
-        assertNull(hello.supportsAgentChat)
-    }
-
-    @Test
-    fun unsetFlagsAreAbsentWhenEncoded() {
+    fun unsetOptionalFieldsAreAbsentWhenEncoded() {
         val hello = ClientHello(clientID = "c", clientName = "p", protocolVersion = 20, wantsPairing = false)
         assertEquals(
             """{"clientID":"c","clientName":"p","protocolVersion":20,"wantsPairing":false}""",

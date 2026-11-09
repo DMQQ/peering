@@ -18,19 +18,16 @@ import pl.dmq.peering.wire.AgentResumableSession
 class AgentsHubPresenter(
     private val port: AgentsPort,
     declaredAgentIDs: List<String>,
-    private val chatSupported: Boolean,
     private val folders: FolderPicker,
     private val recents: FolderRecents,
     clock: Clock,
     scope: CoroutineScope,
 ) {
-    private val agents = if (chatSupported) AgentCatalog.options(declaredAgentIDs) else emptyList()
+    private val agents = AgentCatalog.options(declaredAgentIDs)
     private val activity = SessionActivity(clock)
     private val step = MutableStateFlow<NewChatStep>(NewChatStep.Closed)
     private val selectedAgent = MutableStateFlow(agents.singleOrNull()?.id)
 
-    private val canImport = chatSupported && port.capabilities.sessionImport
-    private val canPause = chatSupported && port.capabilities.pause
 
     val ui: StateFlow<HubUi> = combine(port.chats, step, recents.paths, port.resumable, selectedAgent) { chats, currentStep, folderPaths, listed, agentID ->
         derive(chats, currentStep, folderPaths, listed, agentID)
@@ -42,7 +39,7 @@ class AgentsHubPresenter(
 
     fun refresh() {
         port.list()
-        if (canImport) port.listResumable()
+        port.listResumable()
     }
 
     fun openSession(sessionID: String) = port.select(sessionID)
@@ -54,7 +51,7 @@ class AgentsHubPresenter(
     /** Ends a chat the way the iPhone does: a quiet chat with a conversation moves to history, any other is closed. */
     fun endSession(sessionID: String) {
         val session = port.chats.value.session(sessionID) ?: return
-        when (AgentEndAction.choose(session, canPause)) {
+        when (AgentEndAction.choose(session)) {
             AgentEndAction.PAUSE -> port.pause(sessionID)
             AgentEndAction.CLOSE -> port.close(sessionID)
         }
@@ -62,7 +59,6 @@ class AgentsHubPresenter(
 
     /** Continues a conversation started on the computer; false, with nothing sent, while a terminal there may have it open unless [anyway]. */
     fun resume(resumableID: String, anyway: Boolean = false): Boolean {
-        if (!canImport) return false
         val target = port.resumable.value.orEmpty().firstOrNull { it.id == resumableID } ?: return false
         if (target.mayBeOpenElsewhere && !anyway) return false
         port.resume(target)
@@ -72,7 +68,7 @@ class AgentsHubPresenter(
 
     /** The dock's main button: the folder page for the selected agent, or the agent choice while none is selected. */
     fun beginNewChat() {
-        if (!chatSupported || agents.isEmpty()) return
+        if (agents.isEmpty()) return
         val agentID = selectedAgent.value
         if (agentID == null) {
             step.value = NewChatStep.ChoosingAgent
@@ -83,7 +79,7 @@ class AgentsHubPresenter(
     }
 
     fun openAgentPicker() {
-        if (chatSupported && agents.size > 1) step.value = NewChatStep.ChoosingAgent
+        if (agents.size > 1) step.value = NewChatStep.ChoosingAgent
     }
 
     /** Selects the agent the dock chats with, and closes the choice if it was open. */
@@ -138,7 +134,7 @@ class AgentsHubPresenter(
                 lastActivityUnix = activity.lastActivityUnix(session),
                 pendingApprovals = pending,
                 agentName = AgentCatalog.name(session.info.agentID),
-                canPause = AgentEndAction.choose(session, canPause) == AgentEndAction.PAUSE,
+                canPause = AgentEndAction.choose(session) == AgentEndAction.PAUSE,
                 preview = session.lastReplyPreview(),
             )
         }
@@ -146,8 +142,7 @@ class AgentsHubPresenter(
         return HubUi(
             sessions = cards.filter { it.state != SessionCardState.PAUSED }.sortedByDescending { it.lastActivityUnix },
             history = cards.filter { it.state == SessionCardState.PAUSED }.sortedByDescending { it.lastActivityUnix },
-            resumable = if (canImport) resumableCards(listed.orEmpty()) else emptyList(),
-            canImport = canImport,
+            resumable = resumableCards(listed.orEmpty()),
             selectedSessionID = chats.selectedSessionID,
             agents = agents,
             agentUsage = agents.map { agentUsage(it.id, cards) },
@@ -155,7 +150,7 @@ class AgentsHubPresenter(
             newChat = currentStep,
             failure = chats.failure,
             recentFolders = folderPaths,
-            loading = canImport && listed == null,
+            loading = listed == null,
         )
     }
 

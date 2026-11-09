@@ -1,14 +1,11 @@
 package pl.dmq.peering.session.connection
 
-import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.dmq.peering.wire.AddVirtualDisplay
 import pl.dmq.peering.wire.CaptureCatalog
-import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.JoystickMove
 import pl.dmq.peering.wire.LockScreen
@@ -18,101 +15,30 @@ import pl.dmq.peering.wire.NormalizedPoint
 import pl.dmq.peering.wire.LaunchApplication
 import pl.dmq.peering.wire.OpenNewWindow
 import pl.dmq.peering.wire.PerformWindowAction
-import pl.dmq.peering.wire.PushClipboardImage
 import pl.dmq.peering.wire.QualityTier
-import pl.dmq.peering.wire.RefreshSourceThumbnails
 import pl.dmq.peering.wire.RefreshSpacePreviews
 import pl.dmq.peering.wire.RemoteCommand
-import pl.dmq.peering.wire.RemoveVirtualDisplay
-import pl.dmq.peering.wire.RenameVirtualDisplay
-import pl.dmq.peering.wire.ReportDeviceOrientation
 import pl.dmq.peering.wire.Scroll
 import pl.dmq.peering.wire.ServerHello
-import pl.dmq.peering.wire.SetCaptureSource
 import pl.dmq.peering.wire.SetPrivacyMode
 import pl.dmq.peering.wire.SpaceDirection
 import pl.dmq.peering.wire.SwitchSpace
 import pl.dmq.peering.wire.SwitchToSpace
 import pl.dmq.peering.wire.WindowAction
 import pl.dmq.peering.wire.SetStreamQuality
-import pl.dmq.peering.wire.SetVideoEnabled
-import pl.dmq.peering.wire.WatchSourceThumbnails
 
 class SessionCommandsTest {
-    private fun host(
-        videoPause: Boolean? = null,
-        mosaic: Boolean? = null,
-        clipboardImages: Boolean? = null,
-        virtualDisplays: Boolean? = null,
-        thumbnails: Boolean? = null,
-        orientation: Boolean? = null,
-    ) = ServerHello(
+    private val host = ServerHello(
         serverID = "MAC-STUDIO-01",
         hostName = "Studio",
-        protocolVersion = 20,
+        protocolVersion = 21,
         alreadyPaired = true,
-        supportsVideoPause = videoPause,
-        supportsMosaic = mosaic,
-        supportsClipboardImages = clipboardImages,
-        supportsVirtualDisplayManagement = virtualDisplays,
-        supportsSourceThumbnails = thumbnails,
-        supportsDeviceOrientation = orientation,
     )
-
-    private val fullHost = host(true, true, true, true, true, true)
-    private val bareHost = host()
-
-    private fun guardedCommands(): List<Pair<RemoteCommand, HostCapability>> = listOf(
-        SetVideoEnabled(false) to HostCapability.VideoPause,
-        SetCaptureSource(CaptureSource.Mosaic(JsonObject(emptyMap()))) to HostCapability.Mosaic,
-        PushClipboardImage("iVBORw0KGgo=") to HostCapability.ClipboardImages,
-        AddVirtualDisplay("Phone", 1920, 1080, startLandscape = true) to HostCapability.VirtualDisplayManagement,
-        RemoveVirtualDisplay(7) to HostCapability.VirtualDisplayManagement,
-        RenameVirtualDisplay(7, "Desk") to HostCapability.VirtualDisplayManagement,
-        WatchSourceThumbnails(true) to HostCapability.SourceThumbnails,
-        RefreshSourceThumbnails to HostCapability.SourceThumbnails,
-        ReportDeviceOrientation(isLandscape = true) to HostCapability.DeviceOrientation,
-    )
+    private val windowsHost = host.copy(hostPlatform = "windows")
 
     @Test
-    fun aHostThatDeclaresEverythingAcceptsEveryGuardedCommand() {
-        val commands = SessionCommands(fullHost)
-
-        guardedCommands().forEach { (command, _) ->
-            assertNotNull(command::class.simpleName, commands.send(command))
-        }
-        assertTrue(commands.takeRejections().isEmpty())
-    }
-
-    @Test
-    fun aHostThatDeclaresNothingRefusesEachGuardedCommandAndNamesTheMissingCapability() {
-        val commands = SessionCommands(bareHost)
-
-        guardedCommands().forEach { (command, capability) ->
-            assertNull(command::class.simpleName, commands.send(command))
-            assertEquals(listOf(CommandRejection(command::class.simpleName!!, capability)), commands.takeRejections())
-        }
-    }
-
-    @Test
-    fun aHostWithOneFlagAcceptsOnlyThatFeature() {
-        val commands = SessionCommands(host(videoPause = true))
-
-        assertNotNull(commands.send(SetVideoEnabled(true)))
-        assertNull(commands.send(RemoveVirtualDisplay(1)))
-    }
-
-    @Test
-    fun aPlainCaptureSourceNeedsNoFlagButTheMosaicDoes() {
-        val commands = SessionCommands(bareHost)
-
-        assertNotNull(commands.send(SetCaptureSource(CaptureSource.Display(1))))
-        assertNull(commands.send(SetCaptureSource(CaptureSource.Mosaic(JsonObject(emptyMap())))))
-    }
-
-    @Test
-    fun unguardedCommandsAreSentToAnyHost() {
-        val commands = SessionCommands(bareHost)
+    fun commandsWithNoPlatformRequirementAreSentToAnyHost() {
+        val commands = SessionCommands(host)
 
         assertNotNull(commands.send(LockScreen))
         assertNotNull(commands.send(OpenNewWindow("com.apple.Safari")))
@@ -122,8 +48,8 @@ class SessionCommandsTest {
 
     @Test
     fun aSentCommandParsesBackToTheSameCommand() {
-        val commands = SessionCommands(fullHost)
-        val command = RemoveVirtualDisplay(42)
+        val commands = SessionCommands(host)
+        val command = SetStreamQuality(fps = 30, bitrateKbps = 4000)
 
         val frame = commands.send(command)!!
 
@@ -133,7 +59,7 @@ class SessionCommandsTest {
 
     @Test
     fun scrollInputAccumulatesIntoOneFrame() {
-        val commands = SessionCommands(bareHost)
+        val commands = SessionCommands(host)
 
         commands.offer(Scroll(1.0, 2.0))
         commands.offer(Scroll(3.0, 4.0))
@@ -145,7 +71,7 @@ class SessionCommandsTest {
 
     @Test
     fun joystickInputAccumulatesIndependentlyOfScroll() {
-        val commands = SessionCommands(bareHost)
+        val commands = SessionCommands(host)
 
         commands.offer(JoystickMove(0.5, 0.0))
         commands.offer(JoystickMove(0.5, -1.0))
@@ -157,7 +83,7 @@ class SessionCommandsTest {
 
     @Test
     fun aPointerMoveReplacesTheOneBeforeIt() {
-        val commands = SessionCommands(bareHost)
+        val commands = SessionCommands(host)
 
         commands.offer(MouseMove(NormalizedPoint(0.1, 0.1)))
         commands.offer(MouseMove(NormalizedPoint(0.9, 0.2)))
@@ -168,9 +94,9 @@ class SessionCommandsTest {
 
     @Test
     fun aCommandTheHostCannotTakeIsNotQueued() {
-        val commands = SessionCommands(bareHost)
+        val commands = SessionCommands(windowsHost)
 
-        commands.offer(RemoveVirtualDisplay(3))
+        commands.offer(SwitchSpace(SpaceDirection.LEFT))
 
         assertTrue(commands.drain().isEmpty())
         assertEquals(1, commands.takeRejections().size)
@@ -178,7 +104,7 @@ class SessionCommandsTest {
 
     @Test
     fun theFirstQualityIsTheTierBitrateWithFpsKeptAsItIs() {
-        val commands = SessionCommands(bareHost)
+        val commands = SessionCommands(host)
 
         val command = commands.firstQualityCommand(QualityTier.MEDIUM)
 
@@ -188,7 +114,7 @@ class SessionCommandsTest {
 
     @Test
     fun aCatalogueFrameIsDecodedAndKeptAsTheLatest() {
-        val commands = SessionCommands(bareHost)
+        val commands = SessionCommands(host)
         val catalog = CaptureCatalog()
 
         val decoded = commands.onCatalog(Frame(MessageKind.Catalog, catalog.toJson().toByteArray()))
@@ -199,7 +125,7 @@ class SessionCommandsTest {
 
     @Test
     fun aFrameThatIsNotACatalogueOrDoesNotParseGivesNoCatalogue() {
-        val commands = SessionCommands(bareHost)
+        val commands = SessionCommands(host)
 
         assertNull(commands.onCatalog(Frame(MessageKind.Ping, "{}".toByteArray())))
         assertNull(commands.onCatalog(Frame(MessageKind.Catalog, "not json".toByteArray())))
@@ -218,7 +144,7 @@ class SessionCommandsTest {
 
     @Test
     fun aWindowsHostRefusesEveryMacOnlyCommandAndNamesTheMissingCapability() {
-        val commands = SessionCommands(bareHost.copy(hostPlatform = "windows"))
+        val commands = SessionCommands(windowsHost)
 
         macOnlyCommands().forEach { command ->
             assertNull(command::class.simpleName, commands.send(command))
@@ -231,14 +157,14 @@ class SessionCommandsTest {
     @Test
     fun aMacAndAHostThatNamesNoPlatformAcceptEveryMacOnlyCommand() {
         listOf("macos", null).forEach { platform ->
-            val commands = SessionCommands(bareHost.copy(hostPlatform = platform))
+            val commands = SessionCommands(host.copy(hostPlatform = platform))
             macOnlyCommands().forEach { assertNotNull(it::class.simpleName, commands.send(it)) }
         }
     }
 
     @Test
     fun aWindowsHostAcceptsLockAndDarken() {
-        val commands = SessionCommands(bareHost.copy(hostPlatform = "windows"))
+        val commands = SessionCommands(windowsHost)
 
         assertNotNull(commands.send(LockScreen))
         assertNotNull(commands.send(SetPrivacyMode(true)))
@@ -246,7 +172,7 @@ class SessionCommandsTest {
 
     @Test
     fun anUnknownPlatformRefusesLockAndDarken() {
-        val commands = SessionCommands(bareHost.copy(hostPlatform = "linux"))
+        val commands = SessionCommands(host.copy(hostPlatform = "linux"))
 
         assertNull(commands.send(LockScreen))
         assertNull(commands.send(SetPrivacyMode(true)))
@@ -255,9 +181,8 @@ class SessionCommandsTest {
 
     @Test
     fun takingRejectionsClearsThem() {
-        val commands = SessionCommands(bareHost)
-        commands.send(LockScreen)
-        commands.send(RemoveVirtualDisplay(1))
+        val commands = SessionCommands(windowsHost)
+        commands.send(SwitchSpace(SpaceDirection.LEFT))
 
         assertEquals(1, commands.takeRejections().size)
         assertTrue(commands.takeRejections().isEmpty())

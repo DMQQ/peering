@@ -60,7 +60,6 @@ private fun ClipboardPanelContent(context: PanelContext) {
         ClipboardActions(
             ready = context.state.hostName != null,
             host = context.state.hostClipboard,
-            imagesAllowed = context.state.clipboardImages,
             history = history,
             onRequestHost = context.actions::requestHostClipboard,
             onSend = context.actions::send,
@@ -79,7 +78,7 @@ private fun SourcesPanelContent(context: PanelContext) {
         chosen = context.state.chosenSource,
         presenter = context.sources,
         onPicked = { if (context.prefs.hidesPanelAfterSelect) context.screen.closePanel() },
-        mosaic = MosaicPanel(context.state.mosaic, context.state.rememberedMosaic).takeIf { context.state.supportsMosaic },
+        mosaic = MosaicPanel(context.state.mosaic, context.state.rememberedMosaic),
         features = context.state.sourcesFeatures,
     )
 }

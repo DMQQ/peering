@@ -11,8 +11,6 @@ import org.junit.Test
 import pl.dmq.peering.session.connection.ClientAction
 import pl.dmq.peering.session.connection.ClientConfig
 import pl.dmq.peering.session.connection.ClientStateMachine
-import pl.dmq.peering.session.connection.CommandRejection
-import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.connection.SessionCommands
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.history.SessionRecord
@@ -28,7 +26,7 @@ import pl.dmq.peering.wire.WireJson
 class SessionLifecycleTest {
     @Test
     fun startingASessionReachesReadyAndRecordsItAsOpen() = runTest {
-        val session = startSession(videoPause = true)
+        val session = startSession()
 
         val record = session.history.records.single()
         assertEquals(HOST_ID, record.hostId)
@@ -38,8 +36,8 @@ class SessionLifecycleTest {
     }
 
     @Test
-    fun pausingThePictureSendsSetVideoEnabledWhenTheHostDeclaresIt() = runTest {
-        val session = startSession(videoPause = true)
+    fun pausingThePictureSendsSetVideoEnabled() = runTest {
+        val session = startSession()
 
         val frame = session.commands.send(SetVideoEnabled(false))
 
@@ -50,19 +48,8 @@ class SessionLifecycleTest {
     }
 
     @Test
-    fun pausingThePictureIsNotSentToAHostThatDoesNotDeclareIt() = runTest {
-        val session = startSession(videoPause = null)
-
-        assertNull(session.commands.send(SetVideoEnabled(false)))
-        assertEquals(
-            listOf(CommandRejection("SetVideoEnabled", HostCapability.VideoPause)),
-            session.commands.takeRejections(),
-        )
-    }
-
-    @Test
-    fun resumingTheDeclaredPictureSendsSetVideoEnabledTrue() = runTest {
-        val session = startSession(videoPause = true)
+    fun resumingThePictureSendsSetVideoEnabledTrue() = runTest {
+        val session = startSession()
         session.commands.send(SetVideoEnabled(false))
 
         val frame = session.commands.send(SetVideoEnabled(true))
@@ -73,7 +60,7 @@ class SessionLifecycleTest {
 
     @Test
     fun stoppingWritesTheClosedRecordAndTheHistorySurvivesARoundTrip() = runTest {
-        val session = startSession(videoPause = true)
+        val session = startSession()
         advanceTimeBy(60_000)
 
         assertTrue(session.history.end(session.recordId, session.epochMillis(), SessionRecord.EndReason.USER_ENDED))
@@ -94,14 +81,13 @@ class SessionLifecycleTest {
         fun epochMillis(): Long = startedAt + scope.testScheduler.currentTime
     }
 
-    /** Runs the handshake to Ready with a host that declares [videoPause], then starts the history record. */
-    private fun TestScope.startSession(videoPause: Boolean?): StartedSession {
+    /** Runs the handshake to Ready, then starts the history record. */
+    private fun TestScope.startSession(): StartedSession {
         val hello = ServerHello(
             serverID = HOST_ID,
             hostName = "Studio",
             protocolVersion = PROTOCOL_VERSION,
             alreadyPaired = true,
-            supportsVideoPause = videoPause,
         )
         val machine = ClientStateMachine(
             ClientConfig(CLIENT_ID, "Phone", HOST_ID, HOST_KEY),

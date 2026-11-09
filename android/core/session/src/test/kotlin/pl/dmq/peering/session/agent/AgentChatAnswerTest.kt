@@ -15,7 +15,7 @@ import pl.dmq.peering.wire.AgentToolCall
 
 class AgentChatAnswerTest {
     private val sent = mutableListOf<AgentRequest>()
-    private val chat = AgentChat(AgentCapabilities(chat = true)) { sent += it }
+    private val chat = AgentChat { sent += it }
 
     private fun info(id: String) = AgentSessionInfo(
         id = id, agentID = "claude", title = "Chat $id", directory = "/work",
@@ -51,11 +51,5 @@ class AgentChatAnswerTest {
         assertFalse(chat.answer("B", "ask-1", ApprovalAnswer.Allow))
         assertFalse(chat.answer("missing", "ask-1", ApprovalAnswer.Allow))
         assertEquals(emptyList<AgentRequest>(), sent)
-    }
-
-    @Test
-    fun aHostWithoutChatSupportIsNeverAnswered() {
-        val silent = AgentChat(AgentCapabilities()) { sent += it }
-        assertFalse(silent.answer("B", "ask-1", ApprovalAnswer.Allow))
     }
 }

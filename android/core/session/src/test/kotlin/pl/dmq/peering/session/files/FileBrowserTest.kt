@@ -27,7 +27,6 @@ class FileBrowserTest {
     private var backlog = 0
     private var slowWriter = false
     private val browser = FileBrowser(
-        supportsFileBrowser = true,
         browserID = scope,
         send = { outbox.addLast(it) },
         writeDownloadRange = { offset, bytes ->
@@ -79,18 +78,6 @@ class FileBrowserTest {
         val listing = browser.state.value.listing
         assertEquals("/Users/me", listing?.path)
         assertEquals(listOf("Projects", "notes.txt"), listing?.visibleEntries?.map { it.name })
-    }
-
-    @Test
-    fun nothingIsSentWithoutTheHostsSupport() {
-        serve()
-        val silent = FileBrowser(supportsFileBrowser = false, browserID = scope, send = { sent += it }, writeDownloadRange = { _, _ -> })
-        silent.open()
-        silent.preview("/Users/me/notes.txt")
-        silent.download("/Users/me/notes.txt")
-        silent.up()
-        assertEquals(emptyList<TerminalRequest>(), sent)
-        assertNull(silent.state.value.listing)
     }
 
     @Test
