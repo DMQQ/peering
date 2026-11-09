@@ -249,3 +249,21 @@ fn an_assembled_frame_that_is_not_a_command_is_left_unhandled() {
     let other = Frame::new(MessageKind::ClipboardContent, b"{}".to_vec());
     assert_eq!(on_assembled_command(&other, &mut ctx), ReadyOutcome::Unhandled(MessageKind::ClipboardContent));
 }
+
+#[test]
+fn a_device_orientation_report_is_ignored_without_touching_input_or_source() {
+    for is_landscape in [true, false] {
+        let (outcome, input, source) = run(RemoteCommand::ReportDeviceOrientation { is_landscape }, false);
+        assert_eq!(outcome, DispatchOutcome::Ignored(IgnoreReason::NotSupportedHere));
+        assert!(input.applied().is_empty());
+        assert!(source.sources.is_empty() && source.qualities.is_empty() && source.video_enabled.is_empty());
+    }
+}
+
+#[test]
+fn a_mosaic_source_is_refused_even_while_observing() {
+    let mosaic = CaptureSource::Mosaic { layout: serde_json::json!({ "tiles": [] }) };
+    let (outcome, _, source) = run(RemoteCommand::SetCaptureSource { source: mosaic }, true);
+    assert_eq!(outcome, DispatchOutcome::Ignored(IgnoreReason::MosaicSource));
+    assert!(source.sources.is_empty());
+}

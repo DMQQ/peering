@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use peering_wire::terminal::TerminalEvent;
 
+use super::checksum::FileChecksum;
 use super::disk::{DiskOps, Existing};
 use super::path::{self, VirtualPath};
 
@@ -25,6 +26,7 @@ const GONE: &str = "That file is no longer being written. Choose it again.";
 const OVERSIZED_PIECE: &str = "That transfer was sent in pieces this PC cannot accept.";
 const SENT_TOO_MUCH: &str = "That transfer sent more than it said it would.";
 const STOPPED_EARLY: &str = "That transfer stopped before the whole file arrived.";
+const DAMAGED: &str = "The file arrived damaged (its checksum did not match), so it was not saved. Send it again.";
 const IS_A_FOLDER: &str = "That is a folder, so a file cannot be written over it.";
 const DROPPED_IDLE: &str = "That transfer stopped sending, so this PC dropped it.";
 pub const DISK_BEHIND: &str = "This PC's disk is not keeping up, so that transfer was stopped.";
@@ -39,6 +41,9 @@ struct Pending<O> {
     received: u64,
     started: bool,
     last_activity: f64,
+    /// What the client said the whole file hashes to, if it said. Fed by each piece as it reaches the scratch file.
+    expected_md5: Option<String>,
+    checksum: FileChecksum,
 }
 
 /// The uploads in progress, keyed by the terminal or browsing scope and the destination.
@@ -72,6 +77,19 @@ impl<D: DiskOps, O: Clone> Transfers<D, O> {
 
     /// Opens an upload. `None` means it was accepted; otherwise the event that refuses it.
     pub fn begin(&mut self, owner: O, session_id: &str, wire_path: &str, total_bytes: i64, now: f64) -> Option<TerminalEvent> {
+        self.begin_checked(owner, session_id, wire_path, total_bytes, None, now)
+    }
+
+    /// `begin`, for an upload whose whole file hashes to `md5`: the scratch file is discarded when it does not.
+    pub fn begin_checked(
+        &mut self,
+        owner: O,
+        session_id: &str,
+        wire_path: &str,
+        total_bytes: i64,
+        md5: Option<String>,
+        now: f64,
+    ) -> Option<TerminalEvent> {
         let Ok(VirtualPath::Native(native)) = path::parse(wire_path) else {
             return Some(failure(session_id, wire_path, NOT_A_WRITABLE_PATH));
         };
@@ -96,6 +114,8 @@ impl<D: DiskOps, O: Clone> Transfers<D, O> {
             received: 0,
             started: false,
             last_activity: now,
+            expected_md5: md5.map(|hash| hash.to_lowercase()),
+            checksum: FileChecksum::default(),
         };
         // The record it replaces held a scratch file nothing else will ever close.
         if let Some(replaced) = self.pending.insert(key, record) {
@@ -146,6 +166,12 @@ impl<D: DiskOps, O: Clone> Transfers<D, O> {
             if let Err(error) = append(&mut self.disk, &mut pending, &[]) {
                 self.disk.discard(&pending.staging);
                 return failure(session_id, &wire_path, &error);
+            }
+        }
+        if let Some(expected) = &pending.expected_md5 {
+            if pending.checksum.finalized() != *expected {
+                self.disk.discard(&pending.staging);
+                return failure(session_id, &wire_path, DAMAGED);
             }
         }
         // Checked now and not at the start: the destination may have become a folder during the transfer.
@@ -206,7 +232,9 @@ fn append<D: DiskOps, O>(disk: &mut D, pending: &mut Pending<O>, piece: &[u8]) -
     if piece.is_empty() {
         return Ok(());
     }
-    disk.append(&pending.staging, piece).map_err(|error| error.0)
+    disk.append(&pending.staging, piece).map_err(|error| error.0)?;
+    pending.checksum.update(piece);
+    Ok(())
 }
 
 /// Whether a file name is a scratch file made by an upload: `.name.peering-<UUID>.part`. Anything else in a folder is not ours

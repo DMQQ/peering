@@ -224,3 +224,44 @@ fn only_a_scratch_file_made_by_an_upload_is_recognised_as_one() {
         assert!(!is_staging_file(name), "{name}");
     }
 }
+
+#[test]
+fn an_upload_whose_hash_matches_is_committed() {
+    let mut transfers = transfers();
+    let md5 = Some(FileChecksum::of(b"helloworld"));
+    assert_eq!(transfers.begin_checked("a", SESSION, PATH, 10, md5, 0.0), None);
+    transfers.write(SESSION, PATH, b"hello", false, 1.0);
+    let done = transfers.write(SESSION, PATH, b"world", true, 2.0);
+    assert!(matches!(done, Some(TerminalEvent::WroteFile { .. })));
+    assert_eq!(transfers.disk().contents(NATIVE), Some(b"helloworld".to_vec()));
+}
+
+#[test]
+fn an_upload_whose_hash_differs_never_replaces_the_destination() {
+    let mut transfers = transfers();
+    transfers.disk().add_file(NATIVE, b"old contents");
+    let md5 = Some(FileChecksum::of(b"helloworld"));
+    transfers.begin_checked("a", SESSION, PATH, 10, md5, 0.0);
+    transfers.write(SESSION, PATH, b"hello", false, 1.0);
+    let message = failure_message(transfers.write(SESSION, PATH, b"w0rld", true, 2.0));
+    assert_eq!(message, DAMAGED);
+    assert_eq!(transfers.disk().contents(NATIVE), Some(b"old contents".to_vec()));
+    assert!(transfers.disk().staging_files().is_empty());
+    assert_eq!(transfers.in_progress(), 0);
+}
+
+#[test]
+fn an_uppercase_hash_from_a_client_is_compared_as_lowercase() {
+    let mut transfers = transfers();
+    let md5 = Some(FileChecksum::of(b"abc").to_uppercase());
+    transfers.begin_checked("a", SESSION, PATH, 3, md5, 0.0);
+    let done = transfers.write(SESSION, PATH, b"abc", true, 1.0);
+    assert!(matches!(done, Some(TerminalEvent::WroteFile { .. })));
+}
+
+#[test]
+fn an_upload_with_no_hash_is_not_checked() {
+    let mut transfers = transfers();
+    transfers.begin("a", SESSION, PATH, 3, 0.0);
+    assert!(matches!(transfers.write(SESSION, PATH, b"abc", true, 1.0), Some(TerminalEvent::WroteFile { .. })));
+}

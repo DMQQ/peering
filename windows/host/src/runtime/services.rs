@@ -99,11 +99,13 @@ pub struct HostExtras {
     pub thumbnails: Arc<dyn SourceThumbnails>,
     /// Covers the displays for privacy mode.
     pub curtain: Box<dyn PrivacyCurtain + Send>,
+    /// Where agent routines are kept, and what the scheduler looks at before a run.
+    pub routines: super::routines::RoutineServices,
 }
 
 impl Default for HostExtras {
     fn default() -> Self {
-        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives"), releases: Arc::new(NoReleases), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(NoThumbnails), curtain: Box::new(NoCurtain) }
+        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives"), releases: Arc::new(NoReleases), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(NoThumbnails), curtain: Box::new(NoCurtain), routines: Default::default() }
     }
 }
 

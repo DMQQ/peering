@@ -14,6 +14,15 @@ pub fn agent_name(agent_id: &str) -> Option<&'static str> {
     AGENTS.iter().find(|(id, _)| *id == agent_id).map(|(_, name)| *name)
 }
 
+/// The permission modes an agent's CLI offers, `None` for an agent this host does not know.
+pub fn permission_modes_of(agent_id: &str) -> Option<&'static [AgentPermissionMode]> {
+    match agent_id {
+        "claude" => Some(&claude_adapter::PERMISSION_MODES),
+        "codex" | "opencode" => Some(&per_turn::PERMISSION_MODES),
+        _ => None,
+    }
+}
+
 /// What a chat carries into a new process so the CLI picks up its own conversation.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AgentResume {

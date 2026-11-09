@@ -4,6 +4,7 @@ use serde_json::Value;
 
 mod events;
 mod requests;
+mod routines;
 
 pub(super) const SESSION_ID: &str = "0A1B2C3D-0000-4000-8000-00000000000F";
 

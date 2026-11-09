@@ -136,7 +136,8 @@ impl Connection {
             agent_git::answer(session_id, job, directory, &writes, self.outbound.clone());
             return Flow::Open;
         }
-        let events = self.shared.lock().agents.handle(&client_id, request);
+        let unix_now = i64::try_from(self.profile.clock.unix_seconds()).unwrap_or(i64::MAX);
+        let events = self.shared.lock().handle_agent_request(&client_id, request, unix_now);
         for event in events {
             self.send_event(&event);
         }

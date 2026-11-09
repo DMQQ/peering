@@ -317,7 +317,7 @@ fn requests_for_other_features_are_not_answered_here() {
 
 #[test]
 fn writes_are_not_answered_here() {
-    let upload = TerminalRequest::BeginWrite { session_id: SESSION.to_owned(), path: "/C:/Users/me/new.bin".to_owned(), total_bytes: 10 };
+    let upload = TerminalRequest::BeginWrite { session_id: SESSION.to_owned(), path: "/C:/Users/me/new.bin".to_owned(), total_bytes: 10, md5: None };
     let change = TerminalRequest::ChangeFile {
         session_id: SESSION.to_owned(),
         operation: RemoteFileOperation::Delete { path: "/C:/Users/me/d".to_owned() },
@@ -332,4 +332,16 @@ fn a_request_that_timed_out_is_answered_with_the_failure_that_fits_it() {
     let range = TerminalRequest::ReadRange { session_id: "s".to_owned(), path: "/C:/a".to_owned(), offset: 0 };
     assert!(matches!(FileBrowser::<InMemoryFileSystem>::failure(&list, "slow"), Some(TerminalEvent::BrowseFailure { .. })));
     assert!(matches!(FileBrowser::<InMemoryFileSystem>::failure(&range, "slow"), Some(TerminalEvent::TransferFailure { .. })));
+}
+
+#[test]
+fn only_the_piece_at_offset_zero_carries_the_hash_of_the_whole_file() {
+    let TerminalEvent::FileRange { md5, .. } = range(&browser(), "/C:/Users/me/notes.txt", 0) else {
+        panic!("expected a file range");
+    };
+    assert_eq!(md5, Some(crate::files::checksum::FileChecksum::of(b"hello world")));
+    let TerminalEvent::FileRange { md5, .. } = range(&browser(), "/C:/Users/me/notes.txt", 6) else {
+        panic!("expected a file range");
+    };
+    assert_eq!(md5, None);
 }

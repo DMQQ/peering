@@ -23,7 +23,7 @@ fn zip(fs: &InMemoryFileSystem, root: &Path, requested: &str, id: &str) -> Termi
 }
 
 fn range(path: &str, offset: i64, total: i64, length: usize) -> TerminalEvent {
-    TerminalEvent::FileRange { session_id: "S".to_owned(), path: path.to_owned(), offset, total_bytes: total, data: vec![0; length] }
+    TerminalEvent::FileRange { session_id: "S".to_owned(), path: path.to_owned(), offset, total_bytes: total, data: vec![0; length], md5: None }
 }
 
 #[test]

@@ -1,5 +1,6 @@
 //! Requests a client sends for an agent chat session.
 
+use super::routine::AgentRoutine;
 use super::session::AgentPermissionMode;
 use super::tool::AgentApprovalDecision;
 use serde::{Deserialize, Serialize};
@@ -79,4 +80,13 @@ pub enum AgentRequest {
         #[serde(rename = "sessionID")]
         session_id: String,
     },
+    /// Every routine this client made, answered with `AgentEvent::Routines`.
+    ListRoutines {},
+    /// Adds the routine, or replaces the one with its id.
+    SaveRoutine {
+        #[serde(rename = "_0")]
+        routine: AgentRoutine,
+    },
+    DeleteRoutine { id: String },
+    RunRoutineNow { id: String },
 }

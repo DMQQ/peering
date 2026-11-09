@@ -45,6 +45,7 @@ mod refusal;
 mod relay;
 mod relay_lane;
 mod relay_switch;
+mod routines;
 mod serve;
 mod services;
 mod shared;
@@ -75,6 +76,7 @@ pub use error::RuntimeError;
 pub use profile::{HostProfile, PeerInfo, VideoEndpoint};
 pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
 pub use update::{GithubReleases, NoReleases, ReleaseSource};
+pub use routines::RoutineServices;
 pub use services::{platform_services, HostExtras, HostServices, RebuildVideo, TerminalServices};
 
 use control::ControlChannel;

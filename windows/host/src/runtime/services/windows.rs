@@ -32,6 +32,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
     let directory: PathBuf = default_directory().ok_or(RuntimeError::NoDataDirectory)?;
     let PlatformServices { capture, encoder } = PlatformServices::new();
     let archive_directory = directory.join("archives");
+    let routines = crate::runtime::RoutineServices::on_disk(directory.join("routines.json"), Box::new(crate::runtime::routines::WindowsZone));
     archive::remove_all(&archive_directory);
     let secrets = open_store(directory, DpapiSealer, |bytes| SystemRandom::new().fill(bytes).is_ok())?;
     Ok(Adapters {
@@ -52,7 +53,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             protected_folders(&|name| std::env::var(name).ok()),
             default_directory().map(|directory| directory.join("upload-folders.txt")),
         )),
-        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()), archive_directory, releases: Arc::new(GithubReleases { user_agent: format!("peering-host/{}", env!("PEERING_HOST_VERSION")) }), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(WindowsThumbnails), curtain: Box::new(peering_platform::curtain::WindowsCurtain::default()) },
+        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()), archive_directory, releases: Arc::new(GithubReleases { user_agent: format!("peering-host/{}", env!("PEERING_HOST_VERSION")) }), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(WindowsThumbnails), curtain: Box::new(peering_platform::curtain::WindowsCurtain::default()), routines },
     })
 }
 

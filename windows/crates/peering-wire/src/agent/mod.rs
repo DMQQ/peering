@@ -3,6 +3,7 @@
 mod changes;
 mod event;
 mod request;
+mod routine;
 mod session;
 mod stream;
 mod tool;
@@ -16,6 +17,7 @@ pub use changes::{
 };
 pub use event::AgentEvent;
 pub use request::AgentRequest;
+pub use routine::{AgentRoutine, AgentRoutineOutcome, AgentRoutineRun, AgentRoutineSchedule};
 pub use session::{AgentPermissionMode, AgentSessionInfo, AgentSessionState, AgentUsage, AgentUsageLimit};
 pub use stream::{AgentStreamEvent, AgentStreamPayload};
 pub use tool::{

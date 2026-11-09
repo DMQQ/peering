@@ -21,7 +21,7 @@ async fn ask(phone: &mut Phone, request: TerminalRequest) -> TerminalEvent {
 }
 
 fn begin(path: &str, total_bytes: i64) -> TerminalRequest {
-    TerminalRequest::BeginWrite { session_id: SCOPE.to_owned(), path: path.to_owned(), total_bytes }
+    TerminalRequest::BeginWrite { session_id: SCOPE.to_owned(), path: path.to_owned(), total_bytes, md5: None }
 }
 
 fn piece(path: &str, data: &[u8], is_last: bool) -> TerminalRequest {

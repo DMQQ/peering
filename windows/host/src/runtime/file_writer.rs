@@ -22,7 +22,7 @@ const UNAVAILABLE: &str = "File transfers are not available on this PC right now
 pub type Reply = Arc<dyn Fn(TerminalEvent) + Send + Sync>;
 
 enum Job {
-    Begin { reply: Reply, session_id: String, path: String, total_bytes: i64 },
+    Begin { reply: Reply, session_id: String, path: String, total_bytes: i64, md5: Option<String> },
     Piece { reply: Reply, session_id: String, path: String, data: Vec<u8>, is_last: bool },
     Stop { reply: Reply, session_id: String, path: String },
     Change { reply: Reply, session_id: String, operation: RemoteFileOperation },
@@ -50,8 +50,8 @@ impl FileWriter {
         let fallback = reply.clone();
         let reply = reply.clone();
         let job = match request {
-            TerminalRequest::BeginWrite { session_id, path, total_bytes } => {
-                Job::Begin { reply, session_id: session_id.clone(), path: path.clone(), total_bytes: *total_bytes }
+            TerminalRequest::BeginWrite { session_id, path, total_bytes, md5 } => {
+                Job::Begin { reply, session_id: session_id.clone(), path: path.clone(), total_bytes: *total_bytes, md5: md5.clone() }
             }
             TerminalRequest::WriteChunk { session_id, path, data, is_last } => {
                 if !self.reserve(data.len()) {
@@ -124,8 +124,8 @@ fn work(mut transfers: Transfers<Box<dyn DiskOps + Send>, Reply>, inbox: &Receiv
 
 fn run(transfers: &mut Transfers<Box<dyn DiskOps + Send>, Reply>, job: Job, budget: &Mutex<QueuedByteBudget>, now: f64) {
     match job {
-        Job::Begin { reply, session_id, path, total_bytes } => {
-            if let Some(event) = transfers.begin(reply.clone(), &session_id, &path, total_bytes, now) {
+        Job::Begin { reply, session_id, path, total_bytes, md5 } => {
+            if let Some(event) = transfers.begin_checked(reply.clone(), &session_id, &path, total_bytes, md5, now) {
                 reply(event);
             }
         }

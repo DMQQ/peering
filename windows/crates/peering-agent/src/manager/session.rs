@@ -23,6 +23,11 @@ pub struct ManagedSession {
     pub model: Option<String>,
     pub permission_mode: AgentPermissionMode,
     pub usage: Option<AgentUsage>,
+    /// Whether a finished turn is pushed to the phone whatever the phone is doing (`Some(true)`), never (`Some(false)`), or by
+    /// the phone's own presence (`None`). A routine's chat decides it; a chat the phone started leaves it `None`.
+    pub finish_alert: Option<bool>,
+    /// How the last turn ended, `None` while none has.
+    pub last_turn_ok: Option<bool>,
 }
 
 impl ManagedSession {
@@ -41,6 +46,8 @@ impl ManagedSession {
             state: AgentSessionState::Idle,
             pending_approvals: BTreeSet::new(),
             usage: None,
+            finish_alert: None,
+            last_turn_ok: None,
         }
     }
 
@@ -89,7 +96,8 @@ impl ManagedSession {
                     self.state = AgentSessionState::Working;
                 }
             }
-            AgentStreamPayload::TurnFinished { .. } => {
+            AgentStreamPayload::TurnFinished { summary } => {
+                self.last_turn_ok = Some(summary.ok && !summary.stopped);
                 self.pending_approvals.clear();
                 self.state = AgentSessionState::Idle;
             }

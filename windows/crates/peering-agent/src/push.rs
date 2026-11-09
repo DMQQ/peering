@@ -41,6 +41,9 @@ pub struct Reach {
     pub has_token: bool,
     /// The phone is connected and drawing, so its app already shows what a push would say.
     pub foreground: bool,
+    /// What the chat itself says about pushing a finished turn, which beats the phone's presence: `Some(true)` pushes it
+    /// wherever the phone is, `Some(false)` never does, `None` leaves it to `foreground`. A routine's chat sets it.
+    pub finish_alert: Option<bool>,
 }
 
 #[derive(Debug, Default)]
@@ -79,7 +82,11 @@ impl AgentPushPlanner {
                 reach.has_token.then(|| approval(session_id, approval_id, call, reason.as_deref(), agent_name))
             }
             AgentStreamPayload::TurnFinished { summary } => {
-                let finished = reach.has_token && !reach.foreground;
+                let finished = reach.has_token
+                    && match reach.finish_alert {
+                        Some(wanted) => wanted,
+                        None => !reach.foreground,
+                    };
                 let push = finished.then(|| finished_push(session_id, summary, turn, agent_name));
                 turn.edited_files.clear();
                 push
