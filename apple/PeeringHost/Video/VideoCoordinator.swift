@@ -204,6 +204,8 @@ final class VideoCoordinator: @unchecked Sendable {
     /// The bitrate the client asked for, and the lane in force. Two values rather than one,
     /// because the control channel has a ceiling of its own and the client's figure is what to
     /// go back to when the picture leaves it.
+    /// The client's own cap, before the rate's ceiling is applied. Nil until it has asked.
+    var requestedFramesPerSecond: Int?
     var requestedBitrateKbps = 0
     var videoTransport: VideoTransport = .primary
 

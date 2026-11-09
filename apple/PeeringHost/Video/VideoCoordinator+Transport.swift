@@ -31,11 +31,21 @@ extension VideoCoordinator {
 /// Applies a stream-quality change requested by the client.
     func setStreamQuality(fps: Int, bitrateKbps: Int) {
         if let framesPerSecond = StreamQualityLimits.clampedFramesPerSecond(fps) {
-            pipeline.setFrameRateLimit(framesPerSecond)
+            lock.withLock { requestedFramesPerSecond = framesPerSecond }
         }
-        guard let bitrateKbps = StreamQualityLimits.clampedBitrateKbps(bitrateKbps) else { return }
-        lock.withLock { requestedBitrateKbps = bitrateKbps }
-        pipeline.setBitrate(effectiveBitrateKbps * 1000)
+        if let bitrateKbps = StreamQualityLimits.clampedBitrateKbps(bitrateKbps) {
+            lock.withLock { requestedBitrateKbps = bitrateKbps }
+        }
+        applyStreamShape()
+    }
+
+    /// Both knobs from one place, because the frame ceiling follows the rate that is actually in force, including the control channel's cap.
+    func applyStreamShape() {
+        let bitrateKbps = effectiveBitrateKbps
+        let asked = lock.withLock { requestedFramesPerSecond }
+        let ceiling = StreamShaping.framesPerSecondCeiling(bitrateKbps: bitrateKbps)
+        pipeline.setFrameRateLimit(ceiling.map { min($0, asked ?? $0) } ?? asked)
+        pipeline.setBitrate(bitrateKbps * 1000)
     }
 
 /// Moves video between the transport the client prefers and the control channel.
@@ -63,13 +73,13 @@ extension VideoCoordinator {
             }
             guard streamer.use(transport: .control, controlPeer: controlPeer) else { return }
             lock.withLock { videoTransport = .control }
-            pipeline.setBitrate(effectiveBitrateKbps * 1000)
+            applyStreamShape()
             coordinatorLog.notice("video moved to the control channel · \(request.reason, privacy: .public)")
 
         case .primary:
             streamer.use(transport: .primary, controlPeer: nil)
             lock.withLock { videoTransport = .primary }
-            pipeline.setBitrate(effectiveBitrateKbps * 1000)
+            applyStreamShape()
             coordinatorLog.notice("video moved back to the transport the client prefers · \(request.reason, privacy: .public)")
         }
     }
@@ -107,6 +117,7 @@ extension VideoCoordinator {
     func forgetTransportChoiceLocked() {
         videoTransport = .primary
         requestedBitrateKbps = 0
+        requestedFramesPerSecond = nil
         // Only takes leaf locks and enqueues, so nothing calls back into the coordinator.
         pipeline.setFrameRateLimit(nil)
     }

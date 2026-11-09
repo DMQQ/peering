@@ -1,6 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
+import RemoteCore
 import VideoToolbox
 import os
 
@@ -113,7 +114,7 @@ final class VideoEncoder: @unchecked Sendable {
 // PrioritizeEncodingSpeedOverQuality is not set: the low-latency rate control encoder rejects it (kVTPropertyNotSupportedErr, -12900) and it only logs a fault each launch.
         Self.set(session, kVTCompressionPropertyKey_RealTime, kCFBooleanTrue)
         Self.set(session, kVTCompressionPropertyKey_ExpectedFrameRate, NSNumber(value: frameRate))
-        Self.set(session, kVTCompressionPropertyKey_AverageBitRate, NSNumber(value: bitRate))
+        Self.setRate(session, bitsPerSecond: bitRate)
         Self.set(session, kVTCompressionPropertyKey_ProfileLevel, codec.profileLevel)
 
 // Worst case for a client joining mid-stream and cap on how long corruption lasts; new clients use requestKeyframe() instead.
@@ -203,7 +204,7 @@ final class VideoEncoder: @unchecked Sendable {
 /// AverageBitRate can change mid-session on the low-latency controller; it applies from the next keyframe, so also call requestKeyframe().
     func setBitrate(_ bitsPerSecond: Int) {
         guard let session = lock.withLock({ self.session }) else { return }
-        Self.set(session, kVTCompressionPropertyKey_AverageBitRate, NSNumber(value: bitsPerSecond))
+        Self.setRate(session, bitsPerSecond: bitsPerSecond)
         encoderLog.notice("bitrate updated to \(bitsPerSecond / 1000, privacy: .public) kbps")
     }
 
@@ -281,6 +282,13 @@ final class VideoEncoder: @unchecked Sendable {
     }
 
     // MARK: - Properties
+
+    /// The peak limit is what shapes a scroll's burst: with only an average, the burst overflows the link and arrives as stutter. Accepted by both codecs under low-latency rate control; Quality, ConstantBitRate and MaxFrameDelayCount are not.
+    private static func setRate(_ session: VTCompressionSession, bitsPerSecond: Int) {
+        Self.set(session, kVTCompressionPropertyKey_AverageBitRate, NSNumber(value: bitsPerSecond))
+        let peak = StreamShaping.peakBytesPerSecond(averageBitsPerSecond: bitsPerSecond)
+        Self.set(session, kVTCompressionPropertyKey_DataRateLimits, [NSNumber(value: peak), NSNumber(value: 1)] as CFArray)
+    }
 
     @discardableResult
     private static func set(_ session: VTCompressionSession, _ key: CFString, _ value: CFTypeRef) -> Bool {
