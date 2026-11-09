@@ -86,8 +86,11 @@ class VideoSealingTest {
         assertTrue(datagrams.size > 4)
         assertTrue(datagrams.all { it.size <= 1100 })
         val opened = datagrams.map { opener.open(relayed(it)) }
-        assertTrue(opened.dropLast(1).all { it == null })
-        assertEquals(Frame(MessageKind.VideoFrame, picture(5000)), opened.last())
+        // Five data chunks then one parity chunk: the picture opens on the last data chunk, and the parity after it adds nothing.
+        assertEquals(6, datagrams.size)
+        assertTrue(opened.take(4).all { it == null })
+        assertEquals(Frame(MessageKind.VideoFrame, picture(5000)), opened[4])
+        assertNull(opened[5])
     }
 
     @Test

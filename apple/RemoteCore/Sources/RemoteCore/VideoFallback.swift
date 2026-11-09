@@ -51,6 +51,12 @@ public enum VideoChunk {
     /// 1080 bytes with its header, counter, tag and the relay's token, inside IPv6's 1280.
     public static let maxDatagramPayload = 1024
 
+    /// Data chunks covered by one parity chunk on the datagram lane: one lost chunk in ten is rebuilt, for ten percent more bytes.
+    public static let parityGroupSize = 10
+
+    /// Bytes at the front of a parity body that carry the whole payload's length, which the last chunk's length cannot be read from.
+    static let parityLengthSize = 4
+
     /// Far above any real picture; what it stops is a peer claiming 65535 chunks and having them
     /// buffered.
     public static let maxReassembledPayload = 4 * 1024 * 1024
@@ -98,6 +104,43 @@ public enum VideoChunkEncoder {
     }
 }
 
+extension VideoChunkEncoder {
+    /// Like ``encode(kind:payload:frameID:chunkSize:)``, then one parity chunk per `group` data chunks, numbered after the data ones. A parity body is the payload's length followed by the XOR of its group's chunk bodies, each zero padded to `chunkSize`. A payload that fits one piece goes out as itself and is not protected.
+    public static func encodeWithParity(
+        kind: MessageKind,
+        payload: Data,
+        frameID: UInt32,
+        chunkSize: Int,
+        group: Int = VideoChunk.parityGroupSize
+    ) -> [Frame] {
+        var frames = encode(kind: kind, payload: payload, frameID: frameID, chunkSize: chunkSize)
+        let size = max(1, chunkSize)
+        let group = max(1, group)
+        guard payload.count > size, !frames.isEmpty else { return frames }
+        let count = frames.count
+        let groups = (count + group - 1) / group
+        guard count + groups <= Int(UInt16.max) else { return frames }
+
+        let bytes = [UInt8](payload)
+        for g in 0..<groups {
+            var xor = [UInt8](repeating: 0, count: size)
+            for index in (g * group)..<min((g + 1) * group, count) {
+                let start = index * size
+                for offset in 0..<min(size, bytes.count - start) { xor[offset] ^= bytes[start + offset] }
+            }
+            var body = Data(capacity: VideoChunk.headerSize + VideoChunk.parityLengthSize + size)
+            body.append(kind.rawValue)
+            body.appendBigEndian(frameID)
+            body.appendBigEndian(UInt16(count + g))
+            body.appendBigEndian(UInt16(count))
+            body.appendBigEndian(UInt32(bytes.count))
+            body.append(contentsOf: xor)
+            frames.append(Frame(kind: .videoChunk, payload: body))
+        }
+        return frames
+    }
+}
+
 /// The rule that makes that safe is the frame identity: a chunk belonging to a newer frame discards
 /// whatever was being assembled, so a lost chunk costs one picture and never wedges the stream.
 public struct VideoChunkReassembler {
@@ -105,6 +148,9 @@ public struct VideoChunkReassembler {
     private var innerKind: MessageKind?
     private var expected = 0
     private var parts: [Int: Data] = [:]
+    /// Parity bodies by group, and the payload length they carry.
+    private var parities: [Int: [UInt8]] = [:]
+    private var totalLength: Int?
     private var bytes = 0
 
     /// A parameter rather than the constant because there are two answers: for a picture the video
@@ -132,7 +178,8 @@ public struct VideoChunkReassembler {
         let frameID = payload.readBigEndianUInt32(at: base + 1)
         let index = Int(payload.readBigEndianUInt16(at: base + 5))
         let count = Int(payload.readBigEndianUInt16(at: base + 7))
-        guard count > 0, index < count else {
+        let parityGroups = (count + VideoChunk.parityGroupSize - 1) / VideoChunk.parityGroupSize
+        guard count > 0, index < count + parityGroups else {
             throw VideoChunkError.chunkOutOfRange(index: index, count: count)
         }
 
@@ -146,16 +193,21 @@ public struct VideoChunkReassembler {
             innerKind = inner
             expected = count
             parts.removeAll(keepingCapacity: true)
+            parities.removeAll(keepingCapacity: true)
+            totalLength = nil
             bytes = 0
         }
         // A chunk that contradicts the frame it claims to belong to is not from this frame.
         // Ignoring it costs this frame; acting on it would corrupt the one being assembled.
         guard inner == innerKind, count == expected else { return nil }
 
-        if parts[index] == nil {
+        if index >= count {
+            keepParity(group: index - count, body: body)
+        } else if parts[index] == nil {
             parts[index] = body
             bytes += body.count
         }
+        if bytes <= maxReassembled, parts.count != expected { recover() }
         guard bytes <= maxReassembled, parts.count == expected else {
             if bytes > maxReassembled { clear() }
             return nil
@@ -171,11 +223,41 @@ public struct VideoChunkReassembler {
         return Frame(kind: kind, payload: assembled)
     }
 
+    private mutating func keepParity(group: Int, body: Data) {
+        guard body.count > VideoChunk.parityLengthSize else { return }
+        let base = body.startIndex
+        totalLength = Int(body.readBigEndianUInt32(at: base))
+        parities[group] = [UInt8](body[(base + VideoChunk.parityLengthSize)...])
+    }
+
+    /// Rebuilds the one missing chunk of any group whose parity arrived. Two missing in a group cannot be told apart, so that group is left, and the picture is lost as it was before parity existed.
+    private mutating func recover() {
+        guard let total = totalLength else { return }
+        for (group, xor) in parities {
+            let first = group * VideoChunk.parityGroupSize
+            let members = first..<min(first + VideoChunk.parityGroupSize, expected)
+            let missing = members.filter { parts[$0] == nil }
+            guard missing.count == 1, let lost = missing.first else { continue }
+            var rebuilt = xor
+            for present in members where present != lost {
+                guard let part = parts[present] else { continue }
+                for (offset, byte) in part.enumerated() where offset < rebuilt.count { rebuilt[offset] ^= byte }
+            }
+            let length = lost == expected - 1 ? total - (expected - 1) * xor.count : xor.count
+            guard length >= 0, length <= rebuilt.count else { continue }
+            let chunk = Data(rebuilt.prefix(length))
+            parts[lost] = chunk
+            bytes += chunk.count
+        }
+    }
+
     private mutating func clear() {
         frameID = nil
         innerKind = nil
         expected = 0
         parts.removeAll(keepingCapacity: true)
+        parities.removeAll(keepingCapacity: true)
+        totalLength = nil
         bytes = 0
     }
 }

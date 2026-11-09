@@ -24,7 +24,7 @@ public struct VideoDatagramSealer: Sendable {
 
     public mutating func seal(kind: MessageKind, payload: Data) -> [Data] {
         frameID &+= 1
-        let pieces = VideoChunkEncoder.encode(
+        let pieces = VideoChunkEncoder.encodeWithParity(
             kind: kind,
             payload: payload,
             frameID: frameID,

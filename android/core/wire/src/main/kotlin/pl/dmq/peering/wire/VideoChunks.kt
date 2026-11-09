@@ -6,7 +6,11 @@ const val CONTROL_CHUNK_SIZE = 16 * 1024
 const val DATAGRAM_CHUNK_SIZE = 1024
 const val MAX_REASSEMBLED_BYTES = 4 * 1024 * 1024
 
+/** Data chunks covered by one parity chunk on the datagram lane: one lost chunk in ten is rebuilt, for ten percent more bytes. */
+const val PARITY_GROUP_SIZE = 10
+
 private const val CHUNK_HEADER_SIZE = 9
+private const val PARITY_LENGTH_SIZE = 4
 private const val MAX_CHUNK_COUNT = 0xFFFF
 private const val MAX_FRAME_ID = 0xFFFF_FFFFL
 
@@ -37,6 +41,31 @@ object VideoChunkEncoder {
         }
     }
 
+    /**
+     * Like [encode], then one parity chunk per [group] data chunks, numbered after the data ones. A parity body is the
+     * payload's length followed by the XOR of its group's chunk bodies, each zero padded to [chunkSize]. A payload that fits
+     * one piece goes out as itself and is not protected.
+     */
+    fun encodeWithParity(kind: MessageKind, payload: ByteArray, frameId: Long, chunkSize: Int, group: Int = PARITY_GROUP_SIZE): List<Frame> {
+        val data = encode(kind, payload, frameId, chunkSize)
+        if (payload.size <= chunkSize || data.isEmpty()) return data
+        val count = data.size
+        val groups = (count + group - 1) / group
+        if (count + groups > MAX_CHUNK_COUNT) return data
+        val parity = (0 until groups).map { g ->
+            val xor = ByteArray(chunkSize)
+            for (index in g * group until minOf((g + 1) * group, count)) {
+                val start = index * chunkSize
+                for (offset in 0 until minOf(chunkSize, payload.size - start)) xor[offset] = (xor[offset].toInt() xor payload[start + offset].toInt()).toByte()
+            }
+            val body = ByteBuffer.allocate(CHUNK_HEADER_SIZE + PARITY_LENGTH_SIZE + chunkSize)
+                .put(kind.byte.toByte()).putInt(frameId.toInt()).putShort((count + g).toShort()).putShort(count.toShort())
+                .putInt(payload.size).put(xor).array()
+            Frame(MessageKind.VideoChunk, body)
+        }
+        return data + parity
+    }
+
     private fun chunkBody(kind: MessageKind, frameId: Long, index: Int, count: Int, part: ByteArray): ByteArray =
         ByteBuffer.allocate(CHUNK_HEADER_SIZE + part.size)
             .put(kind.byte.toByte())
@@ -60,11 +89,13 @@ class VideoChunkReassembler(private val maxReassembled: Int = MAX_REASSEMBLED_BY
         val current = assembly?.takeIf { it.frameId == chunk.frameId }
             ?: Assembly(chunk.frameId, chunk.kind, chunk.count).also { assembly = it }
         if (current.kind != chunk.kind || current.count != chunk.count) return null
-        if (current.parts.putIfAbsent(chunk.index, chunk.body) == null) current.bufferedBytes += chunk.body.size
+        if (chunk.index >= chunk.count) current.keepParity(chunk.index - chunk.count, chunk.body)
+        else if (current.parts.putIfAbsent(chunk.index, chunk.body) == null) current.bufferedBytes += chunk.body.size
         if (current.bufferedBytes > maxReassembled) {
             assembly = null
             return null
         }
+        if (current.parts.size != current.count) current.recover()
         if (current.parts.size != current.count) return null
         assembly = null
         return Frame(current.kind, current.join())
@@ -72,7 +103,37 @@ class VideoChunkReassembler(private val maxReassembled: Int = MAX_REASSEMBLED_BY
 
     private class Assembly(val frameId: Long, val kind: MessageKind, val count: Int) {
         val parts = HashMap<Int, ByteArray>()
+        private val parities = HashMap<Int, ByteArray>()
+        private var totalLength = -1
         var bufferedBytes = 0
+
+        fun keepParity(group: Int, body: ByteArray) {
+            if (body.size <= PARITY_LENGTH_SIZE) return
+            totalLength = ByteBuffer.wrap(body).getInt()
+            parities[group] = body.copyOfRange(PARITY_LENGTH_SIZE, body.size)
+        }
+
+        /** Rebuilds the one missing chunk of any group whose parity arrived. Two missing in a group are left, as before parity existed. */
+        fun recover() {
+            if (totalLength < 0) return
+            for ((group, xor) in parities) {
+                val members = group * PARITY_GROUP_SIZE until minOf((group + 1) * PARITY_GROUP_SIZE, count)
+                val missing = members.filter { it !in parts }
+                if (missing.size != 1) continue
+                val lost = missing.single()
+                val rebuilt = xor.copyOf()
+                for (present in members) {
+                    if (present == lost) continue
+                    val part = parts.getValue(present)
+                    for (i in part.indices) rebuilt[i] = (rebuilt[i].toInt() xor part[i].toInt()).toByte()
+                }
+                val length = if (lost == count - 1) totalLength - (count - 1) * xor.size else xor.size
+                if (length < 0 || length > rebuilt.size) continue
+                val chunk = rebuilt.copyOf(length)
+                parts[lost] = chunk
+                bufferedBytes += chunk.size
+            }
+        }
 
         fun join(): ByteArray {
             val joined = ByteArray(bufferedBytes)
@@ -98,7 +159,7 @@ private class ChunkHeader(val frameId: Long, val kind: MessageKind, val index: I
             val frameId = buffer.getInt().toLong() and 0xFFFF_FFFFL
             val index = buffer.getShort().toInt() and 0xFFFF
             val count = buffer.getShort().toInt() and 0xFFFF
-            if (count == 0 || index >= count) throw OutOfRange(index, count)
+            if (count == 0 || index >= count + (count + PARITY_GROUP_SIZE - 1) / PARITY_GROUP_SIZE) throw OutOfRange(index, count)
             val body = payload.copyOfRange(CHUNK_HEADER_SIZE, payload.size)
             if (body.size > CONTROL_CHUNK_SIZE) throw Oversized(body.size)
             return ChunkHeader(frameId, kind, index, count, body)
