@@ -152,6 +152,8 @@ apple/Tools/run-probe.sh $ID --switch-to window:NNNN@1 --switch-to application:N
 blocking: a 200 KB keyframe sits in front of the next mouse move. Control latency is what a
 user feels. One `NWListener` on **port 51515** accepts both; the first frame declares the role.
 
+Protocol version history and the current bump (v21, file checksums): [wiki/PROTOCOL-V21.md](wiki/PROTOCOL-V21.md).
+
 **Handshake:** `clientHello` → `serverHello` → TLS → SAS pairing (unpaired) or pin check
 (paired). Then sealed.
 
@@ -520,6 +522,23 @@ recent commits/notes for the outcome before re-investigating from scratch.
 - The user has authorised **spawning subagents to parallelise** work.
 - **Keep explanations plain and short.** Direct feedback: *"i dont understand what did you just
   wrote."* No jargon dumps, no long recaps. Say what happened and what to do next.
+
+---
+
+## Widgets, watch and routines
+
+- **A widget is its own process.** It cannot ask the app anything, so the app writes plain values into
+  `SharedStore` (`apple/Shared/SessionActivityAttributes.swift`, App Group) and reloads the timeline by kind.
+  A new shared type goes in that file, which both targets already compile; a new file in `Shared/` needs
+  target membership added by hand. Widgets use state blue (`WidgetTint.state`) and white opacities only.
+- **Widget kinds:** `PeeringQuickConnect`, `PeeringAgents`, `PeeringApprovals`, `PeeringRoutines`,
+  `PeeringMacStatus`. Approval text on the Lock Screen is `.privacySensitive()`.
+- **Routines.** `AgentRoutine.notifiesWhenDone` is optional so a routine saved by an older build decodes;
+  nil means notify. The host sets `AgentSession.finishAlert` on a routine's chat: true pushes the result
+  whatever the phone's presence, false never does, nil leaves it to the phone's alert settings. It is not
+  persisted, so a chat resumed after a Mac restart falls back to those settings.
+- **Watch.** `PeeringWatch` is approvals only. The phone's list is authoritative while the phone is
+  reachable; notification-sourced items it no longer lists are dropped. There is no complication yet.
 
 ---
 

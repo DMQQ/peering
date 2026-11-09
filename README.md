@@ -25,6 +25,10 @@ The products are **Peering** (iPhone and Android) and **Peering Host**
 - **Pair with a code.** Both screens show six digits; confirming them pins each side's public key.
 - **Coding agents.** Run Claude Code, Codex or OpenCode on the Mac, chat with them from the phone,
   review diffs, commit and push, and answer permission prompts from the Lock Screen.
+- **Routines.** Schedule a prompt for an agent on the Mac, run it while the phone is away, and choose whether the
+  phone is notified when it ends.
+- **Widgets and Apple Watch.** Home and Lock Screen widgets for quick connect, agent chats, questions waiting on you,
+  routines and Mac status, plus a watch app that answers agent approvals from the wrist.
 - **Terminal and SSH.** Shells on the computer or, on iPhone, on any server you add.
 - **Files.** Browse, preview, edit, upload and download on the Mac or over SSH.
 - **Virtual displays.** Give the phone its own screen instead of mirroring the Mac's.
@@ -110,7 +114,8 @@ That property is the product, and `relay/` is kept deliberately too simple to br
 | `android/` | The Android app (Kotlin, Compose, Material 3): `core/wire` and `core/session` are plain Kotlin with JVM tests, `core/platform` and `app/` use Android. Home screen widgets for Quick Connect and Agents. See [android/README.md](android/README.md) |
 | `windows/` | The Windows host (Rust workspace): protocol, networking, capture and input, a tray window for the pairing code. See [windows/README.md](windows/README.md) |
 | `relay/` | `peeringd`, the Rust relay, and the marketing site in `relay/site/` |
-| `apple/PeeringWidget/`, `apple/PeeringHostWidget/`, `apple/Shared/` | Widgets and Live Activities |
+| `apple/PeeringWidget/`, `apple/PeeringHostWidget/`, `apple/Shared/` | Widgets (quick connect, agents, waiting on you, routines, Mac status) and Live Activities; `Shared/` is the app group data both processes read |
+| `apple/PeeringWatch/`, `apple/WatchLink/` | The Apple Watch approvals app and the types it shares with the phone |
 | `apple/PeeringTests/`, `apple/PeeringUITests/` | App-level tests |
 | `apple/Tools/`, `relay/tools/` | Build, install and check scripts; relay and site deploy scripts |
 | `marketing/` | App Store art, social media and release material |
@@ -168,7 +173,7 @@ without a phone.
 ## Running the relay locally
 
 ```sh
-cd Relay
+cd relay
 cargo run    # signalling on :8443, control on :9443
 ```
 
