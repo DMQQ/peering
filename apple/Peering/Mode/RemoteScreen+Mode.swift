@@ -67,11 +67,16 @@ extension RemoteScreen {
         let old = session.mode
         session.mode = new
         session.modeResolved = true
-        showsModePicker = false
-        if new == .workspace {
-            if route.isEmpty { route = [.hub] }
-        } else if old == .workspace, !route.isEmpty {
-            route = []
+        // The picker is a screen of its own, so the hub replaces it outright: fading the picker out or sliding the hub in would show the Mac's picture between the two.
+        var transaction = Transaction()
+        transaction.disablesAnimations = showsModePicker && new == .workspace
+        withTransaction(transaction) {
+            showsModePicker = false
+            if new == .workspace {
+                if route.isEmpty { route = [.hub] }
+            } else if old == .workspace, !route.isEmpty {
+                route = []
+            }
         }
         let mayPause = PicturePause.mayAsk(hostDeclared: session.hostSupportsVideoPause)
         switch SessionModePicture.action(entering: new, hostMayPause: mayPause, pausedByMode: session.picturePausedByMode) {

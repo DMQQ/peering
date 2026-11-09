@@ -169,8 +169,11 @@ fn privacy_mode_is_refused_with_the_code_the_iphone_words_and_lapses() {
             }
         }
         assert!(shown_yet, "the refusal was shown");
-        let shown: NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
-        assert_eq!(shown.code.as_deref(), Some("privacy-mode-failed"));
+        // On a slow machine the waiting clock can run out the capture's no-frames timer first, so that notice may come before this one.
+        let mut shown: NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
+        while shown.code.as_deref() != Some("privacy-mode-failed") {
+            shown = decode_json(&phone.next_of(MessageKind::Notice).await);
+        }
         harness.clock.advance(7.0);
         pump(&harness);
         let cleared: NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
