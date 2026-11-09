@@ -94,6 +94,7 @@ pub struct Reassembler {
     parities: HashMap<usize, Vec<u8>>,
     total_length: Option<usize>,
     bytes: usize,
+    parity_bytes: usize,
     /// The frame last handed out. Its trailing parity chunks are still on the wire and would each open an empty assembly.
     completed: Option<u32>,
 }
@@ -135,7 +136,7 @@ impl Default for Reassembler {
 
 impl Reassembler {
     pub fn new(max_reassembled: usize) -> Self {
-        Self { max_reassembled, frame_id: None, inner_kind: None, expected: 0, parts: HashMap::new(), parities: HashMap::new(), total_length: None, bytes: 0, completed: None }
+        Self { max_reassembled, frame_id: None, inner_kind: None, expected: 0, parts: HashMap::new(), parities: HashMap::new(), total_length: None, bytes: 0, parity_bytes: 0, completed: None }
     }
 
     pub fn ingest(&mut self, frame: &Frame) -> Result<Option<Frame>, ChunkError> {
@@ -162,7 +163,7 @@ impl Reassembler {
             }
             header.index / PARITY_GROUP_SIZE
         };
-        if self.bytes > self.max_reassembled {
+        if self.bytes + self.parity_bytes > self.max_reassembled {
             self.clear();
             return Ok(None);
         }
@@ -181,7 +182,8 @@ impl Reassembler {
         }
         let (length, xor) = body.split_at(PARITY_LENGTH_SIZE);
         self.total_length = Some(u32::from_be_bytes([length[0], length[1], length[2], length[3]]) as usize);
-        self.parities.insert(group, xor.to_vec());
+        let before = self.parities.insert(group, xor.to_vec()).map_or(0, |old| old.len());
+        self.parity_bytes = self.parity_bytes + xor.len() - before;
     }
 
     /// Rebuilds the one missing chunk of `group` once its parity has arrived, which is the only group the chunk just ingested
@@ -225,6 +227,7 @@ impl Reassembler {
         self.parities.clear();
         self.total_length = None;
         self.bytes = 0;
+        self.parity_bytes = 0;
     }
 }
 
@@ -364,6 +367,23 @@ mod tests {
             let kept: Vec<&Frame> = frames.iter().enumerate().filter(|(i, _)| *i != lost).map(|(_, f)| f).collect();
             assert_eq!(feed(&kept), Some(Frame::new(MessageKind::VideoFrame, payload.clone())), "lost chunk {lost}");
         }
+    }
+
+    #[test]
+    fn parity_bodies_count_toward_the_reassembly_limit() {
+        let (payload, frames) = eleven_chunks();
+        let mut order: Vec<&Frame> = vec![&frames[11], &frames[12]];
+        order.extend(frames[..11].iter());
+        let run = |limit: usize| {
+            let mut reassembler = Reassembler::new(limit);
+            let mut done = None;
+            for frame in &order {
+                done = reassembler.ingest(frame).unwrap().or(done);
+            }
+            done
+        };
+        assert_eq!(run(payload.len() + 1), None);
+        assert_eq!(run(payload.len() + 16), Some(Frame::new(MessageKind::VideoFrame, payload)));
     }
 
     #[test]

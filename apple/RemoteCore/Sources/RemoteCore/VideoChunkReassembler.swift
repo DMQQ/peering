@@ -11,6 +11,7 @@ public struct VideoChunkReassembler {
     private var parities: [Int: [UInt8]] = [:]
     private var totalLength: Int?
     private var bytes = 0
+    private var parityBytes = 0
     /// The frame last handed out. Its trailing parity chunks are still on the wire and would each open an empty assembly.
     private var completedFrameID: UInt32?
 
@@ -48,7 +49,7 @@ public struct VideoChunkReassembler {
                 bytes += header.body.count
             }
         }
-        if bytes > maxReassembled {
+        if bytes + parityBytes > maxReassembled {
             clear()
             return nil
         }
@@ -70,7 +71,9 @@ public struct VideoChunkReassembler {
         guard body.count > VideoChunk.parityLengthSize else { return }
         let base = body.startIndex
         totalLength = Int(body.readBigEndianUInt32(at: base))
-        parities[group] = [UInt8](body[(base + VideoChunk.parityLengthSize)...])
+        let xor = [UInt8](body[(base + VideoChunk.parityLengthSize)...])
+        parityBytes += xor.count - (parities[group]?.count ?? 0)
+        parities[group] = xor
     }
 
     /// Rebuilds the one missing chunk of `group` once its parity has arrived, which is the only group the chunk just ingested can have changed. Two missing in a group cannot be told apart, so that group is left, and the picture is lost as it was before parity existed.
@@ -106,6 +109,7 @@ public struct VideoChunkReassembler {
         parities.removeAll(keepingCapacity: true)
         totalLength = nil
         bytes = 0
+        parityBytes = 0
     }
 }
 

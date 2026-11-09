@@ -26,9 +26,10 @@ pub struct Adapter {
 }
 
 /// Name fragments of adapters a phone on the Wi-Fi cannot reach, which Windows still reports as Ethernet.
-const VIRTUAL_MARKERS: [&str; 22] = [
+const VIRTUAL_MARKERS: [&str; 25] = [
     "vethernet", "hyper-v", "virtualbox", "vmware", "vmnet", "wsl", "docker", "tap-windows", "tap-", "wintun", "wireguard",
     "openvpn", "nordlynx", "tailscale", "zerotier", "hamachi", "radmin", "anyconnect", "fortinet", "vpn", "npcap", "loopback",
+    "wi-fi direct", "bluetooth", "personal area network",
 ];
 
 fn is_reachable_from_lan(adapter: &Adapter) -> bool {
@@ -39,18 +40,25 @@ fn is_reachable_from_lan(adapter: &Adapter) -> bool {
     !VIRTUAL_MARKERS.iter().any(|marker| label.contains(marker))
 }
 
+/// A link-local address (169.254.x.x, what an adapter holds while DHCP has not answered) is reachable from no other machine
+/// that is not on the same cable, and counting it would hide the fallback below.
+fn is_routable(address: &Ipv4Addr) -> bool {
+    !address.is_link_local() && !address.is_unspecified()
+}
+
 /// The IPv4 addresses the host must leave out of its mDNS record: every address of an adapter a phone on the same
 /// network could not use. A client resolves one address from the record, so one unreachable address is a connect timeout.
 /// An address that a reachable adapter also holds is kept. When no adapter looks reachable (the PC's only LAN address may sit
 /// on a Hyper-V external switch, which is named like a virtual one) nothing is hidden, since announcing a wrong address is
 /// better than announcing none.
 pub fn addresses_to_hide(adapters: &[Adapter]) -> Vec<IpAddr> {
-    let keep: Vec<Ipv4Addr> = adapters.iter().filter(|a| is_reachable_from_lan(a)).flat_map(|a| a.ipv4.clone()).collect();
+    let keep: Vec<Ipv4Addr> =
+        adapters.iter().filter(|a| is_reachable_from_lan(a)).flat_map(|a| a.ipv4.iter().copied()).filter(is_routable).collect();
     if keep.is_empty() {
         return Vec::new();
     }
     let mut hidden: Vec<IpAddr> = Vec::new();
-    for address in adapters.iter().filter(|a| !is_reachable_from_lan(a)).flat_map(|a| a.ipv4.iter().copied()) {
+    for address in adapters.iter().flat_map(|a| a.ipv4.iter().copied()) {
         if !keep.contains(&address) && !hidden.contains(&IpAddr::V4(address)) {
             hidden.push(IpAddr::V4(address));
         }
@@ -95,6 +103,23 @@ mod tests {
             up,
             ipv4: ipv4.iter().map(|octets| Ipv4Addr::from(*octets)).collect(),
         }
+    }
+
+    #[test]
+    fn a_link_local_address_neither_counts_as_reachable_nor_is_announced() {
+        let adapters = [networked(71, "Wi-Fi", true, &[[192, 168, 1, 20], [169, 254, 3, 4]]), networked(6, "Ethernet", true, &[[169, 254, 9, 9]])];
+        assert_eq!(addresses_to_hide(&adapters), vec![IpAddr::from([169, 254, 3, 4]), IpAddr::from([169, 254, 9, 9])]);
+        assert!(addresses_to_hide(&[networked(6, "Ethernet", true, &[[169, 254, 9, 9]])]).is_empty());
+    }
+
+    #[test]
+    fn wifi_direct_and_bluetooth_adapters_are_hidden() {
+        let adapters = [
+            networked(71, "Wi-Fi", true, &[[192, 168, 1, 20]]),
+            networked(71, "Microsoft Wi-Fi Direct Virtual Adapter", true, &[[192, 168, 137, 1]]),
+            networked(6, "Bluetooth Device (Personal Area Network)", true, &[[169, 254, 5, 5]]),
+        ];
+        assert_eq!(addresses_to_hide(&adapters).len(), 2);
     }
 
     #[test]

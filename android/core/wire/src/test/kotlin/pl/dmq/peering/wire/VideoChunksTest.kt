@@ -211,6 +211,16 @@ class VideoChunksTest {
     }
 
     @Test
+    fun parityBodiesCountTowardTheReassemblyLimit() {
+        val (data, frames) = elevenChunks()
+        val parityFirst = listOf(frames[11], frames[12]) + frames.take(11)
+        val tight = VideoChunkReassembler(maxReassembled = data.size + 1)
+        assertNull(parityFirst.fold<Frame, Frame?>(null) { done, frame -> tight.ingest(frame) ?: done })
+        val roomy = VideoChunkReassembler(maxReassembled = data.size + 16)
+        assertEquals(data.toList(), parityFirst.fold<Frame, Frame?>(null) { done, frame -> roomy.ingest(frame) ?: done }?.payload?.toList())
+    }
+
+    @Test
     fun twoLostChunksInOneGroupAreNotRebuilt() {
         val (_, frames) = elevenChunks()
         assertNull(feed(frames.filterIndexed { index, _ -> index != 2 && index != 5 }))

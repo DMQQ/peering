@@ -42,6 +42,20 @@ struct VideoChunkParityTests {
         #expect(try feed(order)?.payload == payload)
     }
 
+    @Test func parityBodiesCountTowardTheReassemblyLimit() throws {
+        let (payload, frames) = elevenChunks()
+        let parityFirst = [frames[11], frames[12]] + frames[..<11]
+        var tight = VideoChunkReassembler(maxReassembled: payload.count + 1)
+        var tightResult: Frame?
+        for frame in parityFirst { tightResult = try tight.ingest(frame) ?? tightResult }
+        #expect(tightResult == nil)
+
+        var roomy = VideoChunkReassembler(maxReassembled: payload.count + 16)
+        var roomyResult: Frame?
+        for frame in parityFirst { roomyResult = try roomy.ingest(frame) ?? roomyResult }
+        #expect(roomyResult?.payload == payload)
+    }
+
     @Test func twoLostChunksInOneGroupAreNotRebuilt() throws {
         let (_, frames) = elevenChunks()
         let kept = frames.enumerated().filter { $0.offset != 2 && $0.offset != 5 }.map(\.element)

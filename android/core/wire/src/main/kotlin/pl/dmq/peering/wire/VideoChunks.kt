@@ -100,7 +100,7 @@ class VideoChunkReassembler(private val maxReassembled: Int = MAX_REASSEMBLED_BY
             if (current.parts.putIfAbsent(chunk.index, chunk.body) == null) current.bufferedBytes += chunk.body.size
             chunk.index / PARITY_GROUP_SIZE
         }
-        if (current.bufferedBytes > maxReassembled) {
+        if (current.bufferedBytes + current.parityBytes > maxReassembled) {
             assembly = null
             return null
         }
@@ -116,11 +116,14 @@ class VideoChunkReassembler(private val maxReassembled: Int = MAX_REASSEMBLED_BY
         private val parities = HashMap<Int, ByteArray>()
         private var totalLength = -1
         var bufferedBytes = 0
+        var parityBytes = 0
 
         fun keepParity(group: Int, body: ByteArray) {
             if (body.size <= PARITY_LENGTH_SIZE) return
             totalLength = ByteBuffer.wrap(body).getInt()
-            parities[group] = body.copyOfRange(PARITY_LENGTH_SIZE, body.size)
+            val xor = body.copyOfRange(PARITY_LENGTH_SIZE, body.size)
+            parityBytes += xor.size - (parities[group]?.size ?: 0)
+            parities[group] = xor
         }
 
         /**
