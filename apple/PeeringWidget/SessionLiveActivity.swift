@@ -28,7 +28,8 @@ struct SessionLiveActivity: Widget {
                 // Both regions claim the full width and align inside it; otherwise the timer sits wherever the Mac's name ends.
                 DynamicIslandExpandedRegion(.leading) {
                     Label(context.state.shownHostName, systemImage: symbol(for: context.state.phase))
-                        .font(.caption.weight(.semibold))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(tone(for: context.state.phase).tint)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -48,10 +49,10 @@ struct SessionLiveActivity: Widget {
                         if ![.dropped, .paused].contains(context.state.phase) {
                             Link(destination: Self.endURL) {
                                 Text("End")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.7))
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 2)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 4)
                                     .background(.white.opacity(0.15), in: Capsule())
                             }
                         }
@@ -60,6 +61,7 @@ struct SessionLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: symbol(for: context.state.phase))
+                    .foregroundStyle(tone(for: context.state.phase).tint)
             } compactTrailing: {
                 // The compact slot is a few characters wide; the system's timer collapses to minutes for that reason.
                 elapsed(context)
@@ -67,6 +69,7 @@ struct SessionLiveActivity: Widget {
             } minimal: {
                 // One glyph: here the glyph is the state, as the island has no room for a dot or a word.
                 Image(systemName: symbol(for: context.state.phase))
+                    .foregroundStyle(tone(for: context.state.phase).tint)
             }
             // Monochrome: the default keyline is the accent colour, which would look foreign.
             .keylineTint(.white)

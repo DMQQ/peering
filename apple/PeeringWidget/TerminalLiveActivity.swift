@@ -43,10 +43,10 @@ struct TerminalLiveActivity: Widget {
                         Spacer()
                         Link(destination: Self.endURL) {
                             Text(actionTitle(for: context.state))
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.white.opacity(0.7))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 4)
                                 .background(.white.opacity(0.15), in: Capsule())
                         }
                     }

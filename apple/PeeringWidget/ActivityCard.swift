@@ -21,7 +21,7 @@ struct ActivityCard: View {
     /// A card pushed by the Mac names nothing it is doing.
     static let fallbackName = String(localized: "Coding agent")
 
-    static let tile: CGFloat = 42
+    static let tile: CGFloat = 52
     static let tileCorner = tile * 0.286
     static let tileGlyph = tile * 0.405
 
@@ -32,16 +32,16 @@ struct ActivityCard: View {
     static let backgroundTint = Color.black.opacity(0.7)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             sessionRow
             if let plan {
-                PlanBar(plan: plan)
+                PlanBar(plan: plan, tone: tone)
             }
             if !work.isEmpty {
                 Rectangle()
-                    .fill(.white.opacity(0.18))
+                    .fill(.white.opacity(0.12))
                     .frame(height: 1)
-                VStack(alignment: .leading, spacing: 7) {
+                VStack(alignment: .leading, spacing: 9) {
                     ForEach(Array(work.prefix(Self.workRows)), id: \.self) { item in
                         workRow(item)
                     }
@@ -52,11 +52,21 @@ struct ActivityCard: View {
                     }
                 }
             }
+            if let action {
+                HStack {
+                    Spacer(minLength: 0)
+                    Link(destination: action.url) {
+                        Text(action.title).activityAction()
+                    }
+                    .fixedSize()
+                }
+            }
         }
         // The card claims the width: an activity is laid out at its ideal size and centred, and a `Spacer` only takes the room it is offered.
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        // The system rounds the card's corners by about 24pt, so the tile and the clock need more than 14 to stay clear of the curve.
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
     }
 
     private func workRow(_ item: SessionActivityAttributes.ContentState.Work) -> some View {
@@ -74,7 +84,7 @@ struct ActivityCard: View {
             if let detail = item.detail {
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
             }
 
@@ -102,10 +112,10 @@ struct ActivityCard: View {
     }
 
     private var sessionRow: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             ActivityTile(symbol: symbol, tone: tone, isTinted: statusSymbol != nil)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
                     Text(name)
                         .font(.headline)
@@ -113,7 +123,7 @@ struct ActivityCard: View {
 
                     Spacer(minLength: 8)
 
-                    // Nothing in the pending case, and the row does not move: the End button sits on the line below.
+                    // Nothing in the pending case, and the row does not move.
                     if let startedAt {
                         Text(startedAt, style: .timer)
                             .font(.body.monospacedDigit())
@@ -125,28 +135,16 @@ struct ActivityCard: View {
                     }
                 }
 
-                HStack(spacing: 8) {
-                    HStack(spacing: 5) {
-                        if let statusSymbol {
-                            Image(systemName: statusSymbol)
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(tone.tint)
-                        }
-                        Text(status)
-                            .font(.subheadline)
-                            .foregroundStyle(statusSymbol == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(tone.tint))
-                            .lineLimit(1)
+                HStack(spacing: 5) {
+                    if let statusSymbol {
+                        Image(systemName: statusSymbol)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(tone.tint)
                     }
-
-                    // Without this the End capsule sits right after the status word: an `HStack` leaves the rest of the line empty.
-                    Spacer(minLength: 8)
-
-                    if let action {
-                        Link(destination: action.url) {
-                            Text(action.title).activityAction()
-                        }
-                        .fixedSize()
-                    }
+                    Text(status)
+                        .font(.subheadline)
+                        .foregroundStyle(statusSymbol == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(tone.tint))
+                        .lineLimit(1)
                 }
             }
         }
@@ -210,11 +208,11 @@ private struct ActivityTile: View {
 
 private extension View {
     func activityAction() -> some View {
-        font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.85))
-            .padding(.horizontal, 11)
-            .padding(.vertical, 5)
-            .background(.white.opacity(0.16), in: Capsule())
+        font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.9))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.white.opacity(0.18), in: Capsule())
     }
 }
 
@@ -228,10 +226,11 @@ struct ActivityCardPlan {
 
 struct PlanBar: View {
     let plan: ActivityCardPlan
+    var tone: ActivityTone?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            PlanSegments(done: plan.done, total: plan.total)
+            PlanSegments(done: plan.done, total: plan.total, current: tone?.tint)
             HStack(spacing: 6) {
                 if let number = plan.stepNumber {
                     Text("Step \(number) of \(plan.total)")
@@ -253,14 +252,22 @@ struct PlanBar: View {
 struct PlanSegments: View {
     let done: Int
     let total: Int
+    /// The step in hand takes the card's state colour when it has one, so a plan waiting on you reads as waiting.
+    var current: Color?
+
+    private func segment(_ index: Int) -> AnyShapeStyle {
+        if index < done { return AnyShapeStyle(.white.opacity(0.85)) }
+        if index == done { return current.map { AnyShapeStyle($0.opacity(0.9)) } ?? AnyShapeStyle(.white.opacity(0.4)) }
+        return AnyShapeStyle(.white.opacity(0.14))
+    }
 
     var body: some View {
         if total <= 14 {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 ForEach(0..<total, id: \.self) { index in
                     Capsule()
-                        .fill(.white.opacity(index < done ? 0.85 : (index == done ? 0.4 : 0.14)))
-                        .frame(height: 4)
+                        .fill(segment(index))
+                        .frame(height: 5)
                 }
             }
         } else {
