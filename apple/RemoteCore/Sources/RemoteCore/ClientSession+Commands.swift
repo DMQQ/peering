@@ -113,6 +113,7 @@ extension ClientSession {
     }
 
     func sendNow(_ command: RemoteCommand) {
+        if sendDirectly(command) { return }
         connection()?.send(command)
     }
 }

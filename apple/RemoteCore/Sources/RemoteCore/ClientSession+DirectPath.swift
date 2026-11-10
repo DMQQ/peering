@@ -124,6 +124,7 @@ extension ClientSession {
         var path: DatagramPath = .relay
         if case .peer(let host, let port) = source {
             path = .direct
+            lock.withLock { lastPeerDatagramAt = Self.monotonicNow() }
             // The address the Mac is answering from: a NAT that moved mid-session is the ordinary case, and this end finds out.
             reportDirectPath(.open(peer: "\(host):\(port)"))
         }

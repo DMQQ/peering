@@ -145,7 +145,8 @@ extension HostSession {
             pushesTerminalAlertsWhileConnected: true,
             // Which agents, since the set grows and a phone cannot guess it from the version.
             agentChatAgents: AgentSessionManager.chatAgents.keys.sorted(),
-            hostPlatform: "macos"
+            hostPlatform: "macos",
+            supportsDirectInput: true
         )
     }
 }

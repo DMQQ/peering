@@ -76,6 +76,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// The Live Activity push tokens the phone holds. JSON-encoded ``ActivityTokenPayload``.
     case activityToken = 0x24
+
+    /// Pointer movement on the datagram path straight to the Mac. JSON-encoded ``DirectCommand``. Only sent to a host that set ``ServerHello/supportsDirectInput``.
+    case directCommand = 0x25
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

@@ -115,6 +115,10 @@ public final class ClientSession: @unchecked Sendable {
     var videoSealer: VideoDatagramSealer?
 
     var pathPingLedger = PingLedger()
+    var inputRoute = DirectInputRoute()
+    var directInputSequence: UInt32 = 0
+    /// When something last arrived straight from the Mac, so a path that has gone quiet stops carrying input.
+    var lastPeerDatagramAt: TimeInterval?
     var pathLatency = LatencyWindow(length: ClientSession.latencyWindow)
     var lanePingTask: Task<Void, Never>?
 

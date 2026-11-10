@@ -107,6 +107,7 @@ extension VideoCoordinator {
 
         do {
             let lane = try VideoDatagramLane(relay: relay, secret: secret)
+            lane.onInput = lock.withLock { directInput }
             guard streamer.useDatagrams(lane) else { return nil }
             coordinatorLog.notice("video is going on the relay's datagram path")
             return secret

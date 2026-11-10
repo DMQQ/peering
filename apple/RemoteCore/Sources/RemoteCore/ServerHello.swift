@@ -21,6 +21,9 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Which platform this host runs on (`"macos"`, `"windows"`). A client may use it to choose key codes and to hide what only a Mac does.
     public var hostPlatform: String?
 
+    /// Whether this host reads pointer movement from a direct datagram. `nil` reads as no.
+    public var supportsDirectInput: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -30,7 +33,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsVirtualDisplayManagement: Bool? = nil,
         pushesTerminalAlertsWhileConnected: Bool? = nil,
         agentChatAgents: [String]? = nil,
-        hostPlatform: String? = nil
+        hostPlatform: String? = nil,
+        supportsDirectInput: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -41,5 +45,6 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
         self.agentChatAgents = agentChatAgents
         self.hostPlatform = hostPlatform
+        self.supportsDirectInput = supportsDirectInput
     }
 }

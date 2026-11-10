@@ -17,6 +17,8 @@ final class VideoCoordinator: @unchecked Sendable {
 
 /// Which client is being sent the picture, and which ones have asked for no frames.
     var audience = VideoAudience<PeerConnection>()
+    /// Where pointer movement from a client's direct datagrams is applied; set once at wiring, read under `lock`.
+    var directInput: (@Sendable (RemoteCommand) -> Void)?
 
     var currentSource: CaptureSource?
     var currentAudioConfig: AudioStreamConfig?

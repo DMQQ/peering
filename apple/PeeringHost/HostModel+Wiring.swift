@@ -137,11 +137,21 @@ extension HostModel {
                 textFocusWatcher.clicked(at: input.clickLocation)
             }
         }
-        server.callbacks.onCommand = { [weak self] command in
+        let handle: @Sendable (RemoteCommand) -> Void = { [weak self] command in
             if Self.dispatch(command, to: self, coordinator: coordinator) { return }
             // A mosaic takes no input: which machine coordinate a point means depends on the tile, which the app decides. The client sends nothing while a canvas is up, so this is a backstop against input placed through a stale single-source transform.
             if command.isUserInput, coordinator.isShowingMosaic { return }
             offDesktopGate.pass(command, source: coordinator.source)
+        }
+        // A click or key reaches the Mac on both paths; the gate lets the first copy through.
+        let gate = DuplicateInputGate()
+        server.callbacks.onCommand = { command in
+            if gate.shouldApply(command, from: .control) { handle(command) }
+        }
+        coordinator.lock.withLock {
+            coordinator.directInput = { command in
+                if gate.shouldApply(command, from: .direct) { handle(command) }
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import PeeringKit
 import RemoteCore
 import os
 
@@ -15,6 +16,12 @@ final class VideoDatagramLane: @unchecked Sendable {
     private var probeOpener: VideoDatagramOpener
 
     private var directPeer: (host: String, port: UInt16)?
+
+/// Where pointer movement that arrived straight from the client is applied.
+    var onInput: (@Sendable (RemoteCommand) -> Void)?
+    private var inputOrder = DirectInputOrder()
+    /// What the direct path pressed and has not released, so closing the lane lets go of it as the control connection does.
+    private var heldInput = HeldInputLedger()
 
 /// What the attempt has come to, so that it can be said once per change rather than per probe.
     private var probeStatus: ClientSession.DirectPath = .notTried
@@ -193,6 +200,11 @@ final class VideoDatagramLane: @unchecked Sendable {
             return
         }
 
+        if frame.kind == .directCommand {
+            receiveDirectCommand(frame, from: source)
+            return
+        }
+
         guard case .peer(let host, let port) = source else { return }
 
         let moved = lock.withLock { () -> Bool in
@@ -213,7 +225,27 @@ final class VideoDatagramLane: @unchecked Sendable {
         }
     }
 
+/// Applied only from the address already proven by a probe, and only for the commands a loss or a reordering cannot hurt.
+    private func receiveDirectCommand(_ frame: Frame, from source: VideoDatagramSocket.Source) {
+        guard case .peer(let host, let port) = source,
+              let message = try? MessageCodec.decode(DirectCommand.self, from: frame.payload),
+              DirectCommand.isEligible(message.command)
+        else { return }
+        let apply: (@Sendable (RemoteCommand) -> Void)? = lock.withLock {
+            guard directPeer?.host == host, directPeer?.port == port,
+                  inputOrder.accepts(message.sequence)
+            else { return nil }
+            heldInput.observe(message.command)
+            return onInput
+        }
+        apply?(message.command)
+    }
+
     func cancel() {
+        let release = lock.withLock { () -> (commands: [RemoteCommand], apply: (@Sendable (RemoteCommand) -> Void)?) in
+            (heldInput.releaseCommands(), onInput)
+        }
+        for command in release.commands { release.apply?(command) }
         stopProbing()
         socket.cancel()
     }
