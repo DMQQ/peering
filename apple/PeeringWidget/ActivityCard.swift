@@ -23,7 +23,7 @@ struct ActivityCard: View {
     /// A card pushed by the Mac names nothing it is doing.
     static let fallbackName = String(localized: "Coding agent")
 
-    static let tile: CGFloat = 52
+    static let tile: CGFloat = 46
     static let tileCorner = tile * 0.286
     static let tileGlyph = tile * 0.405
 
@@ -34,7 +34,7 @@ struct ActivityCard: View {
     static let backgroundTint = Color.black.opacity(0.7)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             sessionRow
             if !facts.isEmpty {
                 HStack(spacing: 8) {
@@ -61,21 +61,12 @@ struct ActivityCard: View {
                     }
                 }
             }
-            if let action {
-                HStack {
-                    Spacer(minLength: 0)
-                    Link(destination: action.url) {
-                        Text(action.title).activityAction()
-                    }
-                    .fixedSize()
-                }
-            }
         }
         // The card claims the width: an activity is laid out at its ideal size and centred, and a `Spacer` only takes the room it is offered.
         .frame(maxWidth: .infinity, alignment: .leading)
         // The system rounds the card's corners by about 24pt, so the tile and the clock need more than 14 to stay clear of the curve.
         .padding(.horizontal, 18)
-        .padding(.vertical, 16)
+        .padding(.vertical, 14)
     }
 
     private func workRow(_ item: SessionActivityAttributes.ContentState.Work) -> some View {
@@ -144,16 +135,27 @@ struct ActivityCard: View {
                     }
                 }
 
-                HStack(spacing: 5) {
-                    if let statusSymbol {
-                        Image(systemName: statusSymbol)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(tone.tint)
+                HStack(spacing: 8) {
+                    HStack(spacing: 5) {
+                        if let statusSymbol {
+                            Image(systemName: statusSymbol)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(tone.tint)
+                        }
+                        Text(status)
+                            .font(.subheadline)
+                            .foregroundStyle(statusSymbol == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(tone.tint))
+                            .lineLimit(1)
                     }
-                    Text(status)
-                        .font(.subheadline)
-                        .foregroundStyle(statusSymbol == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(tone.tint))
-                        .lineLimit(1)
+
+                    Spacer(minLength: 8)
+
+                    if let action {
+                        Link(destination: action.url) {
+                            Text(action.title).activityAction()
+                        }
+                        .fixedSize()
+                    }
                 }
             }
         }
@@ -189,7 +191,7 @@ private struct FactTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(.white.opacity(0.14), lineWidth: 1)
@@ -265,7 +267,7 @@ private extension View {
         font(.system(size: 13, weight: .semibold))
             .foregroundStyle(.white.opacity(0.9))
             .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .background(.white.opacity(0.18), in: Capsule())
     }
 }
