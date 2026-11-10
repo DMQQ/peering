@@ -9,7 +9,11 @@ private let hostLog = Logger(subsystem: "pl.dmq.peering.host", category: "sessio
 extension HostModel {
     /// Hands a command to the part of the host that answers it. False means it is plain input for the injector.
     nonisolated static func dispatch(_ command: RemoteCommand, to model: HostModel?, coordinator: VideoCoordinator) -> Bool {
-        dispatchToCoordinator(command, coordinator) || dispatchToModel(command, model)
+        switch command {
+        case .switchToSpace, .switchSpace: coordinator.streamFreshFramesAfterSpaceSwitch()
+        default: break
+        }
+        return dispatchToCoordinator(command, coordinator) || dispatchToModel(command, model)
     }
 
     /// Straight through, off the main actor: these concern the capture's own queues.

@@ -81,6 +81,7 @@ final class CapturePipeline: @unchecked Sendable {
 
     /// Which of the engine and the compositor the last ``start(source:frameRate:resolution:)`` selected. Nil while stopped.
     var runningEngine: (any CaptureFrameSource)?
+    var frameBurst: Task<Void, Never>?
 
     /// Read from the recorded source rather than the engine, to avoid a lock on the frame path.
     var isMosaic: Bool { lock.withLock { source }?.isMosaic ?? false }
