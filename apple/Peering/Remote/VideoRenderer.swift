@@ -41,6 +41,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     private var snapshot = Snapshot()
     /// Whether the next frame to the live layer is the first of the config just applied, which ``onFirstFrame`` reports.
     private var awaitingFirstFrameOfConfig = false
+    /// Queue-confined, like the keyframe policy: whether a look at the keyframe wait is already scheduled.
+    private var keyframeRecheckScheduled = false
 
     /// Called on the main actor when the first frame of the last applied config reaches the live layer. A config arrives before its own picture (keyframe encode plus network), and until then the layer still shows the old stream.
     private var _onFirstFrame: (@MainActor @Sendable () -> Void)?
@@ -188,9 +190,22 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
 
     /// Queue-confined, like ``keyframeRequests``.
     private func askForKeyframeIfDue() {
+        scheduleKeyframeRecheck()
         guard keyframeRequests.noteDrop(at: ProcessInfo.processInfo.systemUptime) else { return }
         let ask = lock.withLock { _onNeedsKeyframe }
         Task { @MainActor in ask?() }
+    }
+
+    /// The ask is otherwise made only when another frame is dropped, and a screen that has gone still after a desktop slide sends none: the picture waited for a keyframe nobody asked for until something on the Mac moved. This looks again while the wait lasts.
+    private func scheduleKeyframeRecheck() {
+        guard !keyframeRecheckScheduled else { return }
+        keyframeRecheckScheduled = true
+        queue.asyncAfter(deadline: .now() + .milliseconds(350)) { [weak self] in
+            guard let self else { return }
+            self.keyframeRecheckScheduled = false
+            guard self.lock.withLock({ self.snapshot.awaitingKeyframe }) else { return }
+            self.askForKeyframeIfDue()
+        }
     }
 
     /// Queue-confined half of ``enqueue(_:)``, also replays a keyframe that arrived before the display surface existed.
