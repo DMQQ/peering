@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
+import java.net.InetAddress
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import pl.dmq.peering.platform.PlatformLog
@@ -171,12 +172,20 @@ class NsdDiscovery(
     }
 
     private fun hostOf(resolved: NsdServiceInfo): DiscoveredHost? {
-        val address = resolved.host?.hostAddress ?: return null
+        val address = resolvedAddress(resolved)?.hostAddress ?: return null
         val attributes = HostMapper.decodeAttributes(resolved.attributes)
         val host = HostMapper.map(resolved.serviceName, attributes, PeerAddress(address, resolved.port))
         PlatformLog.d(TAG) { "resolved ${resolved.serviceName} to $address:${resolved.port}, ours: ${host != null}" }
         return host
     }
+
+    private fun resolvedAddress(resolved: NsdServiceInfo): InetAddress? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            AddressChoice.best(resolved.hostAddresses)
+        } else {
+            @Suppress("DEPRECATION")
+            resolved.host
+        }
 
     private fun describe(event: DiscoveryEvent): String = when (event) {
         is DiscoveryEvent.Found -> "found ${event.host.id} at ${event.host.address.host}:${event.host.address.port}"

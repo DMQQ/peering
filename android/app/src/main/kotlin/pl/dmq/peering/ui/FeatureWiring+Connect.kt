@@ -64,7 +64,8 @@ internal fun FeatureWiring.wakeHost(hostId: String): Int? {
     return WakeBroadcast.send(addresses)
 }
 
-internal fun FeatureWiring.startPairing(hostId: String) = holder.connect(ConnectTarget.Pairing(hostId))
+internal fun FeatureWiring.startPairing(hostId: String) =
+    holder.connect(ConnectTarget.Pairing(hostId, relayAllowed = devicePrefs.prefs.value.allowsRelay))
 
 /** Dials a computer by address alone, the way for a network where it cannot be found by name. */
 internal fun FeatureWiring.startPairingByAddress(address: PeerAddress) = holder.connect(ConnectTarget.Lan(address))
