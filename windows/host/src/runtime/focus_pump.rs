@@ -81,6 +81,7 @@ async fn run(shared: Shared, profile: Arc<HostProfile>) {
     let mut supervised = Supervised::new("text focus");
     loop {
         ticks.tick().await;
+        super::idle_rest::rest_while_idle(&shared, &mut ticks).await;
         let now = profile.clock.now_seconds();
         deliver(supervised_pass(&mut supervised, &shared, ProblemSource::Focus, now, HostState::pump_focus));
     }

@@ -21,8 +21,11 @@ sealed interface ConnectTarget {
         override val path: SessionRecord.Path get() = SessionRecord.Path.RELAY
     }
 
-    /** A host the phone has not paired with yet, found on the local network. [qrSecret] comes from a scanned code. */
-    class Pairing(override val hostId: String, val qrSecret: ByteArray? = null) : ConnectTarget {
+    /**
+     * A host the phone has not paired with yet, looked for on the local network. [qrSecret] comes from a scanned code.
+     * With [relayAllowed] the relay is dialled when the local network fails or never sees the host.
+     */
+    class Pairing(override val hostId: String, val qrSecret: ByteArray? = null, val relayAllowed: Boolean = false) : ConnectTarget {
         override val path: SessionRecord.Path get() = SessionRecord.Path.LAN
     }
 

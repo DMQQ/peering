@@ -3087,6 +3087,7 @@ dependencies = [
  "peering-platform",
  "peering-wire",
  "qrcode",
+ "raw-window-handle",
  "ring",
  "rustls",
  "rustls-pki-types",

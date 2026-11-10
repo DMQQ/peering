@@ -32,8 +32,15 @@ internal class ConnectivityNetworkSource(context: Context) : NetworkSource {
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
             .build()
-        trySend(false)
+        // Starting from false showed "Not on Wi-Fi" for a frame on every visit to the Connect tab, until the callback answered.
+        trySend(isOnLocalNetwork())
         connectivity.registerNetworkCallback(request, callback)
         awaitClose { connectivity.unregisterNetworkCallback(callback) }
     }.distinctUntilChanged()
+
+    private fun isOnLocalNetwork(): Boolean {
+        val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+    }
 }

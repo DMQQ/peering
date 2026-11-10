@@ -122,9 +122,13 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             guard let self else { return }
             self.renderer = renderer
             self.lock.withLock { self.liveRenderer = renderer }
-            if let frame = self.deferredKeyframe.take(), let format = self.formatDescription {
-                self.enqueue(frame, on: renderer, format: format)
-            }
+            guard let replay = self.deferredKeyframe.take(), let format = self.formatDescription else { return }
+            self.enqueue(replay.frame, on: renderer, format: format)
+            guard replay.missedLaterFrames else { return }
+            // The keyframe is shown, but the deltas that followed it are gone, so the next ones must wait for a fresh keyframe.
+            self.lock.withLock { self.snapshot.awaitingKeyframe = true }
+            let ask = self.lock.withLock { self._onNeedsKeyframe }
+            Task { @MainActor in ask?() }
         }
     }
 

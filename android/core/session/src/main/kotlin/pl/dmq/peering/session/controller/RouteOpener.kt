@@ -23,7 +23,11 @@ internal class RouteOpener(
 
     private suspend fun openRoute(): OpenedRoute = when (target) {
         is ConnectTarget.Lan -> direct(target.hostId?.let { fresh(it) } ?: target.address)
-        is ConnectTarget.Pairing -> direct(discover(target.hostId))
+        is ConnectTarget.Pairing -> if (target.relayAllowed && ports.relay != null) {
+            raced(DialInputs(discovered = lookUp(target.hostId, DISCOVERY_TIMEOUT), remembered = null, relayAllowed = true))
+        } else {
+            direct(discover(target.hostId))
+        }
         is ConnectTarget.Relay -> raced(DialInputs(null, null, relayAllowed = true, pairElsewhere = true))
         is ConnectTarget.Paired -> raced(
             DialInputs(

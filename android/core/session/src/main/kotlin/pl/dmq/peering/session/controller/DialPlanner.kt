@@ -7,7 +7,7 @@ import kotlin.time.Duration.Companion.seconds
 /** Chooses the order of routes to a host: the local network first, the relay only behind it. */
 object DialPlanner {
     /** How long a host just seen on the network is given to answer before the relay is tried. */
-    val SEEN_TIMEOUT: Duration = 10.seconds
+    val SEEN_TIMEOUT: Duration = 3.seconds
 
     /** A remembered address may be stale, so it is given less time. */
     val REMEMBERED_TIMEOUT: Duration = 3.seconds
