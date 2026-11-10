@@ -33,6 +33,7 @@ struct AgentChatScreen: View {
     @State var attaching: Attachment?
     @State var attached: [UUID: [Attachment]] = [:]
     @State var stickToBottom = true
+    @State var resumedChats: Set<UUID> = []
     @FocusState var composerFocused: Bool
     @State var showsUsage = false
     @State var showsPreview = false
@@ -62,8 +63,7 @@ struct AgentChatScreen: View {
         .analyticsScreen(.agentChat)
         .navigationTitle(session?.title ?? String(localized: "Chat"))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .chatBarBackground()
         .sheet(isPresented: $showsUsage) {
             AgentUsageSheet(sessionID: currentID)
         }
@@ -135,6 +135,7 @@ struct AgentChatScreen: View {
             currentID = id
         }
         .onChange(of: currentID) { _, id in
+            stickToBottom = true
             model.selectedAgentSessionID = id
             model.ensureAgentHistory(id)
             model.prefetchAgentChanges(id)
@@ -230,6 +231,8 @@ struct AgentChatScreen: View {
                     review: { answering = $0 },
                     openSubagent: { openedSubagent = AgentSubagentSelection(id: $0) }
                 )
+                // A transcript of its own per chat: one shared scroll view kept the last chat's offset, and the jump to the end ran before the new chat had laid out.
+                .id(session.id)
                 .transition(.opacity)
             }
         }
@@ -249,6 +252,7 @@ struct AgentChatScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             bottomBar(session)
         }
+        .chatScrollEdges()
         .onDisappear { dictation.cancel() }
         .photosPicker(isPresented: $showsPhotoPicker, selection: $pickedPhoto, matching: .images)
         .onChange(of: pickedPhoto) { _, item in
@@ -283,6 +287,29 @@ struct AgentChatScreen: View {
                 answering = nil
             })
             .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+private extension View {
+    /// The bar lets the transcript run under it; iOS 26 blurs the edge softly, earlier systems get a thin material.
+    @ViewBuilder
+    func chatBarBackground() -> some View {
+        if #available(iOS 26.0, *) {
+            toolbarBackground(.hidden, for: .navigationBar)
+        } else {
+            toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+        }
+    }
+
+    @ViewBuilder
+    func chatScrollEdges() -> some View {
+        if #available(iOS 26.0, *) {
+            scrollEdgeEffectStyle(.soft, for: .top)
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
+        } else {
+            self
         }
     }
 }

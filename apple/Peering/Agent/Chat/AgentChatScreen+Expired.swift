@@ -14,9 +14,34 @@ extension AgentChatScreen {
                 .background(ColorPalette.ink, in: Capsule())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
         .accessibilityIdentifier("continue-in-new-chat")
+    }
+
+    /// A stopped chat opens to read. Nothing on the Mac starts, and no tokens are spent re-reading it, until this is tapped.
+    func isReadOnly(_ session: RemoteAgentSession) -> Bool {
+        AgentPause.isPaused(session.transcript) && !resumedChats.contains(session.id)
+    }
+
+    func pausedBar(_ session: RemoteAgentSession) -> some View {
+        VStack(spacing: 8) {
+            Button {
+                withAnimation(Motion.settle) { _ = resumedChats.insert(session.id) }
+                composerFocused = true
+            } label: {
+                Label("Continue this chat", systemImage: "play.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(ColorPalette.onInk)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(ColorPalette.ink, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            Text("Stopped. Continuing makes the agent read the whole conversation again, which uses tokens.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .accessibilityIdentifier("continue-paused-chat")
     }
 
     /// A chat opened to stand in for one that could not be reopened starts with its recap in the composer, to read and send.

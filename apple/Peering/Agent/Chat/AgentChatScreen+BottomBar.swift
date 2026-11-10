@@ -3,6 +3,9 @@ import RemoteCore
 import SwiftUI
 
 extension AgentChatScreen {
+    /// The same gap on every side, and the tray's corner radius is the capsule's plus it, so the two curves share a centre.
+    static let trayInset: CGFloat = 10
+
     /// The composer is a bottom inset rather than the end of a stack, so the keyboard pushes it up instead of covering it.
     func bottomBar(_ session: RemoteAgentSession) -> some View {
         VStack(spacing: 0) {
@@ -20,7 +23,9 @@ extension AgentChatScreen {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             // Hints take the place of the chips, which they cover rather than sit above.
-            if AgentExpiry.isExpired(session.transcript) {
+            if isReadOnly(session) {
+                pausedBar(session)
+            } else if AgentExpiry.isExpired(session.transcript) {
                 expiredBar(session)
             } else if let query = mentionQuery(session), let id = model.browserID {
                 let folder = query.folder(in: session.directory)
@@ -33,27 +38,18 @@ extension AgentChatScreen {
                 ) { path, isFolder in
                     drafts[session.id] = query.replacing(in: drafts[session.id] ?? "", with: path, isFolder: isFolder)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
-                .padding(.bottom, 2)
+                .padding(.bottom, 8)
                 .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if let items = slashItems(session) {
                 AgentSlashList(items: items) { runSlash($0, in: session) }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
-                    .padding(.bottom, 2)
+                    .padding(.bottom, 8)
                     .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
             } else if !dictation.isListeningUI {
                 let followUps = (drafts[session.id] ?? "").isEmpty ? AgentFollowUps.suggestions(for: session.transcript) : []
-                let watch = watchAction(session)
-                if !followUps.isEmpty || watch != nil {
-                    AgentFollowUpBar(suggestions: followUps, choose: { follow(up: $0, in: session) }, watchOnMac: watch)
-                        .transition(.blurReplace)
-                }
-                optionsBar(session)
+                chipRow(session, followUps: followUps, watch: watchAction(session))
                     .transition(.blurReplace)
             }
-            if !AgentExpiry.isExpired(session.transcript) {
+            if !AgentExpiry.isExpired(session.transcript), !isReadOnly(session) {
                 AgentComposer(
                     text: draft,
                     isFocused: $composerFocused,
@@ -78,8 +74,14 @@ extension AgentChatScreen {
                 )
             }
         }
-        // Down through the keyboard's own area too: the keyboard is translucent, and without this the transcript showed through it.
-        .background(ColorPalette.backdrop.ignoresSafeArea(.all, edges: .bottom))
+        .environment(\.insideGlass, true)
+        .frame(maxWidth: .infinity)
+        .padding(Self.trayInset)
+        .glassSurface(in: RoundedRectangle(cornerRadius: InputBar.height / 2 + Self.trayInset, style: .continuous))
+        .padding(.horizontal, ChromeMetrics.edgeInset)
+        // Down into the home indicator's strip: the safe area alone left a gap three times the side margin. The keyboard is not a container, so above it the tray still sits on it.
+        .ignoresSafeArea(.container, edges: .bottom)
+        .padding(.bottom, ChromeMetrics.edgeInset)
         .animation(Motion.settle, value: attaching == nil)
         .animation(Motion.settle, value: session.transcript.runningSubagents.count)
     }

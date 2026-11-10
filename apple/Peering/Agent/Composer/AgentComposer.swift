@@ -34,9 +34,6 @@ struct AgentComposer: View {
             }
         }
         .animation(Motion.settle, value: dictation.state)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
     }
 
     private var row: some View {
@@ -80,7 +77,7 @@ struct AgentComposer: View {
                 .accessibilityLabel(String(localized: "Dictate", table: "Dictation"))
             }
             .overlay {
-                shape.strokeBorder(.white.opacity(isFocused ? 0.3 : 0), lineWidth: 1)
+                shape.strokeBorder(.white.opacity(isFocused ? 0.32 : 0), lineWidth: 1)
             }
             .runningEdge(isWorking, radius: InputBar.height / 2)
             .contentShape(shape)

@@ -1,7 +1,7 @@
 import PeeringKit
 import SwiftUI
 
-/// What to do next after a turn that changed the project, as buttons over the composer.
+/// What to do next after a turn that changed the project, as chips for the row over the composer. Several views, meant to sit in that row's stack.
 struct AgentFollowUpBar: View {
     let suggestions: [AgentFollowUps.Suggestion]
     let choose: (AgentFollowUps.Suggestion) -> Void
@@ -9,20 +9,14 @@ struct AgentFollowUpBar: View {
     var watchOnMac: (() -> Void)?
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                if let watchOnMac {
-                    Button(action: watchOnMac) { chip("play.display", "Watch on Mac") }
-                        .buttonStyle(.plain)
-                }
-                ForEach(suggestions, id: \.self) { suggestion in
-                    Button { choose(suggestion) } label: { chip(Self.symbol(suggestion), Self.title(suggestion)) }
-                        .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 14)
+        if let watchOnMac {
+            Button(action: watchOnMac) { chip("play.display", "Watch on Mac") }
+                .buttonStyle(.plain)
         }
-        .padding(.top, 6)
+        ForEach(suggestions, id: \.self) { suggestion in
+            Button { choose(suggestion) } label: { chip(Self.symbol(suggestion), Self.title(suggestion)) }
+                .buttonStyle(.plain)
+        }
     }
 
     private func chip(_ symbol: String, _ title: LocalizedStringKey) -> some View {
@@ -32,7 +26,7 @@ struct AgentFollowUpBar: View {
         }
         .foregroundStyle(.white.opacity(0.85))
         .padding(.horizontal, 12)
-        .frame(height: 30)
+        .frame(height: ChatChips.height)
         .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
         .contentShape(Capsule())
     }

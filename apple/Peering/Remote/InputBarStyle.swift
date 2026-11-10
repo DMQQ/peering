@@ -5,7 +5,18 @@ enum InputBar {
     static let height: CGFloat = 48
 }
 
+private struct InsideGlassKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// True under a glass tray: the input outlines itself there instead of stacking a second glass on the first.
+    var insideGlass: Bool {
+        get { self[InsideGlassKey.self] }
+        set { self[InsideGlassKey.self] = newValue }
+    }
+}
+
 struct InputCapsule<Content: View>: View {
+    @Environment(\.insideGlass) private var insideGlass
     /// Bottom for a field that grows by lines, so its buttons stay on the last one.
     var alignment: VerticalAlignment = .center
     @ViewBuilder var content: Content
@@ -16,7 +27,20 @@ struct InputCapsule<Content: View>: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: InputBar.height)
-        .glassSurface(in: RoundedRectangle(cornerRadius: InputBar.height / 2, style: .continuous))
+        .modifier(CapsuleSurface(insideGlass: insideGlass))
+    }
+}
+
+private struct CapsuleSurface: ViewModifier {
+    let insideGlass: Bool
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: InputBar.height / 2, style: .continuous)
+        if insideGlass {
+            content.overlay { shape.strokeBorder(.white.opacity(0.14)) }
+        } else {
+            content.glassSurface(in: shape)
+        }
     }
 }
 

@@ -11,15 +11,26 @@ extension AgentChatScreen {
         session.model.map(AgentModelName.short) ?? String(localized: "Default")
     }
 
-    /// This chat's model and permissions as chips that say their current value, and the context meter, down by the composer where the thumb is. One row, so the composer keeps the screen; the rest is behind the header's menu.
-    func optionsBar(_ session: RemoteAgentSession) -> some View {
-        optionChips(session)
-            .padding(.horizontal, 14)
-            .padding(.top, 6)
+    /// The one row over the composer: what to do next, this chat's model and permissions as chips that say their current value, and the context meter at the end. It scrolls sideways before it wraps, so the composer keeps the screen; the rest is behind the header's menu.
+    func chipRow(_ session: RemoteAgentSession, followUps: [AgentFollowUps.Suggestion], watch: (() -> Void)?) -> some View {
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    AgentFollowUpBar(suggestions: followUps, choose: { follow(up: $0, in: session) }, watchOnMac: watch)
+                    optionChips(session)
+                }
+            }
+            .scrollClipDisabled()
+            if let usage = session.usage, AgentContextBar.hasContent(usage) {
+                AgentContextBar(usage: usage) { showsUsage = true }
+            }
+        }
+        .padding(.bottom, 8)
     }
 
+    @ViewBuilder
     private func optionChips(_ session: RemoteAgentSession) -> some View {
-        HStack(spacing: 8) {
+        Group {
             if offersModelPicker(session) {
                 Menu {
                     Button("Default") { model.setAgentModel(nil, in: session.id) }
@@ -61,10 +72,6 @@ extension AgentChatScreen {
                     optionChip(AgentPermissionModeMenu.title(current), symbol: AgentPermissionModeMenu.symbol(current))
                 }
                 .accessibilityLabel(Text("Permissions, \(AgentPermissionModeMenu.title(current))"))
-            }
-            Spacer(minLength: 0)
-            if let usage = session.usage, AgentContextBar.hasContent(usage) {
-                AgentContextBar(usage: usage) { showsUsage = true }
             }
         }
     }
@@ -109,8 +116,12 @@ extension AgentChatScreen {
         }
         .foregroundStyle(.white.opacity(0.85))
         .padding(.horizontal, 11)
-        .frame(height: 28)
+        .frame(height: ChatChips.height)
         .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
         .contentShape(Capsule())
     }
+}
+
+enum ChatChips {
+    static let height: CGFloat = 30
 }

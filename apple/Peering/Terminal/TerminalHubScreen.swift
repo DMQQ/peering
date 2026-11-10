@@ -51,7 +51,6 @@ struct TerminalHubScreen: View {
                 guide(.agents)
                 allChatsEntry
                 AgentToReviewCard()
-                AgentRoutinesEntry()
                 if agentsSettled {
                     chatsSection
                     activeOnMacSection
@@ -60,6 +59,8 @@ struct TerminalHubScreen: View {
                 } else {
                     AgentsPagePlaceholder()
                 }
+                AgentRoutinesEntry()
+                    .padding(.top, 20)
             }
             page(.terminals) {
                 pageHeading(

@@ -134,10 +134,9 @@ struct AgentAttachmentTray: View {
                         .transition(.scale(scale: 0.6).combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 4)
-            .padding(.bottom, 2)
+            .padding(.bottom, 8)
         }
+        .scrollClipDisabled()
         .scrollBounceBehavior(.basedOnSize)
         .animation(.spring(response: 0.42, dampingFraction: 0.64), value: items.count)
         .animation(.spring(response: 0.42, dampingFraction: 0.64), value: uploading?.id)

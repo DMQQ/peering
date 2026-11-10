@@ -24,8 +24,7 @@ struct AgentGuardBanner: View {
             if let overrun { capRow(overrun) }
             if let limitWarning { limitRow(limitWarning) }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, overrun == nil && limitWarning == nil ? 0 : 6)
+        .padding(.bottom, overrun == nil && limitWarning == nil ? 0 : 8)
         .animation(Motion.settle, value: overrun == nil)
         .animation(Motion.settle, value: limitWarning?.key)
     }
