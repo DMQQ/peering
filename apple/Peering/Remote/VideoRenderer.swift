@@ -41,6 +41,15 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     private var snapshot = Snapshot()
     /// Whether the next frame to the live layer is the first of the config just applied, which ``onFirstFrame`` reports.
     private var awaitingFirstFrameOfConfig = false
+    /// Milliseconds of uptime when the current wait for a keyframe began; queue-confined.
+    private var waitingSince: Double?
+
+    private func noteWaiting(_ reason: String) {
+        guard waitingSince == nil else { return }
+        waitingSince = ProcessInfo.processInfo.systemUptime * 1000
+        videoLog.notice("waiting for a keyframe: \(reason, privacy: .public)")
+    }
+
     /// Queue-confined, like the keyframe policy: whether a look at the keyframe wait is already scheduled.
     private var keyframeRecheckScheduled = false
 
@@ -192,6 +201,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     private func askForKeyframeIfDue() {
         scheduleKeyframeRecheck()
         guard keyframeRequests.noteDrop(at: ProcessInfo.processInfo.systemUptime) else { return }
+        videoLog.notice("asking the Mac for a keyframe")
         let ask = lock.withLock { _onNeedsKeyframe }
         Task { @MainActor in ask?() }
     }
@@ -230,9 +240,11 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         switch VideoFrameGate.admit(isKeyframe: frame.isKeyframe, awaitingKeyframe: awaitingKeyframe, rendererReady: renderer.isReadyForMoreMediaData) {
         case .drop:
             self.lock.withLock { self.snapshot.framesDropped += 1 }
+            noteWaiting("dropped a delta while waiting for a keyframe")
             askForKeyframeIfDue()
             return
         case .dropAndAwaitKeyframe:
+            noteWaiting("renderer not ready for a delta; now waiting for a keyframe")
             self.lock.withLock {
                 self.snapshot.framesDropped += 1
                 self.snapshot.awaitingKeyframe = true
@@ -264,6 +276,10 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.snapshot.readyGeneration = self.snapshot.configGeneration
         }
         keyframeRequests.noteRecovered()
+        if let since = waitingSince {
+            waitingSince = nil
+            videoLog.notice("picture recovered after \(Int(ProcessInfo.processInfo.systemUptime * 1000 - since)) ms with a \(frame.isKeyframe ? "key" : "delta", privacy: .public) frame")
+        }
         if firstOfConfig {
             let landed = lock.withLock { _onFirstFrame }
             Task { @MainActor in landed?() }
