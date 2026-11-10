@@ -97,7 +97,7 @@ enum Analytics {
     }
 
     enum Panel: String {
-        case shortcuts, clipboard, sources, settings, terminals, agents, files
+        case shortcuts, trackpad, clipboard, sources, settings, terminals, agents, files
     }
 
     static func panelOpened(_ panel: Panel) {
@@ -210,7 +210,7 @@ nonisolated private final class SettingsObserver: NSObject {
         PreferenceKeys.hidesPanelAfterSelect, PreferenceKeys.pipAutoStart, PreferenceKeys.opensKeyboardForTextFields,
         PreferenceKeys.allowRelay, PreferenceKeys.requireBiometricUnlock, PreferenceKeys.hostAudioMuted,
         PreferenceKeys.liveActivities, PreferenceKeys.keyboardMode, PreferenceKeys.streamQuality,
-        PreferenceKeys.interactionMode, PreferenceKeys.scalesToFill, PreferenceKeys.analyticsEnabled,
+        PreferenceKeys.interactionMode, PreferenceKeys.scalesToFill, PreferenceKeys.pointerControl, PreferenceKeys.analyticsEnabled,
     ]
     private var started = false
 

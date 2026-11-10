@@ -16,7 +16,7 @@ struct RemoteScreen: View {
     @State var dictation = VoiceDictation()
     @State var shortcutsDrag: CGFloat = 0
     @State var keyRowsHeight: CGFloat = 0
-    @State var panelDrag: CGFloat = 0
+    @State var panelDragState = PanelDragState()
     @AppStorage(PreferenceKeys.keyboardShortcutsExpanded) var shortcutsExpanded = false
     /// 0 with the shortcut keys folded away and 1 with them shown, following the finger while the handle is dragged.
     var shortcutsProgress: CGFloat {
@@ -71,6 +71,11 @@ struct RemoteScreen: View {
     }
 
     @State var speedBadge: String?
+    @State var pointerPadSize = CGSize.zero
+    @State var isPointerPadDragging = false
+    @State var pointerPadTouch: CGPoint?
+    @State var pointerPadRipple: RemoteDockRipple?
+    @AppStorage(PreferenceKeys.pointerControl) var pointerControl = PointerControl.joystick
     @State var speedBadgeTask: Task<Void, Never>?
 
     /// The gesture surface is a UIKit view under SwiftUI's drawing, so a touch aimed at a button
@@ -85,6 +90,7 @@ struct RemoteScreen: View {
 
     enum Panel {
         case shortcuts
+        case trackpad
         case clipboard
         case sources
         case settings
@@ -274,6 +280,7 @@ struct RemoteScreen: View {
             if panel == nil { chromeFrames[.panel] = nil }
             switch panel {
             case .shortcuts: Analytics.panelOpened(.shortcuts)
+            case .trackpad: Analytics.panelOpened(.trackpad)
             case .clipboard: Analytics.panelOpened(.clipboard)
             case .sources: Analytics.panelOpened(.sources)
             case .settings: Analytics.panelOpened(.settings)

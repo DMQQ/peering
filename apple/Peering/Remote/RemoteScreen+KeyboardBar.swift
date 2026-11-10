@@ -10,8 +10,7 @@ extension RemoteScreen {
         HStack(spacing: 8) {
             compactCapButton(icon: "keyboard.chevron.compact.down", large: true) { model.showKeyboard = false }
                 .accessibilityLabel("Hide keyboard")
-            ModifierBar()
-            Spacer(minLength: 8)
+            ModifierBar(large: true)
             compactCapButton(icon: "return", filled: true, large: true) { model.pressReturn() }
                 .accessibilityLabel("Enter")
         }

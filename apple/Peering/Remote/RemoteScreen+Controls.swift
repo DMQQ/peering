@@ -55,6 +55,14 @@ extension RemoteScreen {
         }
     }
 
+    var trackpadButton: some View {
+        RailButton(icon: "rectangle.and.hand.point.up.left", label: String(localized: "Trackpad"), selected: openPanel == .trackpad) {
+            withAnimation(Motion.settle) {
+                openPanel = openPanel == .trackpad ? nil : .trackpad
+            }
+        }
+    }
+
     var clipboardButton: some View {
         RailButton(icon: "doc.on.clipboard", label: String(localized: "Clipboard"), selected: openPanel == .clipboard) {
             withAnimation(Motion.settle) {

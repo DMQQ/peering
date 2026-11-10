@@ -21,6 +21,7 @@ struct SettingsTab: View {
     @AppStorage(PreferenceKeys.opensKeyboardForTextFields) var opensKeyboardForTextFields = true
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
     @AppStorage(PreferenceKeys.scalesToFill) var scalesToFill = false
+    @AppStorage(PreferenceKeys.pointerControl) var pointerControl = PointerControl.joystick
     @AppStorage(PreferenceKeys.streamQuality) var streamQuality: SessionModel.StreamQuality = .auto
     @State var deviceNameDraft = ""
     @State var query = ""

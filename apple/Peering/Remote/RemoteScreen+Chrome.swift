@@ -201,11 +201,8 @@ extension RemoteScreen {
                             .padding(.top, 6)
                     }
                     Spacer(minLength: 0)
-                    floatingPanel(available, isLandscape: false)
-                        .padding(.bottom, ChromeMetrics.panelGap)
                     if !model.showKeyboard {
-                        portraitDock(width: available.width * ChromeMetrics.dockWidthFraction)
-                            .reportChromeFrame(.dock, into: $chromeFrames)
+                        portraitTray(available)
                             .padding(.bottom, ChromeMetrics.edgeInset)
                             .tourAnchor(.screenDock)
                     }

@@ -39,6 +39,8 @@ public enum PreferenceKeys {
     /// Whether the keyboard bar shows its shortcut keys. Off by default: most typing needs only the field, which is then larger.
     public static let keyboardShortcutsExpanded = "Peering.keyboardShortcutsExpanded"
     public static let pointerSpeed = "Peering.pointerSpeed"
+    /// Which pointer control portrait shows: a trackpad or the joystick. Landscape always shows the joystick.
+    public static let pointerControl = "Peering.pointerControl"
     /// The terminal commands sent from this phone, newest first.
     public static let terminalHistory = "Peering.terminalHistory"
     public static let terminalTextSize = "Peering.terminalTextSize"

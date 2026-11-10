@@ -34,9 +34,44 @@ extension RemoteScreen {
         dockExpanded ? ChromeMetrics.dockExpandedGridHeight : ChromeMetrics.buttonHeight
     }
 
-    func portraitDock(width: CGFloat) -> some View {
-        VStack(spacing: ChromeMetrics.dockDotsGap) {
-            HStack(spacing: 0) {
+    /// The dock and, when one is open, the panel above it, as one glass surface: the panel is the dock's upper half rather than a second card resting on it.
+    /// Erased: the chrome's generic type sits near the stack limit the runtime demangler has, and this subtree is deep enough to tip it over at launch.
+    func portraitTray(_ available: CGSize) -> AnyView {
+        let width = available.width * ChromeMetrics.dockWidthFraction
+        let panelOpen = openPanel != nil
+        let topRadius = panelOpen ? ChromeMetrics.panelCornerRadius : dockCornerRadius
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: topRadius,
+            bottomLeadingRadius: dockCornerRadius,
+            bottomTrailingRadius: dockCornerRadius,
+            topTrailingRadius: topRadius,
+            style: .continuous
+        )
+        return AnyView(VStack(spacing: ChromeMetrics.dockDotsGap) {
+            VStack(spacing: 0) {
+                if panelOpen {
+                    floatingPanel(available, isLandscape: false, connectedWidth: width)
+                    Rectangle().fill(.white.opacity(0.12)).frame(width: width, height: 1)
+                }
+                // The dock's own frame, not the tray's: the tray changes size every frame of a drag, and reporting that wrote to the screen's state each time.
+                dockCard(width: width)
+                    .reportChromeFrame(.dock, into: $chromeFrames)
+                    .zIndex(1)
+            }
+            .clipShape(shape)
+            .background { TrayGlass(drag: panelDragState, topRadius: topRadius, bottomRadius: dockCornerRadius) }
+
+            dockPageDots
+        }
+        .frame(width: width))
+    }
+
+    var dockCornerRadius: CGFloat {
+        dockExpanded ? ChromeMetrics.dockExpandedRadius : ChromeMetrics.dockCollapsedRadius
+    }
+
+    private func dockCard(width: CGFloat) -> some View {
+        HStack(spacing: 0) {
                 // The sheets page and the chevron does not. Fixed at the trailing edge it
                 // stays under the thumb that just pressed it, and it is reachable from any
                 // sheet, which it was not while it was a cell of the first one: opening or
@@ -68,12 +103,6 @@ extension RemoteScreen {
             // picture, for the whole of the joystick's room. Fixed, the two readings of "how
             // tall is the dock" cannot drift.
             .frame(width: width, height: dockCardHeight)
-            .clipShape(dockShape)
-            .glassSurface(in: dockShape)
-
-            dockPageDots
-        }
-        .frame(width: width, height: dockHeight)
     }
 
     @ViewBuilder
@@ -102,16 +131,13 @@ extension RemoteScreen {
 
     var dockSheets: [DockSheet] {
         let capacity = ChromeMetrics.dockColumns * (dockExpanded ? ChromeMetrics.dockExpandedRows : 1)
-        let controls = DockControl.allCases.chunked(into: capacity).enumerated().map { index, chunk in
+        let controls = DockControl.portrait.chunked(into: capacity).enumerated().map { index, chunk in
             DockSheet(id: "controls-\(index)", controls: chunk, edits: [])
-        }
-        let edits = quickActions.chunked(into: capacity).enumerated().map { index, chunk in
-            DockSheet(id: "edits-\(index)", controls: [], edits: chunk)
         }
         // The app on screen gets the second place: the first sheet never moves, and what the app
         // offers is one swipe away rather than behind every other control.
         guard let profile = activeApplicationProfile, let first = controls.first else {
-            return controls + edits
+            return controls
         }
         let actions = profile.actions.map { action in
             QuickAction(chord: action.title, label: action.label, accessibilityLabel: action.detail) {
@@ -126,7 +152,7 @@ extension RemoteScreen {
                 applicationName: profile.name
             )
         }
-        return [first] + app + controls.dropFirst() + edits
+        return [first] + app + controls.dropFirst()
     }
 
     @ViewBuilder
@@ -152,6 +178,7 @@ extension RemoteScreen {
         case .sources: sourcesButton
         case .keys: keysButton
         case .shortcuts: shortcutsButton
+        case .trackpad: trackpadButton
         case .clipboard: clipboardButton
         case .escape: escapeButton
         case .tab: tabButton
@@ -187,15 +214,6 @@ extension RemoteScreen {
         .frame(height: ChromeMetrics.dockPageDotsHeight)
     }
 
-    var dockShape: RoundedRectangle {
-        RoundedRectangle(
-            cornerRadius: dockExpanded
-                ? ChromeMetrics.dockExpandedRadius
-                : ChromeMetrics.dockCollapsedRadius,
-            style: .continuous
-        )
-    }
-
     var dockToggle: some View {
         Button {
             withAnimation(Motion.morph) { dockExpanded.toggle() }
@@ -225,9 +243,10 @@ extension RemoteScreen {
         HStack(alignment: .center, spacing: ChromeMetrics.panelGap) {
             backKey
                 .frame(width: ChromeMetrics.quickKeySize, height: ChromeMetrics.quickKeySize)
-            joystick()
+            if pointerControl == .joystick { joystick() }
             returnKey
                 .frame(width: ChromeMetrics.quickKeySize, height: ChromeMetrics.quickKeySize)
         }
+        .padding(.horizontal, ChromeMetrics.edgeInset)
     }
 }

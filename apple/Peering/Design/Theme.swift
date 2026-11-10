@@ -46,6 +46,7 @@ enum ChromeMetrics {
     static let dockExpandedRadius: CGFloat = 28
 
     static let dockWidthFraction: CGFloat = 0.9
+    static let panelCornerRadius: CGFloat = 22
 }
 
 enum Motion {

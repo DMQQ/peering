@@ -56,6 +56,25 @@ extension SettingsTab {
 
             Controls.divider
 
+            Controls.picker(String(localized: "Pointer"), systemImage: "cursorarrow.motionlines", selection: $pointerControl) {
+                ForEach(PointerControl.allCases) { control in
+                    Text(control.label).tag(control)
+                }
+            }
+
+            Controls.divider
+
+            Controls.picker(String(localized: "Pointer speed"), systemImage: "gauge.with.dots.needle.67percent", selection: Binding(
+                get: { model.pointerSpeed },
+                set: { model.setPointerSpeed($0) }
+            )) {
+                ForEach(SessionModel.pointerSpeeds, id: \.self) { speed in
+                    Text("\(speed, format: .number)×").tag(speed)
+                }
+            }
+
+            Controls.divider
+
             Controls.picker(String(localized: "Keyboard"), systemImage: "keyboard", selection: Binding(
                 get: { model.keyboardMode },
                 set: { model.setKeyboardMode($0) }

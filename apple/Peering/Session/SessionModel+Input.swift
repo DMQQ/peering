@@ -15,8 +15,12 @@ extension SessionModel {
         let speeds = Self.pointerSpeeds
         // `firstIndex` on the value, not a stored index: a speed not in the list (an older build's or hand-edited default) restarts the cycle instead of trapping.
         let index = speeds.firstIndex(of: pointerSpeed) ?? 0
-        pointerSpeed = speeds[(index + 1) % speeds.count]
-        UserDefaults.standard.set(pointerSpeed, forKey: PreferenceKeys.pointerSpeed)
+        setPointerSpeed(speeds[(index + 1) % speeds.count])
+    }
+
+    func setPointerSpeed(_ speed: Double) {
+        pointerSpeed = speed
+        UserDefaults.standard.set(speed, forKey: PreferenceKeys.pointerSpeed)
     }
 
     var pointerSpeedLabel: String {
