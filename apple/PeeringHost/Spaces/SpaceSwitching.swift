@@ -28,10 +28,10 @@ private var canPostSpaceChords: Bool {
     postKeyboardEvent != nil && AXIsProcessTrusted()
 }
 
-/// Whether "Move left a space" and "Move right a space" (hot keys 79 and 80) have keys. An entry that is enabled and has no `value` is bound to nothing, and the chord then does nothing at all, which is only found out after waiting for it.
+/// Whether "Move left a space" and "Move right a space" (hot keys 79 and 81; 80 and 82 are their Shift variants) have keys. An entry that is enabled and has no `value` is bound to nothing, and the chord then does nothing at all, which is only found out after waiting for it.
 private var spaceShortcutsAreBound: Bool {
     let hotKeys = UserDefaults(suiteName: "com.apple.symbolichotkeys")?.dictionary(forKey: "AppleSymbolicHotKeys")
-    return ["79", "80"].allSatisfy { key in
+    return ["79", "81"].allSatisfy { key in
         guard let entry = hotKeys?[key] as? [String: Any] else { return false }
         return entry["enabled"] as? Bool == true && entry["value"] != nil
     }
