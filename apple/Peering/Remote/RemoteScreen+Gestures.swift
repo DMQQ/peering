@@ -224,7 +224,8 @@ extension RemoteScreen {
     }
 
     var blockedRegions: [CGRect] {
-        var regions = Array(chromeFrames.values)
+        // The panel's region is only real while a panel is open: its view reports once more while it fades out, after the region was cleared.
+        var regions = chromeFrames.filter { $0.key != .panel || openPanel != nil }.map(\.value)
         // A modal owns the whole screen while it is up. A tap meant for the pairing prompt must
         // not also land wherever the Mac's cursor happens to be sitting behind it.
         switch model.phase {
