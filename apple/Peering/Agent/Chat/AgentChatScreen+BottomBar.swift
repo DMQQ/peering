@@ -1,10 +1,21 @@
 import PeeringKit
 import RemoteCore
 import SwiftUI
+import UIKit
 
 extension AgentChatScreen {
     /// The same gap on every side, and the tray's corner radius is the capsule's plus it, so the two curves share a centre.
     static let trayInset: CGFloat = 10
+
+    /// From the screen's edge to the tray, on the sides and at the bottom alike.
+    static let trayMargin: CGFloat = 16
+
+    static var homeIndicatorInset: CGFloat {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+            .first
+        return window?.safeAreaInsets.bottom ?? 0
+    }
 
     /// The composer is a bottom inset rather than the end of a stack, so the keyboard pushes it up instead of covering it.
     func bottomBar(_ session: RemoteAgentSession) -> some View {
@@ -78,10 +89,9 @@ extension AgentChatScreen {
         .frame(maxWidth: .infinity)
         .padding(Self.trayInset)
         .glassSurface(in: RoundedRectangle(cornerRadius: InputBar.height / 2 + Self.trayInset, style: .continuous))
-        .padding(.horizontal, ChromeMetrics.edgeInset)
-        // Down into the home indicator's strip: the safe area alone left a gap three times the side margin. The keyboard is not a container, so above it the tray still sits on it.
-        .ignoresSafeArea(.container, edges: .bottom)
-        .padding(.bottom, ChromeMetrics.edgeInset)
+        .padding(.horizontal, Self.trayMargin)
+        // A negative bottom padding, because the tray sits above the home indicator's strip and left a gap three times the side margin. Only while the keyboard is down: above the keyboard there is no strip.
+        .padding(.bottom, composerFocused ? Self.trayMargin : Self.trayMargin - Self.homeIndicatorInset)
         .animation(Motion.settle, value: attaching == nil)
         .animation(Motion.settle, value: session.transcript.runningSubagents.count)
     }

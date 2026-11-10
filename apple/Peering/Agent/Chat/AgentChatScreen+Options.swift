@@ -25,6 +25,8 @@ extension AgentChatScreen {
                 AgentContextBar(usage: usage) { showsUsage = true }
             }
         }
+        // Clear of the tray's corner curves, which the chips' own rounder ends would otherwise crowd.
+        .padding(.horizontal, Self.trayInset)
         .padding(.bottom, 8)
     }
 
