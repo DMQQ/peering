@@ -27,6 +27,7 @@ mod files;
 mod focus_pump;
 mod host_state;
 mod hooks;
+mod idle_rest;
 mod listener;
 mod lock;
 mod peer_address;
@@ -117,6 +118,7 @@ impl HostRuntime {
                 approvals,
                 control: Arc::new(Mutex::new(control)),
                 peer_addresses: Arc::new(Mutex::new(PeerAddressRouter::default())),
+                wake: Arc::new(tokio::sync::Notify::new()),
             },
             // The profile holds a clock that is not Send. Only the runtime's own thread reads it, so it is never shared.
             #[allow(clippy::arc_with_non_send_sync)]
@@ -154,7 +156,7 @@ impl HostRuntime {
     /// The UI's end of the host: the snapshot it reads and the commands it sends. Clone it freely.
     pub fn handle(&self) -> HostHandle {
         let published = lock::lock_ignoring_poison(&self.shared.control).published.clone();
-        HostHandle::new(published, self.commands.clone())
+        HostHandle::new(published, self.commands.clone(), self.shared.wake.clone())
     }
 
     /// The snapshot as of now, for tests and for the first draw of the window.

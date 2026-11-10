@@ -52,6 +52,7 @@ async fn run(shared: Shared, profile: Arc<HostProfile>) {
     let mut supervised = Supervised::new("pointer");
     loop {
         ticks.tick().await;
+        super::idle_rest::rest_while_idle(&shared, &mut ticks).await;
         let now = profile.clock.now_seconds();
         deliver(supervised_pass(&mut supervised, &shared, ProblemSource::Pointer, now, |state| state.pump_pointer(now)));
     }

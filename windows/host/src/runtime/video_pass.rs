@@ -184,6 +184,7 @@ pub async fn run_pump(shared: Shared, profile: Arc<HostProfile>, meter: Arc<Pass
     let mut failures = LogGate::default();
     loop {
         ticks.tick().await;
+        super::idle_rest::rest_while_idle_unless_commanded(&shared, &mut ticks).await;
         let now = profile.clock.now_seconds();
         meter.begin();
         if video.ready(now) {

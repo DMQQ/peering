@@ -103,11 +103,12 @@ pub enum RuntimeCommand {
 pub struct HostHandle {
     published: Arc<Mutex<HostSnapshot>>,
     commands: Sender<RuntimeCommand>,
+    wake: Arc<tokio::sync::Notify>,
 }
 
 impl HostHandle {
-    pub(super) fn new(published: Arc<Mutex<HostSnapshot>>, commands: Sender<RuntimeCommand>) -> Self {
-        Self { published, commands }
+    pub(super) fn new(published: Arc<Mutex<HostSnapshot>>, commands: Sender<RuntimeCommand>, wake: Arc<tokio::sync::Notify>) -> Self {
+        Self { published, commands, wake }
     }
 
     pub fn snapshot(&self) -> HostSnapshot {
@@ -124,7 +125,9 @@ impl HostHandle {
 
     /// False once the runtime has stopped and no longer reads commands.
     pub fn send(&self, command: RuntimeCommand) -> bool {
-        self.commands.send(command).is_ok()
+        let sent = self.commands.send(command).is_ok();
+        self.wake.notify_one();
+        sent
     }
 }
 

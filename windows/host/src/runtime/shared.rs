@@ -218,6 +218,8 @@ pub struct Shared {
     pub approvals: ApprovalSender,
     pub control: Arc<Mutex<ControlChannel>>,
     pub peer_addresses: Arc<Mutex<PeerAddressRouter>>,
+    /// Fired when the window sends a command, so the video pump, which applies commands, does not wait out its idle rest.
+    pub wake: Arc<tokio::sync::Notify>,
 }
 
 impl Shared {

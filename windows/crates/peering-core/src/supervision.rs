@@ -3,6 +3,15 @@
 
 use crate::video::recovery::retry_delay_seconds;
 
+/// How long a pump rests between passes while no phone is connected. Nothing is captured, sent or watched then, and
+/// waking 60 times a second for nothing held the idle host at several percent of a CPU.
+pub const IDLE_PASS_SECONDS: f64 = 0.25;
+
+/// The gap before a pump's next pass: its own `busy` interval while a phone is connected, the idle rest otherwise.
+pub fn pass_interval_seconds(busy: f64, phone_connected: bool) -> f64 {
+    if phone_connected { busy } else { busy.max(IDLE_PASS_SECONDS) }
+}
+
 /// A pass that has been running this long without returning is reported as hung.
 pub const HUNG_PASS_SECONDS: f64 = 10.0;
 
@@ -105,6 +114,21 @@ impl PassLedger {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_connected_phone_keeps_the_pump_at_its_own_pace() {
+        assert_eq!(super::pass_interval_seconds(0.016, true), 0.016);
+    }
+
+    #[test]
+    fn with_no_phone_the_pump_rests() {
+        assert_eq!(super::pass_interval_seconds(0.016, false), super::IDLE_PASS_SECONDS);
+    }
+
+    #[test]
+    fn a_pump_slower_than_the_rest_is_never_sped_up() {
+        assert_eq!(super::pass_interval_seconds(1.0, false), 1.0);
+    }
+
     use super::*;
 
     #[test]
