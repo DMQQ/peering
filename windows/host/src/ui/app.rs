@@ -3,6 +3,8 @@
 //! closing the window hides it again rather than quitting.
 
 use std::cell::Cell;
+use std::sync::Arc;
+use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use eframe::egui;
@@ -18,6 +20,7 @@ use super::settings::{SettingsChoice, SettingsJob, SettingsState};
 use super::settings_view;
 use super::theme;
 use super::tray::Tray;
+use super::window_control::WindowControl;
 use crate::autostart;
 use crate::firewall;
 use crate::runtime::{HostHandle, RuntimeCommand};
@@ -39,7 +42,10 @@ pub fn run(handle: HostHandle, instance: Guard) -> Result<(), eframe::Error> {
         Box::new(move |creation| {
             theme::apply(&creation.egui_ctx);
             let model = MenuModel::new(handle.snapshot());
-            let tray = Tray::new(&model.entries())?;
+            let window = WindowControl::of(creation);
+            let instance = Arc::new(instance);
+            watch_show_requests(&instance, &window);
+            let tray = Tray::new(&model.entries(), tray_choice(handle.clone(), window))?;
             // `reg` can take seconds, so the box starts unticked and a worker reads the Run entry.
             let jobs = Jobs::default();
             let _unread = jobs.spawn("read-autostart", || SettingsJob::AutostartRead(autostart::is_enabled()));
@@ -48,14 +54,14 @@ pub fn run(handle: HostHandle, instance: Guard) -> Result<(), eframe::Error> {
                 let in_place = program_path().is_ok_and(|path| firewall::rule_in_place(&path, port));
                 SettingsJob::FirewallChecked { in_place }
             });
-            Ok(Box::new(HostApp { instance, handle, tray, reset_asked: false, settings: SettingsState::new(false), jobs, quitting: Cell::new(false) }))
+            Ok(Box::new(HostApp { _instance: instance, handle, tray, reset_asked: false, settings: SettingsState::new(false), jobs, quitting: Cell::new(false) }))
         }),
     )
 }
 
 struct HostApp {
-    /// Held for the life of the app: dropping it frees the name for the next launch, and it carries "show yourself" requests from launches that were turned away.
-    instance: Guard,
+    /// Held for the life of the app: dropping it frees the name for the next launch. A thread waits on it for launches that were turned away.
+    _instance: Arc<Guard>,
     handle: HostHandle,
     tray: Tray,
     /// The person pressed Reset paired devices and is looking at the warning.
@@ -72,9 +78,6 @@ impl eframe::App for HostApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.hide_window(ctx);
         }
-        if self.instance.take_show_request() {
-            self.show_window(ctx);
-        }
         let snapshot = self.handle.snapshot();
         for finished in self.jobs.collect() {
             // The window starts hidden behind the tray, and a person who never opens it would never see the prompt.
@@ -88,9 +91,6 @@ impl eframe::App for HostApp {
         }
         let menu = MenuModel::new(snapshot.clone());
         self.tray.update(&menu.entries(), &menu.status_line());
-        while let Some(action) = self.tray.poll() {
-            self.choose(ctx, &menu, action);
-        }
         // Drawn every frame: the window can be on screen before the tray ever asks for it, and an undrawn one is blank.
         self.draw_window(ctx, UiModel::new(snapshot), &menu.status_line());
         ctx.request_repaint_after(POLL_INTERVAL);
@@ -113,23 +113,40 @@ fn open_in_explorer(target: &str) {
     }
 }
 
+/// What a tray choice does. It runs outside any frame, because the window may be hidden and then gets none.
+fn tray_choice(handle: HostHandle, window: WindowControl) -> impl Fn(MenuAction) + Send + Sync + 'static {
+    move |action| match action {
+        // No frame will run to close the window, and nothing is left to save: settings are written as they change.
+        MenuAction::Quit => std::process::exit(0),
+        MenuAction::ShowPairingCode | MenuAction::ShowDevices | MenuAction::OpenSettings => window.show(),
+        MenuAction::ToggleHosting => {
+            let command = MenuModel::new(handle.snapshot()).command_for(action);
+            if command.is_some_and(|command| !handle.send(command)) {
+                std::process::exit(0);
+            }
+        }
+    }
+}
+
+/// Shows the window each time a second launch is turned away, for as long as the app runs.
+fn watch_show_requests(instance: &Arc<Guard>, window: &WindowControl) {
+    let instance = Arc::clone(instance);
+    let window = window.clone();
+    let started = thread::Builder::new().name("show-requests".to_owned()).spawn(move || {
+        while instance.wait_for_show_request() {
+            window.show();
+        }
+    });
+    if let Err(error) = started {
+        crate::logfile::record(&format!("could not watch for a second launch: {error}"));
+    }
+}
+
 fn program_path() -> std::io::Result<PathBuf> {
     std::env::current_exe()
 }
 
 impl HostApp {
-    fn choose(&mut self, ctx: &egui::Context, menu: &MenuModel, action: MenuAction) {
-        match action {
-            MenuAction::Quit => self.quit(ctx),
-            MenuAction::ShowPairingCode | MenuAction::ShowDevices | MenuAction::OpenSettings => self.show_window(ctx),
-            MenuAction::ToggleHosting => {
-                if let Some(command) = menu.command_for(action) {
-                    self.send(ctx, command);
-                }
-            }
-        }
-    }
-
     fn quit(&self, ctx: &egui::Context) {
         self.quitting.set(true);
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);

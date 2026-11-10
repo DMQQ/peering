@@ -6,7 +6,7 @@ mod sys {
     use windows::core::w;
     use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE};
     use windows::Win32::System::Threading::{
-        CreateEventW, CreateMutexW, OpenEventW, SetEvent, WaitForSingleObject, EVENT_MODIFY_STATE,
+        CreateEventW, CreateMutexW, OpenEventW, SetEvent, WaitForSingleObject, EVENT_MODIFY_STATE, INFINITE,
     };
 
     /// The mutex and the event are `Local\`, so each signed-in user has their own host.
@@ -17,6 +17,8 @@ mod sys {
 
     // SAFETY: both handles are kernel objects that are valid on any thread, and `Guard` only waits on and closes them.
     unsafe impl Send for Guard {}
+    // SAFETY: waiting on an event from several threads at once is what kernel events are for; nothing else is shared.
+    unsafe impl Sync for Guard {}
 
     pub enum Claim {
         First(Guard),
@@ -45,13 +47,13 @@ mod sys {
     }
 
     impl Guard {
-        /// True once for each launch that was turned away since the last call.
-        pub fn take_show_request(&self) -> bool {
+        /// Blocks until a launch is turned away. Returns false at once when there is no event to wait on.
+        pub fn wait_for_show_request(&self) -> bool {
             if self.show.is_invalid() {
                 return false;
             }
             // SAFETY: `show` is the event this guard created and still owns.
-            unsafe { WaitForSingleObject(self.show, 0).0 == 0 }
+            unsafe { WaitForSingleObject(self.show, INFINITE).0 == 0 }
         }
     }
 

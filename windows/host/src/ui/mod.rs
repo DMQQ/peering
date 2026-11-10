@@ -18,6 +18,8 @@ mod settings_view;
 mod theme;
 #[cfg(windows)]
 mod tray;
+#[cfg(windows)]
+mod window_control;
 
 #[cfg(windows)]
 pub use app::run;
