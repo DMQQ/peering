@@ -203,6 +203,19 @@ class RemoteCanvasPresenterTest {
     }
 
     @Test
+    fun `a pinch zooms the viewport and leaves the published picture rectangle where it was`() {
+        presenter.onPictureChanged(PixelSize(1920.0, 1080.0))
+        val fitted = presenter.state.value.picture
+
+        presenter.onPointerDown(1, 400.0, 500.0, timeMs = 0)
+        presenter.onPointerDown(2, 600.0, 500.0, timeMs = 0)
+        presenter.onPointerMove(2, 700.0, 500.0, timeMs = 10)
+
+        assertTrue(presenter.state.value.viewport.zoom > 1.0)
+        assertEquals(fitted, presenter.state.value.picture)
+    }
+
+    @Test
     fun `observing sends nothing and one finger pans a zoomed picture`() {
         presenter.setMode(InputMode.OBSERVE)
         presenter.zoomByNotch(20)

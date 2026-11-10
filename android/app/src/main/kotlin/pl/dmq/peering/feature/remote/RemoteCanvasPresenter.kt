@@ -326,9 +326,11 @@ class RemoteCanvasPresenter(
     }
 
     private fun publish() {
-        val shown = fittedPicture()?.let(viewport::displayed)
-        if (shown != null) trackpad?.sweep(shown.width, shown.height)
-        uiState.value = CanvasUiState(viewport, shown, lift.drag)
+        val fit = fittedPicture()
+        fit?.let(viewport::displayed)?.let { shown -> trackpad?.sweep(shown.width, shown.height) }
+        // The unzoomed rectangle: the canvas applies the viewport itself. Publishing the zoomed one zoomed the picture
+        // twice and resized its SurfaceView on every frame of a pinch, which made zooming stutter and lag.
+        uiState.value = CanvasUiState(viewport, fit, lift.drag)
     }
 
     private fun emit(actions: List<PointerAction>) {
