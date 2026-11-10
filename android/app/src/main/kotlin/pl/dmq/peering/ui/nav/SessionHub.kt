@@ -2,7 +2,6 @@ package pl.dmq.peering.ui.nav
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -68,17 +67,19 @@ internal fun SessionHub(
         LocalHubSwitcherInset provides switcherInset,
     ) {
         Box(Modifier.fillMaxSize().background(PeeringColors.backdrop)) {
-            Crossfade(targetState = tabs.selected, animationSpec = Motion.fast(), label = "hubTab") { selected ->
-                when (selected) {
-                    HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock)
-                    HubTab.TERMINALS -> TerminalHost(
-                        active,
-                        preferences,
-                        folderRecents,
-                        onFiles = if (HubTab.FILES in tabs.offered) ({ tabs.select(HubTab.FILES) }) else null,
-                    )
-                    HubTab.FILES -> FilesScreen(active, onClose, hosted = true)
-                    null -> LaunchedEffect(Unit) { onClose() }
+            when (val selected = tabs.selected) {
+                null -> LaunchedEffect(Unit) { onClose() }
+                else -> HubPager(tabs.offered, selected) { tab ->
+                    when (tab) {
+                        HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock)
+                        HubTab.TERMINALS -> TerminalHost(
+                            active,
+                            preferences,
+                            folderRecents,
+                            onFiles = if (HubTab.FILES in tabs.offered) ({ tabs.select(HubTab.FILES) }) else null,
+                        )
+                        HubTab.FILES -> FilesScreen(active, onClose, hosted = true)
+                    }
                 }
             }
             HubSwitcher(chrome, tabs, onClose)
