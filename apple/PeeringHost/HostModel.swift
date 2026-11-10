@@ -39,7 +39,10 @@ final class HostModel {
     var lastOutcome: PairingOutcome?
 
     var connectedClients: [ConnectedClient] = [] {
-        didSet { publishHostWidgetState() }
+        didSet {
+            publishHostWidgetState()
+            if connectedClients.isEmpty, !oldValue.isEmpty { releaseSessionMemory() }
+        }
     }
     var pairedClientIDs: [String] = []
 
