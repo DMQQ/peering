@@ -40,13 +40,7 @@ struct AgentRoutinesScreen: View {
     private func page(_ route: AgentRoutineRoute) -> some View {
         switch route {
         case .editor:
-            if let binding = Binding($draft) {
-                AgentRoutineEditor(draft: binding, isNew: !isSaved(binding.wrappedValue.id), chooseFolder: {
-                    path.append(.folder(binding.wrappedValue.directory))
-                }, close: { path = [] })
-            } else {
-                ColorPalette.backdrop.ignoresSafeArea()
-            }
+            AgentRoutineEditorPage(draft: $draft, isSaved: isSaved, chooseFolder: { path.append(.folder($0)) }, close: { path = [] })
         case .folder(let directory):
             AgentFolderPicker(
                 title: String(localized: "Folder"),
@@ -103,5 +97,23 @@ struct AgentRoutinesScreen: View {
     private func edit(_ routine: AgentRoutine) {
         draft = AgentRoutineDraft(routine)
         path = [.editor]
+    }
+}
+
+/// The first push is built by the destination closure of the body before `draft` was set, so unwrapping there showed a blank page on the first open. A binding read in its own body sees the current value.
+private struct AgentRoutineEditorPage: View {
+    @Binding var draft: AgentRoutineDraft?
+    let isSaved: (UUID) -> Bool
+    let chooseFolder: (String?) -> Void
+    let close: () -> Void
+
+    var body: some View {
+        if let binding = Binding($draft) {
+            AgentRoutineEditor(draft: binding, isNew: !isSaved(binding.wrappedValue.id), chooseFolder: {
+                chooseFolder(binding.wrappedValue.directory)
+            }, close: close)
+        } else {
+            ColorPalette.backdrop.ignoresSafeArea()
+        }
     }
 }

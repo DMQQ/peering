@@ -27,7 +27,7 @@ struct DeferredVideoKeyframeTests {
         var deferred = DeferredVideoKeyframe()
         deferred.record(frame())
 
-        #expect(deferred.take() == frame())
+        #expect(deferred.take() == .init(frame: frame(), missedLaterFrames: false))
         #expect(deferred.take() == nil)
     }
 
@@ -37,7 +37,35 @@ struct DeferredVideoKeyframeTests {
         deferred.record(frame())
         deferred.record(frame(keyframe: false))
 
-        #expect(deferred.take() == frame())
+        #expect(deferred.take()?.frame == frame())
+    }
+
+    @Test("a delta dropped after the keyframe means the replay needs a fresh keyframe")
+    func droppedDeltaIsReported() {
+        var deferred = DeferredVideoKeyframe()
+        deferred.record(frame())
+        deferred.record(frame(keyframe: false))
+
+        #expect(deferred.take()?.missedLaterFrames == true)
+    }
+
+    @Test("a newer keyframe clears the dropped deltas before it")
+    func newerKeyframeClearsMissedDeltas() {
+        var deferred = DeferredVideoKeyframe()
+        deferred.record(frame())
+        deferred.record(frame(keyframe: false))
+        deferred.record(frame())
+
+        #expect(deferred.take()?.missedLaterFrames == false)
+    }
+
+    @Test("a delta with no keyframe held is not reported as missed")
+    func deltaBeforeAnyKeyframe() {
+        var deferred = DeferredVideoKeyframe()
+        deferred.record(frame(keyframe: false))
+        deferred.record(frame())
+
+        #expect(deferred.take()?.missedLaterFrames == false)
     }
 
     @Test("the host may reuse the keyframe only for its stream description")
