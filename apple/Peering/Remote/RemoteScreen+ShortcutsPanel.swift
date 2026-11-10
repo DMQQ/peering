@@ -76,8 +76,16 @@ extension RemoteScreen {
 
     var arrowCluster: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            panelKey("delete.backward", label: String(localized: "Delete"), width: 64) { model.handleBackspace() }
-            panelKey("return", label: String(localized: "Enter"), width: 64) { model.pressReturn() }
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    panelKey("escape", label: String(localized: "Escape"), width: 64) { sendKey(keyCode: 53) }
+                    panelKey("arrow.right.to.line", label: String(localized: "Tab"), width: 64) { sendKey(keyCode: 48) }
+                }
+                HStack(spacing: 6) {
+                    panelKey("delete.backward", label: String(localized: "Delete"), width: 64) { model.handleBackspace() }
+                    panelKey("return", label: String(localized: "Enter"), width: 64) { model.pressReturn() }
+                }
+            }
             Spacer(minLength: 0)
             VStack(spacing: 6) {
                 panelKey("chevron.up", label: String(localized: "Up arrow")) { sendKey(keyCode: 126) }
@@ -105,27 +113,5 @@ extension RemoteScreen {
         }
         .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
         .accessibilityLabel(label)
-    }
-
-    func arrowStrip(withReturn: Bool = true) -> some View {
-        HStack(spacing: 4) {
-            compactKeyButton(icon: "chevron.left", keyCode: 123)
-                .accessibilityLabel("Left arrow")
-            compactKeyButton(icon: "chevron.up", keyCode: 126)
-                .accessibilityLabel("Up arrow")
-            compactKeyButton(icon: "chevron.down", keyCode: 125)
-                .accessibilityLabel("Down arrow")
-            compactKeyButton(icon: "chevron.right", keyCode: 124)
-                .accessibilityLabel("Right arrow")
-            if withReturn {
-                compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
-                    .accessibilityLabel("Enter")
-            }
-            // Through the model rather than as a bare keycode, so the typed preview loses the
-            // character with the Mac's own line: sent directly, the Mac deleted and the preview
-            // kept what it had, which is a bar showing text that no longer exists anywhere.
-            compactCapButton(icon: "delete.backward") { model.handleBackspace() }
-                .accessibilityLabel("Delete")
-        }
     }
 }

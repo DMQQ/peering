@@ -108,6 +108,7 @@ enum ColorPalette {
 
     /// Heavy on purpose: the backdrop is a picture that can be anything, and a thin frost over a blank document lands within points of ``ink``. The one number to turn if the fallback reads wrong.
     static let glassTint = backdrop.opacity(0.70)
+    static let glassBlackTint = Color.black.opacity(0.25)
 
     static func reading(_ milliseconds: Double) -> Color {
         // Hue rather than brightness, the one break from the palette's rule: three shades of white at arm's length are one shade.
@@ -368,7 +369,7 @@ extension View {
     /// `tint` colours the glass itself, so the surface still refracts what is behind it: a white tint is the primary action.
     func glassSurface<S: InsettableShape>(in shape: S, interactive: Bool = false, tint: Color? = nil) -> some View {
         if #available(iOS 26.0, *) {
-            let glass: Glass = tint.map { Glass.regular.tint($0) } ?? .regular
+            let glass = Glass.regular.tint(tint ?? ColorPalette.glassBlackTint)
             glassEffect(interactive ? glass.interactive() : glass, in: shape)
         } else {
             background {

@@ -5,22 +5,13 @@ import UIKit
 
 extension RemoteScreen {
     /// With the keyboard up, the dock and both rails are behind it, so nothing else on this screen can
-    /// be pressed. Esc is the only way out of a Mac menu or a completion list and no iOS keyboard has
-    /// one; Tab is how a Mac moves focus and completes. See ``ModifierBar``.
+    /// be pressed. Esc, Tab and the arrows live in the shortcuts panel; see ``ModifierBar``.
     private var keyboardKeyRow: some View {
         HStack(spacing: 8) {
             compactCapButton(icon: "keyboard.chevron.compact.down", large: true) { model.showKeyboard = false }
                 .accessibilityLabel("Hide keyboard")
             ModifierBar()
-            HStack(spacing: 6) {
-                compactKeyButton(icon: "escape", keyCode: 53)
-                    .accessibilityLabel("Escape")
-                compactKeyButton(icon: "arrow.right.to.line", keyCode: 48)
-                    .accessibilityLabel("Tab")
-            }
             Spacer(minLength: 8)
-            // Landscape leaves about 90pt between the system keyboard and the top of the screen, which a third row does not fit in.
-            if deviceIsLandscape { arrowStrip(withReturn: false) }
             compactCapButton(icon: "return", filled: true, large: true) { model.pressReturn() }
                 .accessibilityLabel("Enter")
         }
@@ -32,10 +23,7 @@ extension RemoteScreen {
             keyboardInputRow
             if !dictation.isListeningUI {
                 // Sized by the drag, so the bar grows and shrinks under the finger; the rows keep their natural height and are clipped.
-                VStack(spacing: 8) {
-                    keyboardKeyRow
-                    if !deviceIsLandscape { arrowStrip(withReturn: false) }
-                }
+                keyboardKeyRow
                 .fixedSize(horizontal: false, vertical: true)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { if $0 > 0 { keyRowsHeight = $0 } }
                 .frame(height: keyRowsHeight > 0 ? keyRowsHeight * shortcutsProgress : (shortcutsProgress == 0 ? 0 : nil), alignment: .top)
