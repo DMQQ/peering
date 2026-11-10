@@ -67,6 +67,12 @@ final class VideoStreamer: @unchecked Sendable {
 
     var generation = 0
 
+    /// When a keyframe was last asked for because a delta was dropped; under ``lock``.
+    var lastDropKeyframeAt: TimeInterval = 0
+
+    /// Quicker than the encoder's own interval and slower than a slide's frame rate: a burst of drops asks once per this, not once per frame.
+    static let dropKeyframeInterval: TimeInterval = 0.2
+
     /// Asks the capture pipeline for an immediate keyframe.
     let requestKeyframe: @Sendable () -> Void
 
@@ -84,6 +90,7 @@ final class VideoStreamer: @unchecked Sendable {
 // Set outside the lock below only when the frame is one the preferred transport is owed, so the send
 // itself does not happen while holding it.
         var probe: (lane: Lane, payloads: [Data])?
+        var wantsKeyframe = false
 
         let shouldPump = lock.withLock { () -> Bool in
             let now = Self.monotonicNow()
@@ -121,8 +128,19 @@ final class VideoStreamer: @unchecked Sendable {
             if let waiting = pending {
 // Exactly one of the two is discarded: either the frame that was waiting, or the one that just
 // arrived. Either way it is one drop, so this is not conditional on which of them the policy chose.
-                pending = VideoDropPolicy.superseded(waiting, by: frame)
+                let kept = VideoDropPolicy.superseded(waiting, by: frame)
+                let lost = kept == waiting ? frame : waiting
+                pending = kept
                 _stats.dropped += 1
+                // A dropped delta leaves a gap that every later delta refers across, and the client cannot tell: it shows a stuck or smeared picture until the next keyframe. So nothing else goes until one does, and one is asked for now.
+                if !lost.isKeyframe {
+                    if !kept.isKeyframe { pending = nil }
+                    awaitingKeyframe = true
+                    if now - lastDropKeyframeAt >= Self.dropKeyframeInterval {
+                        lastDropKeyframeAt = now
+                        wantsKeyframe = true
+                    }
+                }
             } else {
                 pending = frame
             }
@@ -130,6 +148,7 @@ final class VideoStreamer: @unchecked Sendable {
         }
 
         if let probe { send(probe.payloads, on: probe.lane) { _ in } }
+        if wantsKeyframe { requestKeyframe() }
         if shouldPump { pump() }
     }
 
