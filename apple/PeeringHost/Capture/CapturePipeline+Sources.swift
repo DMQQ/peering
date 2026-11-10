@@ -140,6 +140,11 @@ extension CapturePipeline {
             return runningEngine as? CaptureEngine
         }
         guard let engine else { return }
+        // Asking the stream to redraw took 1.5 s after a desktop switch, freezing every phone meanwhile. The held picture is current and encodes now.
+        if idleRefresh.repeatNow() {
+            pipelineLog.notice("no frame yet for the requested keyframe; encoding the held picture")
+            return
+        }
         pipelineLog.notice("no frame yet for the requested keyframe; asking the capture for a fresh one")
         engine.refreshFrame()
     }

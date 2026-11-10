@@ -31,6 +31,16 @@ final class IdleRefresh: @unchecked Sendable {
         }
     }
 
+    /// Encodes the held picture at once, outside the schedule. False when nothing is held.
+    func repeatNow() -> Bool {
+        lock.withLock {
+            guard let held = last else { return false }
+            let elapsed = Double(DispatchTime.now().uptimeNanoseconds - held.notedAt.uptimeNanoseconds) / 1_000_000_000
+            refresh(held.frame, CMTimeAdd(held.frame.presentationTime, CMTime(seconds: elapsed, preferredTimescale: 1_000_000)))
+            return true
+        }
+    }
+
     /// Releases the held picture, so a stopped stream does not keep one of the capture pool's buffers.
     func cancel() {
         lock.withLock {
