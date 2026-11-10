@@ -45,6 +45,11 @@ private let chordApproachDelay = DispatchTimeInterval.milliseconds(150)
 
 private let chordKeyGapMilliseconds = 25
 
+private let chordLandingInterval = DispatchTimeInterval.milliseconds(100)
+
+/// Together with the first look at 300 ms, a chord has two seconds to land.
+private let chordLandingAttempts = 17
+
 /// Posts ⌃←/⌃→, spread over the main queue.
 private func spaceCentre(of displayID: UInt32) -> CGPoint {
     let bounds = CGDisplayBounds(displayID)
@@ -186,26 +191,34 @@ func performSwitch(
         }
 
         // A chord that was dropped, the permission withdrawn mid-session, a Space removed
-        // between the two reads, leaves the display sitting on the neighbour. Looked at once
-        // the slide would have finished, and only corrected if that is still where it is: if
-        // the Space has moved anywhere else then somebody else moved it, and putting it back
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) {
+        // between the two reads, leaves the display sitting on the neighbour. The slide itself
+        // takes about 900 ms, and the window server only reports the new Space when it ends, so
+        // the display is looked at every 100 ms for two seconds. A fallback at 700 ms landed in
+        // the middle of the real transition and left the old desktop composited, which was the
+        // frozen picture. Only corrected if it is still on the neighbour at the end: if the
+        // Space has moved anywhere else then somebody else moved it.
+        func verify(attempt: Int) {
             guard let now = readDisplays().first(where: { $0.displayID == displayID }),
                   now.activeID == approach.neighbour
             else {
                 report?(.chord)
                 return
             }
-            spaceLog.notice("""
-                chord to space \(spaceID, privacy: .public) did not land; still on \
-                \(approach.neighbour, privacy: .public), so setting it directly
-                """)
-            if setCurrentSpace(display: now, spaceID: spaceID) {
-                report?(.direct(.chordDidNotLand))
-            } else {
-                report?(.refused)
+            guard attempt < chordLandingAttempts else {
+                spaceLog.notice("""
+                    chord to space \(spaceID, privacy: .public) did not land; still on \
+                    \(approach.neighbour, privacy: .public), so setting it directly
+                    """)
+                if setCurrentSpace(display: now, spaceID: spaceID) {
+                    report?(.direct(.chordDidNotLand))
+                } else {
+                    report?(.refused)
+                }
+                return
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + chordLandingInterval) { verify(attempt: attempt + 1) }
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) { verify(attempt: 0) }
     }
     return true
 }
