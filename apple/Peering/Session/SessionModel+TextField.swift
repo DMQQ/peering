@@ -43,6 +43,10 @@ extension SessionModel {
             return
         }
         pendingField = nil
+        if let committed = committedFieldText {
+            if text.contains(committed) { return }
+            committedFieldText = nil
+        }
         typedDraft = text
         let selection = state.selection(inTextOfLength: (text as NSString).length)
         draftSelection = NSRange(location: selection.location, length: selection.length)

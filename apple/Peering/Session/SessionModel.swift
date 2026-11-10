@@ -173,6 +173,8 @@ final class SessionModel {
     /// When the phone's field last changed by typing: the Mac's report of a line still being typed is older than the line, and applying it would delete the last characters.
     var lastLocalEdit: MonotonicStamp?
     var pendingField: FieldState?
+    /// The line last sent with Return. A terminal keeps a queued message in its prompt until the program takes it, and the Mac's field mirrors that, so the phone ignores a mirror that still contains this.
+    var committedFieldText: String?
 
     /// Where a hand on the Mac last left its pointer. A serial, because a second report at the same spot after the joystick has moved the drawn cursor away must still pull it back.
     var hostPointer = HostPointer(point: NormalizedPoint(x: 0.5, y: 0.5), serial: 0)

@@ -314,6 +314,7 @@ extension SessionModel {
     }
 
     func pressReturn() {
+        noteCommitted(typedDraft)
         typedPreview = ""
         send(.keyDown(keyCode: 36, modifiers: latchedModifiers))
         send(.keyUp(keyCode: 36, modifiers: latchedModifiers))
@@ -321,9 +322,17 @@ extension SessionModel {
         showKeyboard = false
     }
 
+    private func noteCommitted(_ line: String) {
+        let sent = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        committedFieldText = sent.isEmpty ? nil : sent
+        typedDraft = ""
+        pendingField = nil
+    }
+
     func handleTypedText(_ text: String) {
         guard !text.isEmpty else { return }
         // A newline is a Return delivered as text, so it commits the line.
+        if text.contains(where: \.isNewline) { noteCommitted(typedDraft) }
         // Bounded far beyond anything the bar draws; it only stops unbounded growth.
         typedPreview = text.contains(where: \.isNewline)
             ? ""
