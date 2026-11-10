@@ -130,7 +130,7 @@ extension HostModel {
         switch route {
         case .chord:
             record("Desktop \(index) on display \(display) accepted")
-        case .direct(.chordDidNotLand):
+        case .direct(.chordDidNotLand), .direct(.shortcutsUnbound):
             record(
                 """
                 Desktop \(index) switched, but the picture may still show the one before it. This \
