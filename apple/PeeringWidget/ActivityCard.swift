@@ -16,6 +16,8 @@ struct ActivityCard: View {
 
     var work: [SessionActivityAttributes.ContentState.Work] = []
     var plan: ActivityCardPlan?
+    /// Up to three small readings under the header, so a card with no plan and no work is not half empty.
+    var facts: [ActivityFact] = []
 
     static let workRows = 3
     /// A card pushed by the Mac names nothing it is doing.
@@ -34,6 +36,13 @@ struct ActivityCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             sessionRow
+            if !facts.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(facts.prefix(3)) { fact in
+                        FactTile(fact: fact)
+                    }
+                }
+            }
             if let plan {
                 PlanBar(plan: plan, tone: tone)
             }
@@ -147,6 +156,51 @@ struct ActivityCard: View {
                         .lineLimit(1)
                 }
             }
+        }
+    }
+}
+
+/// One reading on the card: a small glyph and label over a value, which may be a live clock.
+struct ActivityFact: Identifiable {
+    enum Value {
+        case text(String)
+        case since(Date)
+    }
+
+    let id: String
+    let symbol: String
+    let label: String
+    let value: Value
+}
+
+private struct FactTile: View {
+    let fact: ActivityFact
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Label(fact.label, systemImage: fact.symbol)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+            valueText
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.92))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    private var valueText: some View {
+        switch fact.value {
+        case .text(let text): Text(text)
+        case .since(let date): Text(date, style: .time)
         }
     }
 }

@@ -17,7 +17,8 @@ struct SessionLiveActivity: Widget {
                 status: statusText(for: context.state),
                 startedAt: context.state.startedAt,
                 action: action(for: context.state.phase),
-                work: context.state.work ?? []
+                work: context.state.work ?? [],
+                facts: facts(for: context.state)
             )
             .activityBackgroundTint(ActivityCard.backgroundTint)
             .activitySystemActionForegroundColor(.white)
@@ -121,6 +122,18 @@ private func tone(for phase: SessionActivityAttributes.Phase) -> ActivityTone {
     case .active: return .live
     case .dropped: return .lost
     }
+}
+
+/// What the card has room for when the Mac has no work to list: how it is connected, how many Macs are open, and when this one started.
+private func facts(for state: SessionActivityAttributes.ContentState) -> [ActivityFact] {
+    var facts: [ActivityFact] = []
+    let path = state.path.map { $0.rawValue } ?? String(localized: "Waiting")
+    facts.append(ActivityFact(id: "path", symbol: "point.3.connected.trianglepath.dotted", label: String(localized: "Connection"), value: .text(path)))
+    facts.append(ActivityFact(id: "macs", symbol: "macbook", label: String(localized: "Macs open"), value: .text("\(state.sessionCount ?? 1)")))
+    if let started = state.startedAt {
+        facts.append(ActivityFact(id: "since", symbol: "clock", label: String(localized: "Started"), value: .since(started)))
+    }
+    return facts
 }
 
 /// The way back in when the session was lost, otherwise the way out; a dropped card has no End.

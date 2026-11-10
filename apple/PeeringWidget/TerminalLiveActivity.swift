@@ -16,7 +16,8 @@ struct TerminalLiveActivity: Widget {
                 name: context.state.serverName,
                 status: statusText(for: context.state),
                 startedAt: context.state.startedAt,
-                action: ActivityCardAction(title: actionTitle(for: context.state), url: Self.endURL)
+                action: ActivityCardAction(title: actionTitle(for: context.state), url: Self.endURL),
+                facts: facts(for: context.state)
             )
             .activityBackgroundTint(ActivityCard.backgroundTint)
             .activitySystemActionForegroundColor(.white)
@@ -87,4 +88,15 @@ private func statusText(for state: TerminalActivityAttributes.ContentState) -> S
 /// button says which one it is about to do.
 private func actionTitle(for state: TerminalActivityAttributes.ContentState) -> String {
     state.shellCount > 1 ? String(localized: "End all") : String(localized: "End")
+}
+
+/// What the card has room for: how many shells are open, and since when.
+private func facts(for state: TerminalActivityAttributes.ContentState) -> [ActivityFact] {
+    var facts = [
+        ActivityFact(id: "shells", symbol: "terminal", label: String(localized: "Shells"), value: .text("\(state.shellCount)")),
+    ]
+    if let started = state.startedAt {
+        facts.append(ActivityFact(id: "since", symbol: "clock", label: String(localized: "Started"), value: .since(started)))
+    }
+    return facts
 }
