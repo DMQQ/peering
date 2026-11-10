@@ -70,6 +70,31 @@ final class VideoStreamer: @unchecked Sendable {
     /// When a keyframe was last asked for because a delta was dropped; under ``lock``.
     var lastDropKeyframeAt: TimeInterval = 0
 
+    /// Whether a retry of the keyframe request is already scheduled; under ``lock``.
+    var keyframeRetryScheduled = false
+
+    private static let keyframeRetryQueue = DispatchQueue(label: "pl.dmq.peering.host.video.keyframe-retry", qos: .userInitiated)
+
+    /// While a keyframe is owed, asks again every 250 ms. The first ask can be spent on a frame already in flight, and a still screen sends nothing more to carry another: without this the wait lasted until the screen moved, which was the freeze.
+    func scheduleKeyframeRetry() {
+        let schedule = lock.withLock { () -> Bool in
+            guard awaitingKeyframe, !keyframeRetryScheduled else { return false }
+            keyframeRetryScheduled = true
+            return true
+        }
+        guard schedule else { return }
+        Self.keyframeRetryQueue.asyncAfter(deadline: .now() + .milliseconds(250)) { [weak self] in
+            guard let self else { return }
+            let stillOwed = self.lock.withLock { () -> Bool in
+                self.keyframeRetryScheduled = false
+                return self.awaitingKeyframe && self.peer != nil
+            }
+            guard stillOwed else { return }
+            self.requestKeyframe()
+            self.scheduleKeyframeRetry()
+        }
+    }
+
     /// Quicker than the encoder's own interval and slower than a slide's frame rate: a burst of drops asks once per this, not once per frame.
     static let dropKeyframeInterval: TimeInterval = 0.2
 
@@ -149,6 +174,7 @@ final class VideoStreamer: @unchecked Sendable {
 
         if let probe { send(probe.payloads, on: probe.lane) { _ in } }
         if wantsKeyframe { requestKeyframe() }
+        scheduleKeyframeRetry()
         if shouldPump { pump() }
     }
 
