@@ -116,6 +116,8 @@ final class MacSession: Identifiable {
 
     /// Set when the retry ladder runs out; cleared when a session is up again.
     var hasGivenUpResuming = false
+    /// Dials a Mac that was given up on once in a while, so a restart that outlasts the ladder still ends in a connection.
+    var comebackTask: Task<Void, Never>?
 
     var gaveUpAt: MonotonicStamp?
 

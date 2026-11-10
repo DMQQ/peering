@@ -23,11 +23,14 @@ extension SessionModel {
     /// The two ladders share a counter: `reconnectAttempt` indexes into whichever is in use and is carried across a dial, so the shorter simply runs out sooner.
     /// Long enough to outlast the Mac app restarting (quit, relaunch, listening again), which takes more than the first three rungs: they ended the resume in about four seconds, before a restarted Mac was up.
     static let resumeReconnectDelays: [Duration] = [
-        .milliseconds(250), .seconds(1), .seconds(3), .seconds(5), .seconds(8), .seconds(10),
+        .milliseconds(250), .seconds(1), .seconds(3), .seconds(5), .seconds(8), .seconds(10), .seconds(15), .seconds(20),
     ]
 
     /// A rung is a wait plus a dial that can take ten seconds to fail, so "three rungs" is not a duration, and a dial that never answers is not bounded by the count. This bound does not depend on the network answering and covers the restoration, which dials once with no ladder.
-    static let reconnectWindow: TimeInterval = 30
+    static let reconnectWindow: TimeInterval = 90
+
+    /// How often a Mac that was given up on is dialled once, for as long as ``comebackWindow`` lasts.
+    static let comebackPollInterval: Duration = .seconds(6)
 
     var reconnectTask: Task<Void, Never>? {
         get { activeSession?.reconnectTask }

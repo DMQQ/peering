@@ -16,7 +16,7 @@ extension SessionModel {
         }
     }
 
-    static let comebackWindow: TimeInterval = 120
+    static let comebackWindow: TimeInterval = 180
 
     func apply(_ event: HostBrowser.Event) {
         switch event {

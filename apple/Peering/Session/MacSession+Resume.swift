@@ -144,6 +144,26 @@ extension MacSession {
         giveUpOnReconnecting()
     }
 
+    /// A Mac restarting can take longer than any ladder, and Bonjour only reports one that left and came back. Each tick is one dial, skipped while another is in flight or the app is not in front, and the loop ends the moment a session is up or the user ends it.
+    private func startComebackPolling() {
+        comebackTask?.cancel()
+        guard hasBeenReady, !userEndedDeliberately else { return }
+        comebackTask = Task { [weak self] in
+            let deadline = ContinuousClock.now + .seconds(SessionModel.comebackWindow)
+            while ContinuousClock.now < deadline {
+                try? await Task.sleep(for: SessionModel.comebackPollInterval)
+                guard !Task.isCancelled, let self, self.hasGivenUpResuming, !self.userEndedDeliberately else { return }
+                guard self.wire == nil, self.connectTask == nil,
+                      BackgroundRedial.mayDialFromTimer(
+                        appIsBackground: UIApplication.shared.applicationState == .background,
+                        pictureInPictureIsActive: SessionPiP.shared.isActive
+                      )
+                else { continue }
+                self.resumeIfNeeded()
+            }
+        }
+    }
+
     /// One end for both ways a ladder finishes: out of rungs, or out of time.
     private func giveUpOnReconnecting() {
         logEvent("Gave up reconnecting")
@@ -167,6 +187,7 @@ extension MacSession {
         wire = nil
         // The app started the attempt just cut, so the flag goes with it: left set, the user's next dial of any Mac would read as ours.
         model.clearResumingIfNothingIsUnderWay()
+        startComebackPolling()
         // The screen is about to leave and no replacement stream will reuse its display, so this releases the attachment that non-deliberate teardown kept for the retry. A background Mac shares the active Mac's renderer and must not detach it.
         if isActive { renderer.detach() }
         // The Live Activity must be told directly: a ladder running out changes no phase, so `sessionMoved` never runs and the card would stay on Reconnecting. Only for the Mac on screen.
