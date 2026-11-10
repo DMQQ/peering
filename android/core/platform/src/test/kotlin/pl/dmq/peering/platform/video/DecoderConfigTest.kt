@@ -91,5 +91,6 @@ class DecoderConfigTest {
 
         assertEquals(0, options[DecoderConfig.KEY_PRIORITY])
         assertEquals(Short.MAX_VALUE.toInt(), options[DecoderConfig.KEY_OPERATING_RATE])
+        assertEquals(pl.dmq.peering.wire.MAX_REASSEMBLED_BYTES, options[DecoderConfig.KEY_MAX_INPUT_SIZE])
     }
 }

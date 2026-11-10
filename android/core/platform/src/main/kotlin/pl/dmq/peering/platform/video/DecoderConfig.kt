@@ -1,5 +1,6 @@
 package pl.dmq.peering.platform.video
 
+import pl.dmq.peering.wire.MAX_REASSEMBLED_BYTES
 import pl.dmq.peering.wire.VideoCodec
 import pl.dmq.peering.wire.VideoStreamConfig
 import pl.dmq.peering.wire.csdFor
@@ -17,6 +18,7 @@ data class DecoderConfig(
         const val KEY_LOW_LATENCY = "low-latency"
         const val KEY_PRIORITY = "priority"
         const val KEY_OPERATING_RATE = "operating-rate"
+        const val KEY_MAX_INPUT_SIZE = "max-input-size"
 
         private const val LOW_LATENCY_MIN_SDK = 30
         private const val REALTIME_OPERATING_RATE = Short.MAX_VALUE.toInt()
@@ -43,6 +45,9 @@ data class DecoderConfig(
             if (sdkInt >= LOW_LATENCY_MIN_SDK) put(KEY_LOW_LATENCY, 1)
             put(KEY_PRIORITY, 0)
             put(KEY_OPERATING_RATE, REALTIME_OPERATING_RATE)
+            // Room for the largest frame the transport delivers. The device default could not hold the frame of a desktop
+            // switch or the keyframe asked for after it, so both were dropped and the picture froze for seconds.
+            put(KEY_MAX_INPUT_SIZE, MAX_REASSEMBLED_BYTES)
         }
 
         private fun wireName(codec: VideoCodec): String = when (codec) {

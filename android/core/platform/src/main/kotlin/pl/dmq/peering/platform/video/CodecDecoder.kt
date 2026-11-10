@@ -15,9 +15,8 @@ import pl.dmq.peering.wire.VideoStreamConfig
 import pl.dmq.peering.wire.avccToAnnexB
 
 /**
- * Decodes straight to a Surface. Frames arrive from one thread, in decode order, so a frame never waits for an input
- * buffer. One that cannot be queued is dropped and the decoder waits for the next keyframe, so a stall costs a moment
- * of picture, not the stream. A codec that fails for good is built again, a few times, and then [decoderFailed] reads true.
+ * Decodes straight to a Surface. Frames arrive from one thread, in decode order. One that cannot be queued is dropped and
+ * the decoder waits for the next keyframe, so a stall costs a moment of picture, not the stream. A codec that fails for good is built again, a few times, and then [decoderFailed] reads true.
  */
 class CodecDecoder(private val surface: Surface) : VideoSink {
     private var codec: MediaCodec? = null
@@ -101,10 +100,14 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
     }
 
     private fun queue(decoder: MediaCodec, data: ByteArray, presentationUs: Long): Boolean {
-        val index = decoder.dequeueInputBuffer(NO_WAIT)
-        if (index < 0) return false
+        val index = freeInputBuffer(decoder)
+        if (index < 0) {
+            PlatformLog.w(TAG, { "no input buffer came free; dropping until a keyframe" })
+            return false
+        }
         val buffer = decoder.getInputBuffer(index) ?: return false
         if (data.size > buffer.capacity()) {
+            PlatformLog.w(TAG, { "a ${data.size} byte frame overflows the ${buffer.capacity()} byte input buffer; dropping until a keyframe" })
             decoder.queueInputBuffer(index, 0, 0, presentationUs, 0)
             return false
         }
@@ -112,6 +115,20 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
         buffer.put(data)
         decoder.queueInputBuffer(index, 0, data.size, presentationUs, 0)
         return true
+    }
+
+    /**
+     * Right after a full-screen change the decoder is still busy with that frame, and every input buffer can be taken for
+     * a few milliseconds. Giving up at once dropped the next frame and froze the picture until a keyframe; this releases
+     * finished pictures and waits a little.
+     */
+    private fun freeInputBuffer(decoder: MediaCodec): Int {
+        repeat(INPUT_ATTEMPTS) {
+            val index = decoder.dequeueInputBuffer(INPUT_WAIT_US)
+            if (index >= 0) return index
+            drain(decoder)
+        }
+        return -1
     }
 
     private fun drain(decoder: MediaCodec) {
@@ -160,7 +177,8 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
 
     private companion object {
         const val TAG = "PeeringDecoder"
-        const val NO_WAIT = 0L
+        const val INPUT_WAIT_US = 5_000L
+        const val INPUT_ATTEMPTS = 6
         const val MICROS_PER_SECOND = 1_000_000.0
         const val NANOS_PER_SECOND = 1_000_000_000.0
     }
