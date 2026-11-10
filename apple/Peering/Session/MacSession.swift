@@ -61,6 +61,11 @@ final class MacSession: Identifiable {
     var pathLatencyMilliseconds: Double?
     var pathLatencyIsDirect = false
 
+    /// What the session feels like: the straight path's round trip when the picture and pointer movement take it, else the control connection's.
+    var perceivedLatencyMilliseconds: Double? {
+        pathLatencyIsDirect ? pathLatencyMilliseconds ?? latencyMilliseconds : latencyMilliseconds
+    }
+
     /// A `Date`, so the view can use `Text(_:style:.timer)`; a `Timer` would wake the main actor each second.
     var sessionStartedAt: Date?
 

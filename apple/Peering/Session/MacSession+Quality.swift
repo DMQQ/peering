@@ -86,7 +86,7 @@ extension MacSession {
     }
 
     func updateAutoQuality(from snapshot: VideoRenderer.Snapshot) {
-        guard model.streamQuality == .auto, let latencyMilliseconds else {
+        guard model.streamQuality == .auto, let latencyMilliseconds = perceivedLatencyMilliseconds else {
             lastAutoDroppedFrames = snapshot.framesDropped
             return
         }

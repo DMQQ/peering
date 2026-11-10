@@ -31,6 +31,8 @@ extension SessionModel {
         set { activeSession?.latencyMilliseconds = newValue }
     }
 
+    var perceivedLatencyMilliseconds: Double? { activeSession?.perceivedLatencyMilliseconds }
+
     var pathLatencyMilliseconds: Double? {
         get { activeSession?.pathLatencyMilliseconds }
         set { activeSession?.pathLatencyMilliseconds = newValue }

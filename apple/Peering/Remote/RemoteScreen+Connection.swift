@@ -10,7 +10,7 @@ extension RemoteScreen {
 
     /// Only the poor band speaks: "Slow" at 40 ms and up would be on screen for most relayed sessions, and a word that is always there is not a warning.
     var slowConnectionLabel: String? {
-        guard model.phase == .ready, model.isVideoStreaming, let latency = model.latencyMilliseconds,
+        guard model.phase == .ready, model.isVideoStreaming, let latency = model.perceivedLatencyMilliseconds,
               LatencyQuality.of(milliseconds: latency) == .poor else { return nil }
         return LatencyQuality.poor.pillLabel
     }

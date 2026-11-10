@@ -17,10 +17,11 @@ extension MacSession {
         case .latency(let milliseconds):
             latencyMilliseconds = milliseconds
             logLatencyIfDue(milliseconds)
-            warnIfConnectionIsVeryBad(milliseconds)
+            if let perceived = perceivedLatencyMilliseconds { warnIfConnectionIsVeryBad(perceived) }
         case .pathLatency(let milliseconds, let fromPeer):
             pathLatencyMilliseconds = milliseconds
             pathLatencyIsDirect = fromPeer
+            if let perceived = perceivedLatencyMilliseconds { warnIfConnectionIsVeryBad(perceived) }
         case .datagramCounts(let counts):
             datagramCounts = counts
         case .note(let message):
