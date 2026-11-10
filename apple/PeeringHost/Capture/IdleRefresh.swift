@@ -1,4 +1,5 @@
 import CoreMedia
+import CoreVideo
 import Dispatch
 import Foundation
 import RemoteCore
@@ -13,6 +14,8 @@ final class IdleRefresh: @unchecked Sendable {
     private var generation = 0
     private var last: (frame: CapturedFrame, notedAt: DispatchTime)?
     private var repeatsDone = 0
+    /// The picture kept once the repeats are over, as a private copy: the capture pool's buffer is given back then, and a keyframe asked for on a still screen had nothing left to encode, so it waited for the stream to redraw, two seconds after a desktop switch.
+    private var stillCopy: (frame: CapturedFrame, notedAt: DispatchTime)?
 
     /// Called on `queue` with the last frame and a presentation time later than that frame's.
     private let refresh: @Sendable (CapturedFrame, CMTime) -> Void
@@ -26,6 +29,7 @@ final class IdleRefresh: @unchecked Sendable {
         lock.withLock {
             generation &+= 1
             last = (frame, DispatchTime.now())
+            stillCopy = nil
             repeatsDone = 0
             schedule(repeat: 0)
         }
@@ -34,7 +38,7 @@ final class IdleRefresh: @unchecked Sendable {
     /// Encodes the held picture at once, outside the schedule. False when nothing is held.
     func repeatNow() -> Bool {
         lock.withLock {
-            guard let held = last else { return false }
+            guard let held = last ?? stillCopy else { return false }
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - held.notedAt.uptimeNanoseconds) / 1_000_000_000
             refresh(held.frame, CMTimeAdd(held.frame.presentationTime, CMTime(seconds: elapsed, preferredTimescale: 1_000_000)))
             return true
@@ -46,6 +50,7 @@ final class IdleRefresh: @unchecked Sendable {
         lock.withLock {
             generation &+= 1
             last = nil
+            stillCopy = nil
         }
     }
 
@@ -63,9 +68,49 @@ final class IdleRefresh: @unchecked Sendable {
             guard scheduledFor == generation, let held = last else { return }
             repeatsDone += 1
             // The pool buffer is needed only until the last repeat; holding it longer starves the capture stream while the screen is still.
-            if !schedule(repeat: repeatsDone) { last = nil }
+            if !schedule(repeat: repeatsDone) {
+                stillCopy = Self.copy(of: held)
+                last = nil
+            }
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - held.notedAt.uptimeNanoseconds) / 1_000_000_000
             refresh(held.frame, CMTimeAdd(held.frame.presentationTime, CMTime(seconds: elapsed, preferredTimescale: 1_000_000)))
         }
+    }
+
+    /// A deep copy, so the capture pool's buffer can go back. Nil when a buffer cannot be made, which leaves the old behaviour.
+    private static func copy(of held: (frame: CapturedFrame, notedAt: DispatchTime)) -> (frame: CapturedFrame, notedAt: DispatchTime)? {
+        let source = held.frame.pixelBuffer
+        var created: CVPixelBuffer?
+        let attributes = [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary] as CFDictionary
+        guard CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            CVPixelBufferGetWidth(source),
+            CVPixelBufferGetHeight(source),
+            CVPixelBufferGetPixelFormatType(source),
+            attributes,
+            &created
+        ) == kCVReturnSuccess, let copy = created else { return nil }
+
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(copy, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(copy, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+        let planes = max(CVPixelBufferGetPlaneCount(source), 1)
+        for plane in 0..<planes {
+            let isPlanar = CVPixelBufferGetPlaneCount(source) > 0
+            guard let from = isPlanar ? CVPixelBufferGetBaseAddressOfPlane(source, plane) : CVPixelBufferGetBaseAddress(source),
+                  let to = isPlanar ? CVPixelBufferGetBaseAddressOfPlane(copy, plane) : CVPixelBufferGetBaseAddress(copy)
+            else { return nil }
+            let rows = isPlanar ? CVPixelBufferGetHeightOfPlane(source, plane) : CVPixelBufferGetHeight(source)
+            let fromStride = isPlanar ? CVPixelBufferGetBytesPerRowOfPlane(source, plane) : CVPixelBufferGetBytesPerRow(source)
+            let toStride = isPlanar ? CVPixelBufferGetBytesPerRowOfPlane(copy, plane) : CVPixelBufferGetBytesPerRow(copy)
+            for row in 0..<rows {
+                memcpy(to + row * toStride, from + row * fromStride, min(fromStride, toStride))
+            }
+        }
+        let frame = held.frame
+        return (CapturedFrame(pixelBuffer: copy, presentationTime: frame.presentationTime, duration: frame.duration, geometry: frame.geometry), held.notedAt)
     }
 }
