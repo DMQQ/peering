@@ -6,7 +6,10 @@ package pl.dmq.peering.platform.video
  * builds a new decoder, which starts at a keyframe without a flush of the old one.
  */
 class KeyframeLossPolicy {
-    private var awaitingKeyframe = true
+    /** Read from the recheck timer as well as the decoding thread. */
+    @Volatile
+    var awaitingKeyframe = true
+        private set
 
     /** True when a frame may reach the decoder. Frames before the next keyframe are skipped, not flushed. */
     fun admit(isKeyframe: Boolean): Boolean {

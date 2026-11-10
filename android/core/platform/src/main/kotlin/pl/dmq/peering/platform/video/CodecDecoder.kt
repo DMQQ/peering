@@ -4,6 +4,8 @@ import android.media.MediaCodec
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.Surface
 import java.nio.ByteBuffer
 import pl.dmq.peering.platform.PlatformLog
@@ -27,6 +29,8 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
     override var onNeedsKeyframe: (() -> Unit)? = null
     private val recovery = DecoderRecovery()
     private val info = MediaCodec.BufferInfo()
+    private val recheckHandler = Handler(Looper.getMainLooper())
+    private val recheck = Runnable { askIfStillWaiting() }
 
     override val decoderFailed: Boolean get() = recovery.failed
 
@@ -41,7 +45,8 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
     override fun onFrame(frame: EncodedVideoFrame) {
         val decoder = codec ?: return
         if (!keyframes.admit(frame.isKeyframe)) {
-            if (keyframeRequests.noteDrop(System.nanoTime() / NANOS_PER_SECOND)) onNeedsKeyframe?.invoke()
+            askForKeyframeIfDue()
+            scheduleRecheck()
             return
         }
         keyframeRequests.noteRecovered()
@@ -60,8 +65,25 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
     }
 
     override fun onStop() {
+        recheckHandler.removeCallbacks(recheck)
         release()
         current = null
+    }
+
+    private fun askForKeyframeIfDue() {
+        if (keyframeRequests.noteDrop(System.nanoTime() / NANOS_PER_SECOND)) onNeedsKeyframe?.invoke()
+    }
+
+    /** The ask is otherwise made only when another frame is dropped, and a screen gone still after a desktop slide sends none. */
+    private fun scheduleRecheck() {
+        recheckHandler.removeCallbacks(recheck)
+        recheckHandler.postDelayed(recheck, RECHECK_MS)
+    }
+
+    private fun askIfStillWaiting() {
+        if (codec == null || !keyframes.awaitingKeyframe) return
+        askForKeyframeIfDue()
+        scheduleRecheck()
     }
 
     private fun start(config: VideoStreamConfig) {
@@ -181,6 +203,7 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
         const val INPUT_ATTEMPTS = 6
         const val MICROS_PER_SECOND = 1_000_000.0
         const val NANOS_PER_SECOND = 1_000_000_000.0
+        const val RECHECK_MS = 350L
     }
 }
 

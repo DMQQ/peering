@@ -10,6 +10,7 @@ class KeyframeRequestPolicy {
     private var lastAskAt: Double? = null
 
     /** A frame was dropped for want of a keyframe. True when the computer should be asked now. */
+    @Synchronized
     fun noteDrop(nowSeconds: Double): Boolean {
         val started = firstDropAt ?: nowSeconds.also { firstDropAt = it }
         if (nowSeconds - started < GRACE_SECONDS) return false
@@ -19,6 +20,7 @@ class KeyframeRequestPolicy {
     }
 
     /** A picture was decoded: the wait is over, and the next one starts its own grace. */
+    @Synchronized
     fun noteRecovered() {
         firstDropAt = null
     }
