@@ -59,7 +59,7 @@ struct ContentView: View {
     @State private var connectingDismissTask: Task<Void, Never>?
 
     /// Deliberately longer than the connection: a LAN handshake is instant, and the card needs time to read as an arrival rather than a flicker.
-    private static let connectingShownFor: TimeInterval = 1.3
+    private static let connectingShownFor: TimeInterval = 2.4
 
     /// Not a timeout and nothing is cancelled: past this the card stops saying Connecting and offers a way out.
     private static let connectingSlowAfter: TimeInterval = 12

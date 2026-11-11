@@ -20,10 +20,12 @@ struct ConnectingView: View {
 
     private static let steps = [
         String(localized: "Establishing connection…"),
+        String(localized: "Finding your Mac…"),
         String(localized: "Exchanging keys…"),
+        String(localized: "Securing the channel…"),
         String(localized: "Opening your screen…"),
     ]
-    private static let stepDuration: Duration = .milliseconds(420)
+    private static let stepDuration: Duration = .milliseconds(450)
 
     private var rollAnimation: Animation {
         reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.38, dampingFraction: 0.85)
