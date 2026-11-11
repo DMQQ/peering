@@ -144,11 +144,14 @@ extension InputInjector {
         // Set explicitly: a null-source event inherits the modifiers the system believes are held, so a chord posted just before would turn the keystroke into a shortcut.
         var flags = cgFlags(lock.withLock { heldModifiers })
         if Self.functionKeyCodes.contains(code) { flags.insert(.maskSecondaryFn) }
+        // A hardware arrow key carries both flags, and the system shortcuts bound to arrows (Mission Control on Control+Up) only match an event that does.
+        if Self.arrowKeyCodes.contains(code) { flags.formUnion([.maskSecondaryFn, .maskNumericPad]) }
         event.flags = flags
         event.post(tap: .cghidEventTap)
     }
 
     private static let functionKeyCodes = Set(MediaKey.functionKeyCodes)
+    private static let arrowKeyCodes: Set<UInt16> = [123, 124, 125, 126]
 
     /// Returns whether it changed anything: a chord releases only what it pressed.
     @discardableResult
