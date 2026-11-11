@@ -282,24 +282,12 @@ struct ContentView: View {
 
         guard let since = connectingSince else { return }
         let remaining = max(0, Self.connectingShownFor - since.elapsedSeconds())
-        let reachedReady = model.phase == .ready
-
-        if reachedReady {
-            connectingIsSlow = false
-            withAnimation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle) {
-                connectingDidSucceed = true
-            }
-        }
-
-        scheduleConnectingFade(
-            after: reachedReady
-                ? max(remaining, Self.connectingSuccessShownFor)
-                : remaining
-        )
+        // The steps need their time to roll before success is shown, so the connected state waits out the floor too.
+        scheduleConnectingFade(after: remaining, celebrating: model.phase == .ready)
     }
 
     /// Runs the fade before removing the view: the old removal transition let one transaction swallow the other. Only opacity moves, so the desktop never appears to zoom.
-    private func scheduleConnectingFade(after delay: TimeInterval, allowFailure: Bool = false) {
+    private func scheduleConnectingFade(after delay: TimeInterval, allowFailure: Bool = false, celebrating: Bool = false) {
         connectingDismissTask?.cancel()
         connectingDismissTask = Task {
             do {
@@ -310,6 +298,17 @@ struct ContentView: View {
                 return
             }
             guard allowFailure || connectingFailure == nil else { return }
+
+            if celebrating {
+                connectingIsSlow = false
+                withAnimation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle) { connectingDidSucceed = true }
+                do {
+                    try await Task.sleep(for: .seconds(Self.connectingSuccessShownFor))
+                } catch {
+                    return
+                }
+                guard connectingFailure == nil else { return }
+            }
 
             withAnimation(Self.connectingFade) { connectingIsFading = true }
             do {
