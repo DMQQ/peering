@@ -81,9 +81,11 @@ extension VideoStreamer {
             return
         }
 
+        let sendStartedAt = Self.monotonicNow()
         send(outgoing.payloads, on: outgoing.lane) { [weak self] error in
             guard let self else { return }
 
+            var summary: String?
             let stillCurrent = lock.withLock { () -> Bool in
                 guard self.generation == outgoing.generation else { return false }
                 self.sending = false
@@ -91,6 +93,7 @@ extension VideoStreamer {
                     switch outgoing.item {
                     case .video(let frame):
                         self._stats.sent += 1
+                        summary = self.sendWindow.noteSent(tookSeconds: Self.monotonicNow() - sendStartedAt, at: Self.monotonicNow())
                         self._stats.bytesSent += frame.data.count + EncodedVideoFrame.headerSize
                         if frame.isKeyframe { self._stats.keyframesSent += 1 }
                     case .audio(let frame):
@@ -105,6 +108,7 @@ extension VideoStreamer {
                 return true
             }
 
+            if let summary { streamerLog.notice("\(summary, privacy: .public)") }
             if let error {
                 streamerLog.error("video send failed: \(error.localizedDescription, privacy: .public)")
             }

@@ -33,6 +33,7 @@ final class VideoStreamer: @unchecked Sendable {
     var sentAudioLast = true
     var sending = false
     var _stats = Stats()
+    var sendWindow = SendWindow()
 
     var transport: VideoTransport = .primary
     var controlPeer: PeerConnection?
@@ -120,6 +121,7 @@ final class VideoStreamer: @unchecked Sendable {
         let shouldPump = lock.withLock { () -> Bool in
             let now = Self.monotonicNow()
             lastFrameAt = now
+            sendWindow.noteArrival()
             if frame.isKeyframe {
                 lastKeyframeAt = now
                 latestKeyframe.record(frame)
@@ -157,6 +159,7 @@ final class VideoStreamer: @unchecked Sendable {
                 let lost = kept == waiting ? frame : waiting
                 pending = kept
                 _stats.dropped += 1
+                sendWindow.noteDrop()
                 // A dropped delta leaves a gap that every later delta refers across, and the client cannot tell: it shows a stuck or smeared picture until the next keyframe. So nothing else goes until one does, and one is asked for now.
                 if !lost.isKeyframe {
                     if !kept.isKeyframe { pending = nil }
