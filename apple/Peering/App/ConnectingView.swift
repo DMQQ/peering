@@ -27,6 +27,12 @@ struct ConnectingView: View {
                 ZStack {
                     if failure == nil {
                         DeviceLinkArtwork(scale: 1.8)
+                            .background {
+                                if !reduceMotion && !isConnected {
+                                    ConnectingPulse()
+                                        .frame(width: 340, height: 340)
+                                }
+                            }
                             .transition(.opacity)
                     } else {
                         Image(systemName: "exclamationmark.triangle")
@@ -78,7 +84,7 @@ struct ConnectingView: View {
                         .foregroundStyle(.secondary)
                         .buttonStyle(RailButtonStyle(scale: 0.98))
                 } else {
-                    ConnectingSpinner()
+                    ConnectingComet()
                 }
             }
             .padding(.horizontal, 40)
@@ -95,24 +101,5 @@ struct ConnectingView: View {
         return isSlow
             ? String(localized: "Still trying. The Mac has not answered yet.")
             : String(localized: "Connecting…")
-    }
-}
-
-/// `repeatForever` on the shape itself, not an ancestor: an ancestor's repeating animation captures the layout of everything beneath it (see ``DeviceLinkArtwork``).
-private struct ConnectingSpinner: View {
-    @State private var spinning = false
-
-    var body: some View {
-        Circle()
-            .trim(from: 0, to: 0.22)
-            .stroke(ColorPalette.ink, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-            .frame(width: 30, height: 30)
-            .rotationEffect(.degrees(spinning ? 360 : 0))
-            .animation(
-                .linear(duration: 0.9).repeatForever(autoreverses: false),
-                value: spinning
-            )
-            .onAppear { spinning = true }
-            .accessibilityHidden(true)
     }
 }
