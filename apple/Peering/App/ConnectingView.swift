@@ -16,6 +16,23 @@ struct ConnectingView: View {
     var onDismiss: () -> Void
     var onCancel: () -> Void
 
+    @State private var stepIndex = 0
+
+    private static let steps = [
+        String(localized: "Establishing connection…"),
+        String(localized: "Exchanging keys…"),
+        String(localized: "Opening your screen…"),
+    ]
+    private static let stepDuration: Duration = .milliseconds(420)
+
+    private var rollAnimation: Animation {
+        reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.38, dampingFraction: 0.85)
+    }
+
+    private var arrivalAnimation: Animation {
+        reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.46, dampingFraction: 0.5)
+    }
+
     var body: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
@@ -27,12 +44,6 @@ struct ConnectingView: View {
                 ZStack {
                     if failure == nil {
                         DeviceLinkArtwork(scale: 1.8)
-                            .background {
-                                if !reduceMotion && !isConnected {
-                                    ConnectingPulse()
-                                        .frame(width: 340, height: 340)
-                                }
-                            }
                             .transition(.opacity)
                     } else {
                         Image(systemName: "exclamationmark.triangle")
@@ -50,6 +61,15 @@ struct ConnectingView: View {
                         .minimumScaleFactor(0.7)
 
                     Text(detail)
+                        .id(detail)
+                        .transition(
+                            reduceMotion
+                                ? .opacity
+                                : .asymmetric(
+                                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                                    removal: .move(edge: .top).combined(with: .opacity)
+                                )
+                        )
                         .font(.subheadline)
                         .foregroundStyle(
                             failure == nil
@@ -60,6 +80,8 @@ struct ConnectingView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .multilineTextAlignment(.center)
+                .clipped()
+                .animation(rollAnimation, value: detail)
 
                 if let failure {
                     Button("Dismiss", action: onDismiss)
@@ -70,12 +92,12 @@ struct ConnectingView: View {
                         .accessibilityHint(failure)
                 } else if isConnected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 30, weight: .medium))
+                        .font(.system(size: 34, weight: .medium))
                         .foregroundStyle(ColorPalette.accent)
                         .transition(
                             reduceMotion
                                 ? .opacity
-                                : .opacity.combined(with: .scale(scale: 0.92))
+                                : .opacity.combined(with: .scale(scale: 0.2))
                         )
                         .accessibilityLabel("Connected")
                 } else if isSlow {
@@ -90,9 +112,16 @@ struct ConnectingView: View {
             .padding(.horizontal, 40)
             .animation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle, value: failure != nil)
             .animation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle, value: isSlow)
-            .animation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle, value: isConnected)
+            .animation(arrivalAnimation, value: isConnected)
         }
         .allowsHitTesting(true)
+        .task {
+            while stepIndex < Self.steps.count - 1 {
+                try? await Task.sleep(for: Self.stepDuration)
+                guard !Task.isCancelled else { return }
+                stepIndex += 1
+            }
+        }
     }
 
     private var detail: String {
@@ -100,6 +129,6 @@ struct ConnectingView: View {
         if isConnected { return String(localized: "Connected") }
         return isSlow
             ? String(localized: "Still trying. The Mac has not answered yet.")
-            : String(localized: "Connecting…")
+            : Self.steps[stepIndex]
     }
 }

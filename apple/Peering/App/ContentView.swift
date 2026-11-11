@@ -59,12 +59,12 @@ struct ContentView: View {
     @State private var connectingDismissTask: Task<Void, Never>?
 
     /// Deliberately longer than the connection: a LAN handshake is instant, and the card needs time to read as an arrival rather than a flicker.
-    private static let connectingShownFor: TimeInterval = 0.9
+    private static let connectingShownFor: TimeInterval = 1.3
 
     /// Not a timeout and nothing is cancelled: past this the card stops saying Connecting and offers a way out.
     private static let connectingSlowAfter: TimeInterval = 12
 
-    private static let connectingSuccessShownFor: TimeInterval = 0.28
+    private static let connectingSuccessShownFor: TimeInterval = 0.8
 
     /// Opacity only: scaling the screen away makes the desktop behind it lurch. The curve is the standard symmetric ease; a front-loaded ease-out read as a cut.
     /// A timing curve rather than a spring because ``scheduleConnectingFade(after:allowFailure:)`` sleeps for exactly this long, and a sleep outliving its animation leaves an invisible view eating taps.
