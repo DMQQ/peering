@@ -243,7 +243,7 @@ struct ContentView: View {
             withAnimation(Motion.settle) { connectingIsSlow = true }
         }
 
-        withAnimation(Motion.settle) { showsConnecting = true }
+        withAnimation(.easeOut(duration: 0.12)) { showsConnecting = true }
     }
 
     private func dismissConnecting() {

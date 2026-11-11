@@ -105,7 +105,15 @@ struct HostPickerView: View {
     private var showsSessionAccessory: Bool {
         let hasSessions = !model.openSessions.isEmpty || !servers.openShells.isEmpty
         let terminalIsUp = screen == .servers && servers.selectedTerminal != nil
-        return hasSessions && !terminalIsUp
+        return hasSessions && !terminalIsUp && !isDialling
+    }
+
+    /// The connecting card covers the screen while a Mac is dialled; an accessory that shows first is seen through the card's fade-in.
+    private var isDialling: Bool {
+        switch model.phase {
+        case .connecting, .handshaking: return !model.isBeingPutBack
+        default: return false
+        }
     }
 
     private var sessionAccessory: some View {
