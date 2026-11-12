@@ -3,10 +3,10 @@ import RemoteCore
 import SwiftUI
 
 /// Every app on the Mac, for the trackpad: pinned ones on top, then what is running, then the rest installed. A tap brings the app forward on the Mac; a long press pins or unpins it.
-struct RemoteDockAppsSheet: View {
+struct RemoteDockAppsPanel: View {
     @Environment(SessionModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     let hostID: String
+    let onClose: () -> Void
 
     @State private var favouritesVersion = 0
 
@@ -24,17 +24,15 @@ struct RemoteDockAppsSheet: View {
         let sections = sections(favourites: favourites)
         ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    TabScreenHeader(String(localized: "Apps"), detail: String(localized: "Press and hold an app to add it to Favourites."))
                     group(String(localized: "Favourites"), sections.favourites, favourites: favourites)
                     group(String(localized: "Running"), sections.running, favourites: favourites)
                     group(String(localized: "Installed on your Mac"), sections.installed, favourites: favourites)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 22)
-                .padding(.bottom, 24)
+                .padding(.top, 4)
+                .padding(.bottom, 16)
                 .id(favouritesVersion)
         }
-        .background(ColorPalette.backdrop.ignoresSafeArea())
     }
 
     private func sections(favourites: ApplicationFavourites) -> ApplicationSections<Entry> {
@@ -72,7 +70,7 @@ struct RemoteDockAppsSheet: View {
             if let bundle = entry.bundleIdentifier {
                 model.send(.launchApplication(bundleIdentifier: bundle))
             }
-            dismiss()
+            onClose()
         } label: {
             VStack(spacing: 6) {
                 ApplicationIcon(data: entry.icon, fallback: "app", size: 64, showsTile: false)

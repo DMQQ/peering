@@ -8,54 +8,40 @@ struct RemoteDockView: View {
     let onSwitchMode: () -> Void
     let onShowScreen: () -> Void
 
-    @State private var engine = TrackpadEngine()
-    @State private var touch: CGPoint?
+    /// Held by reference: a struct in @State rebuilt the whole dock on every move of a drag.
+    @State private var engineBox = RemoteDockEngineBox()
+    @State private var touch = RemoteDockTouch()
     @State private var ripple: RemoteDockRipple?
-    @State private var lastMoveAt = Date.distantPast
-    @State private var typed = ""
-    @FocusState private var typing: Bool
-    @State private var showsApps = false
-    @State private var showsShortcuts = false
-    @State private var showsDesktops = false
-    /// The field is made before it is focused: focusing a field that does not exist yet does nothing.
-    @State private var showsTypingField = false
+    @State private var openPanel: RemoteDockPanel?
     @State private var padFillsScreen = false
     @State private var keyboardHeight: CGFloat = 0
 
     var body: some View {
-        VStack(spacing: 12) {
-            if !padFillsScreen {
-                header
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 12) {
+                if !padFillsScreen {
+                    header
+                }
+                pad
+                if !padFillsScreen {
+                    // Only the shut dock's room: opening it or a panel draws over the pad rather than shrinking it.
+                    Color.clear.frame(height: RemoteDockControls.restingHeight)
+                }
             }
-            pad
             if !padFillsScreen {
-                if showsTypingField { typingField }
-                RemoteDockControls(typing: showsTypingField, desktops: desktops, actions: controlActions)
+                RemoteDockControls(
+                    typing: model.showKeyboard,
+                    desktops: desktops,
+                    actions: controlActions,
+                    openPanel: openPanel,
+                    panel: panelContent,
+                    onClosePanel: closePanel
+                )
             }
         }
         .padding(.horizontal, ChromeMetrics.edgeInset)
         .padding(.top, 24)
-        .padding(.bottom, 10)
-        .sheet(isPresented: $showsApps) {
-            if let hostID {
-                RemoteDockAppsSheet(hostID: hostID)
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-            }
-        }
-        .sheet(isPresented: $showsShortcuts) {
-            RemoteDockShortcutsSheet { shortcut in
-                model.send(.keyDown(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers))
-                model.send(.keyUp(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers))
-            }
-            .presentationDetents([.fraction(0.72), .large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showsDesktops) {
-            RemoteDockDesktopsSheet()
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
+        .padding(.bottom, ChromeMetrics.edgeInset)
         // The session screen ignores the keyboard for the picture's sake, so the dock lifts itself or its typing field sits under the keys.
         .padding(.bottom, keyboardHeight)
         .background(ColorPalette.backdrop.ignoresSafeArea())
@@ -69,10 +55,13 @@ struct RemoteDockView: View {
         }
         // A report lags the moves this pad just sent, so taking it mid-swipe snapped the pointer back to where it was and only taps seemed to work. Only a pointer moved on the Mac itself, while the pad is idle, is adopted.
         .onChange(of: model.hostPointer, initial: true) { _, reported in
-            guard touch == nil, Date.now.timeIntervalSince(lastMoveAt) > 0.5 else { return }
-            engine.adopt(x: reported.point.x, y: reported.point.y)
+            guard touch.point == nil, Date.now.timeIntervalSince(touch.lastMoveAt) > 0.5 else { return }
+            engineBox.engine.adopt(x: reported.point.x, y: reported.point.y)
         }
-        .onDisappear { run(engine.endDrag()) }
+        .onDisappear {
+            run(engineBox.engine.endDrag())
+            model.showKeyboard = false
+        }
     }
 
     private var header: some View {
@@ -105,7 +94,7 @@ struct RemoteDockView: View {
     private var pad: some View {
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         return ZStack {
-            RemoteDockDotField(touch: touch, ripple: ripple)
+            RemoteDockTouchField(touch: touch, ripple: ripple)
             RemoteDockPad(actions: padActions)
         }
         .clipShape(shape)
@@ -127,6 +116,30 @@ struct RemoteDockView: View {
         .frame(maxHeight: .infinity)
     }
 
+    private func toggle(_ panel: RemoteDockPanel) {
+        withAnimation(Motion.settle) {
+            openPanel = openPanel == panel ? nil : panel
+            if openPanel != nil { model.showKeyboard = false }
+        }
+    }
+
+    private func closePanel() {
+        withAnimation(Motion.settle) { openPanel = nil }
+    }
+
+    private var panelContent: AnyView? {
+        switch openPanel {
+        case .apps:
+            hostID.map { AnyView(RemoteDockAppsPanel(hostID: $0, onClose: closePanel)) }
+        case .shortcuts:
+            AnyView(RemoteDockShortcutsPanel())
+        case .desktops:
+            AnyView(RemoteDockDesktopsPanel(onClose: closePanel))
+        case nil:
+            nil
+        }
+    }
+
     private var desktops: (count: Int, current: Int?)? {
         guard let display = model.catalog?.spaceInfo?.displays.first else { return nil }
         return (display.count, display.current)
@@ -134,56 +147,12 @@ struct RemoteDockView: View {
 
     private var controlActions: RemoteDockControlActions {
         RemoteDockControlActions(
-            onKeyboard: { withAnimation(Motion.settle) { showsTypingField = true } },
-            onDesktops: { showsDesktops = true },
-            onApps: { showsApps = true },
-            onShortcuts: { showsShortcuts = true },
-            onLock: { model.lockMac() },
+            onKeyboard: { withAnimation(Motion.settle) { openPanel = nil; model.showKeyboard.toggle() } },
+            onDesktops: { toggle(.desktops) },
+            onApps: { toggle(.apps) },
+            onShortcuts: { toggle(.shortcuts) },
             onKey: press
         )
-    }
-
-    /// Shown while typing so the keys have somewhere visible to land; each keystroke still goes straight to the Mac.
-    private var typingField: some View {
-        HStack(spacing: 8) {
-            TextField(String(localized: "Type to the Mac"), text: $typed)
-                .focused($typing)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.return)
-                .onChange(of: typed) { old, new in sendTyping(from: old, to: new) }
-                .onSubmit {
-                    press(.returnKey)
-                    typed = ""
-                    typing = true
-                }
-            Button { typing = false } label: {
-                Image(systemName: "keyboard.chevron.compact.down")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(ColorPalette.ink)
-                    .frame(width: 40, height: 40)
-            }
-            .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
-            .accessibilityLabel(String(localized: "Hide keyboard"))
-        }
-        .padding(.leading, 18)
-        .padding(.trailing, 6)
-        .frame(height: 52)
-        .glassSurface(in: Capsule(), interactive: true)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .onAppear { typing = true }
-        .onChange(of: typing) { _, focused in
-            if !focused { withAnimation(Motion.settle) { showsTypingField = false } }
-        }
-    }
-
-    private func sendTyping(from old: String, to new: String) {
-        if new.count > old.count {
-            model.handleTypedText(String(new.dropFirst(old.count)))
-        } else if new.count < old.count {
-            for _ in 0..<(old.count - new.count) { press(.delete) }
-        }
-        if new.count > 200 { typed = "" }
     }
 
     private func swiped(_ swipe: TrackpadSwipe) {
@@ -197,13 +166,13 @@ struct RemoteDockView: View {
 
     private var padActions: RemoteDockPadActions {
         RemoteDockPadActions(
-            onMove: { lastMoveAt = .now; run(engine.move(dx: $0.width, dy: $0.height, padWidth: 1, padHeight: 1)) },
-            onTap: { run(engine.tap()) },
-            onTwoFingerTap: { run(engine.twoFingerTap()) },
-            onScroll: { run(engine.scroll(dx: $0.width, dy: $0.height)) },
-            onDragBegin: { run(engine.beginDrag()) },
-            onDragEnd: { run(engine.endDrag()) },
-            onTouch: { touch = $0 },
+            onMove: { touch.lastMoveAt = .now; run(engineBox.engine.move(dx: $0.width, dy: $0.height, padWidth: 1, padHeight: 1)) },
+            onTap: { run(engineBox.engine.tap()) },
+            onTwoFingerTap: { run(engineBox.engine.twoFingerTap()) },
+            onScroll: { run(engineBox.engine.scroll(dx: $0.width, dy: $0.height)) },
+            onDragBegin: { run(engineBox.engine.beginDrag()) },
+            onDragEnd: { run(engineBox.engine.endDrag()) },
+            onTouch: { touch.point = $0 },
             onPress: { ripple = RemoteDockRipple(point: $0, start: .now) },
             onSwipe: swiped
         )

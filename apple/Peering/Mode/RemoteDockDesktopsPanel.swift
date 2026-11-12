@@ -3,9 +3,9 @@ import SwiftUI
 import UIKit
 
 /// The Mac's desktops as pictures, drawn like the screen view's desktop tiles, for the trackpad. A tap moves the Mac to that desktop and changes nothing about what is captured, since the trackpad shows no picture.
-struct RemoteDockDesktopsSheet: View {
+struct RemoteDockDesktopsPanel: View {
     @Environment(SessionModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
 
     private static let columns = [GridItem(.adaptive(minimum: 140), spacing: 12, alignment: .top)]
 
@@ -13,7 +13,6 @@ struct RemoteDockDesktopsSheet: View {
         let displays = model.catalog?.spaceInfo?.displays ?? []
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                TabScreenHeader(String(localized: "Desktops"))
                 ForEach(displays) { display in
                     VStack(alignment: .leading, spacing: 10) {
                         if displays.count > 1 {
@@ -28,10 +27,9 @@ struct RemoteDockDesktopsSheet: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 22)
-            .padding(.bottom, 24)
+            .padding(.top, 4)
+            .padding(.bottom, 16)
         }
-        .background(ColorPalette.backdrop.ignoresSafeArea())
         .onAppear { model.send(.refreshSpacePreviews) }
     }
 
@@ -40,7 +38,7 @@ struct RemoteDockDesktopsSheet: View {
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         return Button {
             model.send(.switchToSpace(display: display.displayID, index: index))
-            dismiss()
+            onClose()
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 ColorPalette.surface

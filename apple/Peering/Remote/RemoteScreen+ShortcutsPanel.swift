@@ -75,43 +75,10 @@ extension RemoteScreen {
     }
 
     var arrowCluster: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            VStack(spacing: 6) {
-                HStack(spacing: 6) {
-                    panelKey("escape", label: String(localized: "Escape"), width: 64) { sendKey(keyCode: 53) }
-                    panelKey("arrow.right.to.line", label: String(localized: "Tab"), width: 64) { sendKey(keyCode: 48) }
-                }
-                HStack(spacing: 6) {
-                    panelKey("delete.backward", label: String(localized: "Delete"), width: 64) { model.handleBackspace() }
-                    panelKey("return", label: String(localized: "Enter"), width: 64) { model.pressReturn() }
-                }
-            }
-            Spacer(minLength: 0)
-            VStack(spacing: 6) {
-                panelKey("chevron.up", label: String(localized: "Up arrow")) { sendKey(keyCode: 126) }
-                HStack(spacing: 6) {
-                    panelKey("chevron.left", label: String(localized: "Left arrow")) { sendKey(keyCode: 123) }
-                    panelKey("chevron.down", label: String(localized: "Down arrow")) { sendKey(keyCode: 125) }
-                    panelKey("chevron.right", label: String(localized: "Right arrow")) { sendKey(keyCode: 124) }
-                }
-            }
-        }
-    }
-
-    private func panelKey(
-        _ icon: String,
-        label: String,
-        width: CGFloat = 52,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
-                .frame(width: width, height: 40)
-                .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
-                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
-        .accessibilityLabel(label)
+        ShortcutArrowCluster(
+            sendKey: { sendKey(keyCode: $0) },
+            onDelete: { model.handleBackspace() },
+            onEnter: { model.pressReturn() }
+        )
     }
 }
