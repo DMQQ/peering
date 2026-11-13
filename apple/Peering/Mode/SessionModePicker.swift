@@ -13,17 +13,6 @@ struct SessionModePicker: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                Text(String(localized: "How do you want to use it?"))
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-
-                VStack(spacing: 12) {
-                    ForEach(modes) { mode in
-                        Button { onChoose(mode) } label: { tile(mode) }
-                            .buttonStyle(RailButtonStyle(scale: 0.98))
-                    }
-                }
-
                 VStack(alignment: .leading, spacing: 8) {
                     Controls.toggle(
                         String(localized: "Ask every time I connect"),
@@ -34,6 +23,13 @@ struct SessionModePicker: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 4)
+                }
+
+                VStack(spacing: 12) {
+                    ForEach(modes) { mode in
+                        Button { onChoose(mode) } label: { tile(mode) }
+                            .buttonStyle(RailButtonStyle(scale: 0.98))
+                    }
                 }
             }
             .frame(maxWidth: 560)
