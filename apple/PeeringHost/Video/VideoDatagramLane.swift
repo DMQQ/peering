@@ -43,6 +43,7 @@ final class VideoDatagramLane: @unchecked Sendable {
     private var mappedAddress: String?
 
     private var probeTask: Task<Void, Never>?
+    private var networkObserver: NetworkChangeObserver?
     /// Once the lane has failed or been cancelled, no later race may install a fresh probe task.
     private var stopped = false
 
@@ -74,6 +75,20 @@ final class VideoDatagramLane: @unchecked Sendable {
         socket.start()
         beginDirectPath()
         beginPortMapping()
+        let observer = NetworkChangeObserver { [weak self] in self?.networkChanged() }
+        let kept = lock.withLock { () -> Bool in
+            guard !stopped else { return false }
+            networkObserver = observer
+            return true
+        }
+        if !kept { observer.cancel() }
+    }
+
+    /// The path that was proven belonged to the old network: forget it and knock afresh, quickly.
+    private func networkChanged() {
+        lock.withLock { directPeer = nil }
+        socket.pathChanged()
+        beginDirectPath()
     }
 
     private func beginPortMapping() {
@@ -288,16 +303,19 @@ final class VideoDatagramLane: @unchecked Sendable {
     }
 
     private func stopProbing() {
-        let (task, mapping) = lock.withLock { () -> (Task<Void, Never>?, UDPPortMapping?) in
+        let (task, mapping, observer) = lock.withLock { () -> (Task<Void, Never>?, UDPPortMapping?, NetworkChangeObserver?) in
             stopped = true
             let task = probeTask
             let mapping = portMapping
+            let observer = networkObserver
             probeTask = nil
             portMapping = nil
-            return (task, mapping)
+            networkObserver = nil
+            return (task, mapping, observer)
         }
         task?.cancel()
         mapping?.stop()
+        observer?.cancel()
     }
 
     var sentDatagrams: Int { socket.sentDatagrams }
