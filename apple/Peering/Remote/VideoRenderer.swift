@@ -151,7 +151,9 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         let (keyframe, streamIsLive) = lock.withLock {
             (lastKeyframeSample, snapshot.readyGeneration == snapshot.configGeneration)
         }
-        guard let keyframe, streamIsLive else { return }
+        guard let keyframe,
+              VideoLayerReattach.action(hasKeyframe: true, streamIsLive: streamIsLive) == .showKeyframeAndAskForFresh
+        else { return }
         renderer.enqueue(keyframe)
         let ask = lock.withLock {
             snapshot.awaitingKeyframe = true
@@ -333,6 +335,9 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.lock.withLock {
                 self.snapshot = Snapshot()
                 self._framesBelongTo = nil
+                // A new layer must not be handed the picture of a stream that has ended.
+                self.lastEnqueued = nil
+                self.lastKeyframeSample = nil
             }
         }
     }
@@ -348,6 +353,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.lock.withLock {
                 self.snapshot = Snapshot()
                 self._framesBelongTo = nil
+                self.lastEnqueued = nil
+                self.lastKeyframeSample = nil
                 // The frozen picture and arrangement belong to this stream; a later session must not open on either.
                 self.liveRenderer = nil
                 self._stillPicture = nil
