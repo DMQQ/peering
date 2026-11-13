@@ -29,7 +29,7 @@ struct AgentRoutineDraftTests {
     @Test func aRoutineReadsBackIntoTheSameFields() {
         let routine = AgentRoutine(
             name: "Every two hours", agentID: "codex", directory: "/tmp/project", prompt: "Check CI.",
-            schedule: .every(minutes: 120), permissionMode: .acceptEdits, stopAfterMinutes: 20
+            schedule: .every(minutes: 120), permissionMode: .acceptEdits, stopAfterMinutes: 20, notifiesWhenDone: true
         )
         let draft = AgentRoutineDraft(routine)
         #expect(draft.intervalUnit == .hours)
