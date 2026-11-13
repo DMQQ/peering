@@ -5,9 +5,6 @@ import SwiftUI
 /// The remote with no picture: a pad for the pointer, the clicks, a few keys, and the Mac's own Spaces and lock.
 struct RemoteDockView: View {
     @Environment(SessionModel.self) private var model
-    let onSwitchMode: () -> Void
-    let onShowScreen: () -> Void
-
     /// Held by reference: a struct in @State rebuilt the whole dock on every move of a drag.
     @State private var engineBox = RemoteDockEngineBox()
     @State private var touch = RemoteDockTouch()
@@ -19,9 +16,6 @@ struct RemoteDockView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 12) {
-                if !padFillsScreen {
-                    header
-                }
                 pad
                 if !padFillsScreen {
                     // Only the shut dock's room: opening it or a panel draws over the pad rather than shrinking it.
@@ -40,7 +34,7 @@ struct RemoteDockView: View {
             }
         }
         .padding(.horizontal, ChromeMetrics.edgeInset)
-        .padding(.top, 24)
+        .padding(.top, 8)
         .padding(.bottom, ChromeMetrics.edgeInset)
         // The session screen ignores the keyboard for the picture's sake, so the dock lifts itself or its typing field sits under the keys.
         .padding(.bottom, keyboardHeight)
@@ -62,29 +56,6 @@ struct RemoteDockView: View {
             run(engineBox.engine.endDrag())
             model.showKeyboard = false
         }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            headerButton("chevron.backward", label: String(localized: "Change how you use this Mac"), action: onSwitchMode)
-                .glassSurface(in: Circle(), interactive: true)
-            TabScreenHeader(model.shownHostName ?? String(localized: "this Mac"))
-                .lineLimit(1)
-            headerButton("macwindow", label: String(localized: "Screen"), action: onShowScreen)
-                .glassSurface(in: Circle(), interactive: true)
-        }
-        .foregroundStyle(ColorPalette.ink)
-        .padding(.top, 8)
-    }
-
-    private func headerButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .semibold))
-                .frame(width: 44, height: 44)
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
-        .accessibilityLabel(label)
     }
 
     private var hostID: String? { model.activeSession?.hostID }

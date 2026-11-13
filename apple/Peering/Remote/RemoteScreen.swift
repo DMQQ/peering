@@ -112,8 +112,12 @@ struct RemoteScreen: View {
                     case .screen:
                         screen
                             .analyticsScreen(.session)
-                            .toolbar(.hidden, for: .navigationBar)
-                            .navigationBarBackButtonHidden()
+                            .toolbar(showsRemoteBar ? .visible : .hidden, for: .navigationBar)
+                            .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
+                            .toolbar { remoteToolbar }
+                            .navigationBarBackButtonHidden(!showsRemoteBar)
+                            .navigationTitle(model.shownHostName ?? String(localized: "this Mac"))
+                            .navigationBarTitleDisplayMode(.inline)
                             .interactivePopDisabled()
                     case .hub: TerminalPanel(route: $route)
                     case .step(let step): TerminalPanel(route: $route, step: step)

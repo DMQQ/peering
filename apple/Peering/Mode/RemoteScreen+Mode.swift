@@ -6,11 +6,21 @@ extension RemoteScreen {
     @ViewBuilder
     var remoteDock: some View {
         if let session = model.activeSession, session.modeResolved, session.mode == .remote {
-            RemoteDockView(
-                onSwitchMode: { openModePicker() },
-                onShowScreen: { chooseMode(.screen, source: "picker") }
-            )
-            .transition(.opacity)
+            RemoteDockView()
+                .transition(.opacity)
+        }
+    }
+
+    var showsRemoteBar: Bool {
+        model.activeSession.map { $0.modeResolved && $0.mode == .remote } ?? false
+    }
+
+    /// The pushed picture's navigation bar: only Remote shows one, because the Mac's own picture owns the whole screen.
+    @ToolbarContentBuilder
+    var remoteToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button { chooseMode(.screen, source: "picker") } label: { Image(systemName: "macwindow") }
+                .accessibilityLabel(String(localized: "Screen"))
         }
     }
 
