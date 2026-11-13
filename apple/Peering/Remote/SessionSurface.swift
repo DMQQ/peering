@@ -20,13 +20,6 @@ struct SessionSurface: View {
     @State var keyRowsHeight: CGFloat = 0
     @State var panelDragState = PanelDragState()
     @AppStorage(PreferenceKeys.keyboardShortcutsExpanded) var shortcutsExpanded = false
-    /// 0 with the shortcut keys folded away and 1 with them shown, following the finger while the handle is dragged.
-    var shortcutsProgress: CGFloat {
-        let settled: CGFloat = shortcutsExpanded ? 1 : 0
-        guard keyRowsHeight > 0 else { return settled }
-        return min(1, max(0, settled - shortcutsDrag / keyRowsHeight))
-    }
-    var shortcutsCollapsed: Bool { shortcutsProgress < 0.5 }
 
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
 
@@ -64,11 +57,6 @@ struct SessionSurface: View {
     /// before sending the chord.
     @State var confirmsQuitApplication = false
 
-    var showsTerminals: Bool {
-        get { route.hubIsOpen }
-        nonmutating set { route = newValue ? route.withHub(steps: route.steps) : route.base }
-    }
-
     @State var speedBadge: String?
     @State var pointerPadSize = CGSize.zero
     @State var isPointerPadDragging = false
@@ -93,11 +81,6 @@ struct SessionSurface: View {
         case clipboard
         case sources
         case settings
-    }
-
-    private var dueScreenTours: [Tour] {
-        guard model.phase == .ready, !showsLandscapeHint, !hasSeenTourScreen else { return [] }
-        return [.screen]
     }
 
     var deviceIsLandscape: Bool { DeviceScene.isLandscape }
