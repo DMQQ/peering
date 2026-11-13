@@ -36,6 +36,7 @@ extension ClientSession {
             // Fast while there is any prospect, then slow for the rest of the session to recover a path a NAT mapping expiry took away. Each probe is sealed afresh: the counter is the AEAD nonce, so a reused probe would be discarded. Discovery repeats on the same cadence, since "no address yet" is the ordinary first answer.
             let lookup = RelayPeerLookup(url: ProtocolInfo.relaySignallingURL)
             var attempt = 0
+            let startedAt = ContinuousClock.now
             while !Task.isCancelled {
                 if attempt % Self.rediscoverEvery == 0 {
                     if let address = try? await lookup.address(videoToken: relay.videoToken) {
@@ -57,6 +58,9 @@ extension ClientSession {
                     socket.sendDirect(probe) { _ in }
                 }
                 attempt += 1
+                if ContinuousClock.now - startedAt >= .seconds(DirectPath.verdictAfter) {
+                    self.reportDirectPath(self.lock.withLock { self.reportedDirectPath }.verdict())
+                }
                 let interval: Duration = attempt <= 12 ? .milliseconds(250) : .seconds(5)
                 try? await Task.sleep(for: interval)
             }
@@ -145,6 +149,8 @@ extension ClientSession {
         let changed = lock.withLock { () -> Bool in
             // A path that is open is not closed by a later look-up: the probing loop re-asks the relay periodically and would otherwise downgrade a path demonstrably carrying the picture. Only the announcement is suppressed.
             if case .open = reportedDirectPath, case .probing = outcome { return false }
+            // The same for a verdict: the periodic look-up would otherwise put "knocking" back over "gave up".
+            if case .gaveUp = reportedDirectPath, case .probing = outcome { return false }
             guard reportedDirectPath != outcome else { return false }
             reportedDirectPath = outcome
             return true

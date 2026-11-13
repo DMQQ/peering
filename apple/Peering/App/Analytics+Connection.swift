@@ -13,6 +13,11 @@ extension Analytics {
         send("session_started", properties)
     }
 
+    /// What the attempt at a path straight to the Mac came to, once per session. `interface` is the phone's own network (wifi, cellular, wired): a punch that fails on one and works on another points at a carrier or a router and not at the code.
+    static func directPathResolved(outcome: ClientSession.DirectPath, interface: String, path: String) {
+        send("direct_path_resolved", ["outcome": outcome.outcomeName, "interface": interface, "path": path])
+    }
+
     /// `first_picture_ms` is absent when no picture ever arrived, which on a relayed session is how a network blocking video shows up. `end_reason` and the tallies come from ``ConnectionTelemetry/endProperties(reason:durationSeconds:reconnects:videoBytes:droppedFrames:)``.
     static func sessionEnded(path: String, video: VideoDeliveryRecord?, telemetry: [String: any Sendable]) {
         clearSessionPath()

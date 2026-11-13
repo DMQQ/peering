@@ -33,6 +33,14 @@ extension MacSession {
             // The other half: `path` says where the picture is arriving when it works; this says what the attempt came to when it does not. Shown rather than logged because a failure has no note in the session log to find it in.
             directPathStatus = outcome
             append(note: String(localized: "Direct path: \(outcome.summary)"))
+            if outcome.isResolved, !recordedDirectPathResult {
+                recordedDirectPathResult = true
+                Analytics.directPathResolved(
+                    outcome: outcome,
+                    interface: model.networkContext.interface,
+                    path: connectionPath?.rawValue ?? "unknown"
+                )
+            }
         case .remoteNotice(let message):
             remoteNotice = message
             // A locked Mac draws no frames for an application or window, so a session resumed on one would sit paused with no password in reach. Go to the lock screen as Unlock would; the detour restores the source once unlocked.

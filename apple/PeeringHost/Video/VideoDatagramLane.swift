@@ -83,6 +83,7 @@ final class VideoDatagramLane: @unchecked Sendable {
 // Quick while there is any prospect of it working, then slow for the rest of the session: the
 // fast phase is what opens the path, and the slow one recovers a mapping that expired.
             var attempt = 0
+            let startedAt = ContinuousClock.now
             while !Task.isCancelled {
                 if attempt % Self.rediscoverEvery == 0 {
                     do {
@@ -112,6 +113,9 @@ final class VideoDatagramLane: @unchecked Sendable {
                 let probe = seal(kind: .directProbe, payload: Data())
                 if !probe.isEmpty { socket.sendDirect(probe) { _ in } }
                 attempt += 1
+                if ContinuousClock.now - startedAt >= .seconds(ClientSession.DirectPath.verdictAfter) {
+                    self.note(self.lock.withLock { self.probeStatus }.verdict())
+                }
                 let interval: Duration = attempt <= 12 ? .milliseconds(250) : .seconds(5)
                 try? await Task.sleep(for: interval)
             }
@@ -133,6 +137,7 @@ final class VideoDatagramLane: @unchecked Sendable {
     private func record(_ outcome: ClientSession.DirectPath) -> Bool {
         lock.withLock {
             if case .open = probeStatus, case .probing = outcome { return false }
+            if case .gaveUp = probeStatus, case .probing = outcome { return false }
             guard probeStatus != outcome else { return false }
             probeStatus = outcome
             return true
@@ -155,6 +160,8 @@ final class VideoDatagramLane: @unchecked Sendable {
         case .probing(let peer): return "Knocking on \(peer), nothing back yet"
         case .addressUnusable(let peer): return "The relay named \(peer), which this Mac cannot use"
         case .open(let peer): return "Straight to \(peer)"
+        case .gaveUp(.relayHasNoAddress): return "The relay never learned where the client is"
+        case .gaveUp(.noAnswer(let peer)): return "Knocked on \(peer) for \(Int(ClientSession.DirectPath.verdictAfter)) seconds with no answer: a NAT or firewall on one side is blocking it"
         }
     }
 

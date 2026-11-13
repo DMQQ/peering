@@ -90,9 +90,13 @@ extension ClientSession {
         /// The relay named an address this end cannot open a socket to: it renders a v4-mapped source as `::ffff:a.b.c.d`, which `getaddrinfo` refuses for `AF_INET`. Folding the mapping away is the fix.
         case addressUnusable(peer: String)
         case open(peer: String)
+        /// The attempt ran out of time and the session stays on the relay. See ``DirectPath/verdict()``.
+        case gaveUp(GiveUpReason)
 
         public var summary: String {
             switch self {
+            case .gaveUp(.relayHasNoAddress): return "The relay never learned where the Mac is, so there was nothing to knock on"
+            case .gaveUp(.noAnswer(let peer)): return "Knocked on \(peer) for \(Int(Self.verdictAfter)) seconds with no answer: a NAT or firewall on one side is blocking it"
             case .notTried: return "Not tried"
             case .noAddress: return "The relay has not said where the Mac is"
             case .probing(let peer): return "Knocking on \(peer), nothing back yet"
@@ -100,6 +104,13 @@ extension ClientSession {
             case .open(let peer): return "Straight to \(peer)"
             }
         }
+    }
+
+    public enum GiveUpReason: Sendable, Equatable {
+        /// The Mac never registered a datagram address with the relay, or it lapsed.
+        case relayHasNoAddress
+        /// Both ends had an address and neither heard the other: the usual shape of a symmetric NAT, a carrier-grade NAT or a firewall that drops unsolicited UDP.
+        case noAnswer(peer: String)
     }
 
     public enum VideoEvent: Sendable {

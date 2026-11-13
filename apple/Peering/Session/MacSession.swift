@@ -50,6 +50,7 @@ final class MacSession: Identifiable {
     var connectionPath: ConnectionPath?
     var usedDirectPath = false
     var directPathStatus: ClientSession.DirectPath = .notTried
+    var recordedDirectPathResult = false
 
     /// Kept after the session ends because Settings cannot be opened while one runs. `nil` when there was no datagram lane.
     var datagramCounts: ClientSession.DatagramCounts?
