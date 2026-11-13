@@ -82,6 +82,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// Addresses at which the sender can be reached directly, sealed on the datagram lane. JSON-encoded ``DirectCandidates``. Only sent to a client that set ``ClientHello/supportsDirectCandidates``.
     case directCandidates = 0x26
+
+    /// A frame of the control connection's byte stream, or an acknowledgement of one, sealed on the datagram lane. Raw ``ControlPipeFrame`` bytes. Sent only while the direct path is live; the relay's TCP connection carries the same frames otherwise.
+    case controlPipe = 0x27
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

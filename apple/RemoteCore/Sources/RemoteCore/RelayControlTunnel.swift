@@ -18,9 +18,9 @@ public enum RelayTunnelError: LocalizedError, Sendable, Equatable {
 
 /// TCP parameters for every socket on the relay path, with Nagle disabled.
 /// `NWParameters.tcp` cannot express `noDelay`, and Nagle delays each buffered write of the 60 Hz command stream by a round trip. Every relay socket goes through here.
-private let videoTunnelLog = Logger(subsystem: "pl.dmq.peering", category: "relay-tunnel")
+let videoTunnelLog = Logger(subsystem: "pl.dmq.peering", category: "relay-tunnel")
 
-private func relayTCPParameters() -> NWParameters {
+func relayTCPParameters() -> NWParameters {
     let tcp = NWProtocolTCP.Options()
     tcp.noDelay = true
     // Without it a relay that never answers the SYN holds the leg for the system default, over a minute.
@@ -33,7 +33,8 @@ public final class RelayControlProxy: @unchecked Sendable {
     private let queue = DispatchQueue(label: "pl.dmq.peering.relay.client-tunnel")
     private let session: RelaySession
     private var listener: NWListener?
-    private var splice: RelayByteSplice?
+    private var splice: ControlPipeSplice?
+    private var directLane: (send: @Sendable (Data) -> Void, isLive: @Sendable () -> Bool)?
 
     public init(session: RelaySession) {
         self.session = session
@@ -77,7 +78,7 @@ public final class RelayControlProxy: @unchecked Sendable {
                 self.listener?.cancel()
                 self.listener = nil
                 do {
-                    let splice = try RelayByteSplice(
+                    let splice = try ControlPipeSplice(
                         local: local,
                         relayHost: self.session.controlHost,
                         relayPort: self.session.controlPort,
@@ -85,6 +86,7 @@ public final class RelayControlProxy: @unchecked Sendable {
                         queue: self.queue
                     )
                     self.splice = splice
+                    if let lane = self.directLane { splice.attachDirect(send: lane.send, isLive: lane.isLive) }
                     splice.start()
                 } catch {
                     videoTunnelLog.error("could not route the relay's control connection, so it is being dropped: \(error.localizedDescription, privacy: .public)")
@@ -93,6 +95,18 @@ public final class RelayControlProxy: @unchecked Sendable {
             }
             listener.start(queue: queue)
         }
+    }
+
+    /// See ``ControlPipeSplice/attachDirect(send:isLive:)``. Queued behind the listener's accept, so it reaches the splice once there is one.
+    public func attachDirect(send: @escaping @Sendable (Data) -> Void, isLive: @escaping @Sendable () -> Bool) {
+        queue.async { [self] in
+            directLane = (send, isLive)
+            splice?.attachDirect(send: send, isLive: isLive)
+        }
+    }
+
+    public func receiveDirect(_ bytes: Data) {
+        queue.async { [self] in splice?.receiveDirect(bytes) }
     }
 
     public func cancel() {
@@ -108,7 +122,7 @@ public final class RelayControlProxy: @unchecked Sendable {
 /// Copies a relay socket to a local TCP endpoint. The host points this at its existing TLS
 /// listener, which preserves the server role even though its internet socket is outbound.
 public final class RelayControlBridge: @unchecked Sendable {
-    private let splice: RelayByteSplice
+    private let splice: ControlPipeSplice
 
     public init(
         session: RelaySession,
@@ -119,7 +133,7 @@ public final class RelayControlBridge: @unchecked Sendable {
             throw RelayTunnelError.invalidPort(localPort)
         }
         let local = NWConnection(to: .hostPort(host: "127.0.0.1", port: port), using: relayTCPParameters())
-        splice = try RelayByteSplice(
+        splice = try ControlPipeSplice(
             local: local,
             relayHost: session.controlHost,
             relayPort: session.controlPort,
@@ -128,6 +142,12 @@ public final class RelayControlBridge: @unchecked Sendable {
             onStop: onClose
         )
     }
+
+    public func attachDirect(send: @escaping @Sendable (Data) -> Void, isLive: @escaping @Sendable () -> Bool) {
+        splice.attachDirect(send: send, isLive: isLive)
+    }
+
+    public func receiveDirect(_ bytes: Data) { splice.receiveDirect(bytes) }
 
     public func start() { splice.start() }
     public func cancel() { splice.cancel() }
@@ -156,145 +176,5 @@ private final class OneShotContinuation<Value: Sendable>: @unchecked Sendable {
             continuation?.resume(throwing: error)
             continuation = nil
         }
-    }
-}
-
-final class RelayByteSplice: @unchecked Sendable {
-    private let local: NWConnection
-    private let relay: NWConnection
-    private let token: Data
-    private let queue: DispatchQueue
-    private let onStop: (@Sendable () -> Void)?
-    private var localReady = false
-    private var relayReady = false
-    private var tokenSent = false
-    private var pumping = false
-    private var stopped = false
-    private var legs: [Leg] = []
-    private let portLock = NSLock()
-    private var _localSourcePort: UInt16?
-
-    var localSourcePort: UInt16? { portLock.withLock { _localSourcePort } }
-
-    init(
-        local: NWConnection,
-        relayHost: String,
-        relayPort: UInt16,
-        token: Data,
-        queue: DispatchQueue,
-        onStop: (@Sendable () -> Void)? = nil
-    ) throws {
-        guard let port = NWEndpoint.Port(rawValue: relayPort) else {
-            throw RelayTunnelError.invalidPort(relayPort)
-        }
-        self.local = local
-        relay = NWConnection(
-            to: .hostPort(host: NWEndpoint.Host(relayHost), port: port),
-            using: relayTCPParameters()
-        )
-        self.token = token
-        self.queue = queue
-        self.onStop = onStop
-    }
-
-    func start() {
-        local.stateUpdateHandler = { [weak self] state in self?.state(state, isLocal: true) }
-        relay.stateUpdateHandler = { [weak self] state in self?.state(state, isLocal: false) }
-        local.start(queue: queue)
-        relay.start(queue: queue)
-    }
-
-    func cancel() {
-        queue.async { [self] in stop() }
-    }
-
-    private func state(_ state: NWConnection.State, isLocal: Bool) {
-        switch state {
-        case .ready:
-            if isLocal {
-                localReady = true
-                if case .hostPort(_, let port)? = local.currentPath?.localEndpoint {
-                    portLock.withLock { _localSourcePort = port.rawValue }
-                }
-            } else {
-                relayReady = true
-            }
-            advance()
-        case .failed, .cancelled:
-            stop()
-        case .waiting(let error):
-            // Not a failure: a relay leg with nowhere to go is a phone mid-handover, and the session's silence watchdog ends one that does not recover. Logged because waiting and fine look identical above this layer.
-            videoTunnelLog.notice("the relay leg is waiting: \(String(describing: error), privacy: .public)")
-        default:
-            break
-        }
-    }
-
-    private struct Leg {
-        let source: NWConnection
-        let destination: NWConnection
-        var inFlightBytes = 0
-        var reading = false
-    }
-
-    /// Two of the largest read buffers: a splice reading as fast as it can turns a slow receiver into an out-of-memory sender.
-    private static let maxInFlightBytes = 512 * 1024
-    private static let readSize = 256 * 1024
-
-    private func advance() {
-        guard !stopped, localReady, relayReady else { return }
-        guard !tokenSent else {
-            guard !pumping else { return }
-            pumping = true
-            legs = [
-                Leg(source: local, destination: relay),
-                Leg(source: relay, destination: local),
-            ]
-            for index in legs.indices { pump(index) }
-            return
-        }
-        tokenSent = true
-        relay.send(content: token, completion: .contentProcessed { [weak self] error in
-            guard let self else { return }
-            if error == nil { self.advance() } else { self.stop() }
-        })
-    }
-
-    /// The read is re-armed here, not in the send's completion, so a direction does not carry one buffer at a time. A send completion restarts a read stopped by a full window.
-    private func pump(_ index: Int) {
-        guard !stopped, legs.indices.contains(index) else { return }
-        legs[index].reading = true
-        let leg = legs[index]
-        leg.source.receive(minimumIncompleteLength: 1, maximumLength: Self.readSize) {
-            [weak self] data, _, isComplete, error in
-            guard let self, !self.stopped else { return }
-            self.legs[index].reading = false
-
-            if let data, !data.isEmpty {
-                self.legs[index].inFlightBytes += data.count
-                leg.destination.send(content: data, completion: .contentProcessed { [weak self] sendError in
-                    guard let self else { return }
-                    self.legs[index].inFlightBytes -= data.count
-                    if sendError != nil { self.stop(); return }
-                    // Only a direction stopped by a full window reaches here: one still reading has a read outstanding and must not get a second.
-                    if !self.legs[index].reading { self.pump(index) }
-                })
-                if self.legs[index].inFlightBytes < Self.maxInFlightBytes {
-                    self.pump(index)
-                }
-                return
-            }
-
-            if isComplete || error != nil { self.stop(); return }
-            self.pump(index)
-        }
-    }
-
-    private func stop() {
-        guard !stopped else { return }
-        stopped = true
-        local.cancel()
-        relay.cancel()
-        onStop?()
     }
 }

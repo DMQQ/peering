@@ -91,6 +91,15 @@ extension NWConnection {
     }
 }
 
+private final class LockedValue<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+    init(_ value: Value) { self.value = value }
+    func get() -> Value { lock.withLock { value } }
+    func set(_ new: Value) { lock.withLock { value = new } }
+    func update(_ change: (inout Value) -> Void) { lock.withLock { change(&value) } }
+}
+
 private func tcp() -> NWParameters {
     let options = NWProtocolTCP.Options()
     options.noDelay = true
@@ -160,12 +169,50 @@ private func payload(bytes: Int) -> Data {
     Data((0..<bytes).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })
 }
 
+
+/// The relay's end of the splice as the far peer sees it: reads the pipe's frames and acknowledges them, and writes the stream as frames.
+private final class FarEnd: @unchecked Sendable {
+    let connection: NWConnection
+    private var decoder = ControlPipeLengthDecoder()
+    private var receiver = ControlPipeReceiver()
+    private var written: UInt64 = 0
+
+    init(_ connection: NWConnection) { self.connection = connection }
+
+    func read(_ count: Int, within seconds: Double = 15) async -> Data {
+        let deadline = Date().addingTimeInterval(seconds)
+        var collected = Data()
+        while collected.count < count, Date() < deadline {
+            let chunk = await receive(1, on: connection, within: 2)
+            guard let frames = try? decoder.feed(chunk) else { break }
+            for case .data(let offset, let payload) in frames {
+                collected.append(receiver.receive(offset: offset, payload: payload))
+            }
+            if !frames.isEmpty {
+                await send(ControlPipeLengthDecoder.wrap(.ack(upTo: receiver.ackPoint)), on: connection)
+            }
+        }
+        return collected
+    }
+
+    func write(_ bytes: Data) async {
+        var start = 0
+        while start < bytes.count {
+            let end = min(bytes.count, start + 16 * 1024)
+            let frame = ControlPipeFrame.data(offset: written, payload: bytes.subdata(in: start..<end))
+            written += UInt64(end - start)
+            await send(ControlPipeLengthDecoder.wrap(frame), on: connection)
+            start = end
+        }
+    }
+}
+
 /// The pipelined pump can fail invisibly in the source (a direction stopping when the window fills, two reads outstanding, a dropped buffer) until traffic is large.
-@Suite("The relay byte splice", .timeLimit(.minutes(1)))
-struct RelayByteSpliceTests {
+@Suite("The control pipe splice", .timeLimit(.minutes(1)))
+struct ControlPipeSpliceTests {
     private func spliceUnderTest(
         onStop: (@Sendable () -> Void)? = nil
-    ) async throws -> (splice: RelayByteSplice, atLocal: NWConnection, atRelay: NWConnection) {
+    ) async throws -> (splice: ControlPipeSplice, atLocal: NWConnection, atRelay: NWConnection) {
         let localEnd = try LoopbackEndpoint()
         let relayEnd = try LoopbackEndpoint()
         await localEnd.start()
@@ -174,7 +221,7 @@ struct RelayByteSpliceTests {
         let queue = DispatchQueue(label: "test.splice")
         let local = NWConnection(to: try loopback(localEnd.port), using: tcp())
 
-        let splice = try RelayByteSplice(
+        let splice = try ControlPipeSplice(
             local: local,
             relayHost: "127.0.0.1",
             relayPort: relayEnd.port,
@@ -196,7 +243,7 @@ struct RelayByteSpliceTests {
         let sent = payload(bytes: 300)
         let sendError = await send(sent, on: atLocal)
         #expect(sendError == nil, "the write to the local end failed")
-        let arrived = await receive(sent.count, on: atRelay, within: 5)
+        let arrived = await FarEnd(atRelay).read(sent.count, within: 5)
 
         #expect(arrived == sent)
     }
@@ -212,7 +259,7 @@ struct RelayByteSpliceTests {
 
         let sent = payload(bytes: 700 * 1024)
         await send(sent, on: atLocal)
-        let arrived = await receive(sent.count, on: atRelay)
+        let arrived = await FarEnd(atRelay).read(sent.count)
 
         #expect(arrived.count == sent.count)
         #expect(arrived == sent)
@@ -225,7 +272,7 @@ struct RelayByteSpliceTests {
         _ = await receive(16, on: atRelay)
 
         let sent = payload(bytes: 700 * 1024)
-        await send(sent, on: atRelay)
+        await FarEnd(atRelay).write(sent)
         let arrived = await receive(sent.count, on: atLocal)
 
         #expect(arrived == sent)
@@ -242,10 +289,11 @@ struct RelayByteSpliceTests {
         let down = Data(payload(bytes: 500 * 1024)
             .enumerated().map { $0.element &+ UInt8($0.offset % 251) })
 
-        async let arrivingUp = receive(up.count, on: atRelay)
+        let far = FarEnd(atRelay)
+        async let arrivingUp = far.read(up.count)
         async let arrivingDown = receive(down.count, on: atLocal)
         await send(up, on: atLocal)
-        await send(down, on: atRelay)
+        await far.write(down)
 
         let upArrived = await arrivingUp
         let downArrived = await arrivingDown
@@ -266,5 +314,42 @@ struct RelayByteSpliceTests {
         #expect(stopped.value)
         splice.cancel()
     }
-}
 
+    @Test func aLiveDirectPathCarriesTheStreamAndALostOneHandsItBackToTheRelay() async throws {
+        let (splice, atLocal, atRelay) = try await spliceUnderTest()
+        defer { splice.cancel() }
+        _ = await receive(16, on: atRelay)
+
+        let live = LockedValue(true)
+        let onLane = LockedValue([Data]())
+        splice.attachDirect(send: { frame in onLane.update { $0.append(frame) } }, isLive: { live.get() })
+
+        let sent = payload(bytes: 3000)
+        await send(sent, on: atLocal)
+        for _ in 0..<100 where onLane.get().isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        let carried = onLane.get().compactMap(ControlPipeFrame.decode).reduce(0) { total, frame in
+            if case .data(_, let payload) = frame { return total + payload.count }
+            return total
+        }
+        #expect(carried >= sent.count, "the direct path was live and did not carry the stream")
+
+        live.set(false)
+        let arrived = await FarEnd(atRelay).read(sent.count, within: 5)
+        #expect(arrived == sent, "the bytes the direct path never acknowledged did not reach the relay")
+    }
+
+    @Test func aFrameFromTheDirectPathReachesTheLocalEndAndIsAcknowledgedBackThere() async throws {
+        let (splice, atLocal, atRelay) = try await spliceUnderTest()
+        defer { splice.cancel() }
+        _ = await receive(16, on: atRelay)
+
+        let onLane = LockedValue([Data]())
+        splice.attachDirect(send: { frame in onLane.update { $0.append(frame) } }, isLive: { false })
+
+        let sent = payload(bytes: 500)
+        splice.receiveDirect(ControlPipeFrame.data(offset: 0, payload: sent).encoded())
+        #expect(await receive(sent.count, on: atLocal, within: 5) == sent)
+        for _ in 0..<100 where onLane.get().isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(onLane.get().compactMap(ControlPipeFrame.decode).contains(.ack(upTo: 500)))
+    }
+}

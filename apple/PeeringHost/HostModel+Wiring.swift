@@ -115,8 +115,8 @@ extension HostModel {
             coordinator?.setVideoTransport(request, clientKey: clientKey, controlPeer: controlPeer)
         }
         // The relay datagram path: the answer is the sealing secret, or nil, which the session turns into silence.
-        server.callbacks.onVideoKeyRequest = { [weak coordinator] clientKey, relay, announcesCandidates in
-            coordinator?.enableVideoDatagrams(clientKey: clientKey, relay: relay, announcesCandidates: announcesCandidates)
+        server.callbacks.onVideoKeyRequest = { [weak coordinator] clientKey, relay, announcesCandidates, controlBridge in
+            coordinator?.enableVideoDatagrams(clientKey: clientKey, relay: relay, announcesCandidates: announcesCandidates, controlBridge: controlBridge)
         }
         // Nothing here ends a session: a client asking for no frames keeps its control channel, shells and the sleep assertion.
         server.callbacks.onVideoEnabled = { [weak coordinator] clientKey, enabled in

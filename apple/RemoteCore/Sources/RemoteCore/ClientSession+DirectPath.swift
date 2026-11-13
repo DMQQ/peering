@@ -26,6 +26,7 @@ extension ClientSession {
             return true
         }
         guard laneStillExists else { return }
+        attachControlPipe(to: socket)
 
         let pingTask = makeLanePingTask(socket)
         let directTask = Task { [weak self] in
@@ -215,6 +216,10 @@ extension ClientSession {
             if case .peer(let host, let port) = source { adopt(host: host, port: port) }
             if frame.kind == .directCandidates {
                 addProbeTargets(from: frame)
+                return
+            }
+            if frame.kind == .controlPipe {
+                lock.withLock { relayProxy }?.receiveDirect(frame.payload)
                 return
             }
             // A probe has done its job by opening: it proved the datagram came from the peer, and its source address is now where the Mac sends. Nothing to render.

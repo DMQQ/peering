@@ -38,6 +38,7 @@ final class VideoDatagramLane: @unchecked Sendable {
 
     private let relay: RelaySession
     private let announcesCandidates: Bool
+    private let controlBridge: RelayControlBridge?
     private var portMapping: UDPPortMapping?
     /// The public address the router forwards to this Mac, once it has said.
     private var mappedAddress: String?
@@ -50,8 +51,9 @@ final class VideoDatagramLane: @unchecked Sendable {
 /// - Throws: when the relay's allocation cannot be used: a token that is not the size the wire
 ///   contract fixes it at, or a port that is not a port. The caller refuses the request rather
 ///   than reporting a lane that cannot carry anything.
-    init(relay: RelaySession, secret: Data, announcesCandidates: Bool) throws {
+    init(relay: RelaySession, secret: Data, announcesCandidates: Bool, controlBridge: RelayControlBridge?) throws {
         self.relay = relay
+        self.controlBridge = controlBridge
         self.announcesCandidates = announcesCandidates
         socket = try VideoDatagramSocket(
             host: relay.videoHost,
@@ -73,6 +75,14 @@ final class VideoDatagramLane: @unchecked Sendable {
             self?.accept(datagram, from: source)
         }
         socket.start()
+        controlBridge?.attachDirect(
+            send: { [weak self] frame in
+                guard let self else { return }
+                let sealed = self.seal(kind: .controlPipe, payload: frame)
+                if !sealed.isEmpty { self.socket.sendDirect(sealed) { _ in } }
+            },
+            isLive: { [weak self] in self?.socket.pathIsLive == true }
+        )
         beginDirectPath()
         beginPortMapping()
         let observer = NetworkChangeObserver { [weak self] in self?.networkChanged() }
@@ -247,6 +257,11 @@ final class VideoDatagramLane: @unchecked Sendable {
             } else {
                 socket.send(pong) { _ in }
             }
+            return
+        }
+
+        if frame.kind == .controlPipe {
+            controlBridge?.receiveDirect(frame.payload)
             return
         }
 
