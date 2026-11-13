@@ -140,7 +140,7 @@ extension RemoteScreen {
                             showsTerminals = true
                         }
                         actionChip(String(localized: "Mode"), systemImage: "square.grid.2x2") {
-                            showsModePicker = true
+                            openModePicker()
                         }
                         if canReturnToMosaic {
                             actionChip(

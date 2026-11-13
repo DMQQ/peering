@@ -13,6 +13,8 @@ enum TerminalFlowStep: Hashable {
 
 /// Where the remote screen's navigation stack is: the hub is the first page, and everything the hub opens is a step above it.
 enum RemoteRoute: Hashable {
+    /// The Mac's picture, with Remote's dock over it. Pushed over the mode picker, which is the stack's root.
+    case screen
     case hub
     case step(TerminalFlowStep)
 }
@@ -28,12 +30,8 @@ struct TerminalPanel: View {
     var picksForPane = false
 
     var path: [TerminalFlowStep] {
-        get {
-            route.compactMap {
-                if case .step(let step) = $0 { step } else { nil }
-            }
-        }
-        nonmutating set { route = [.hub] + newValue.map(RemoteRoute.step) }
+        get { route.steps }
+        nonmutating set { route = route.withHub(steps: newValue) }
     }
 
     private var pathBinding: Binding<[TerminalFlowStep]> {
@@ -104,6 +102,16 @@ struct TerminalPanel: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(String(localized: "Disconnect"), systemImage: "power", role: .destructive) { model.disconnect() }
+                    } label: {
+                        Image(systemName: "power")
+                    }
+                    .accessibilityLabel(String(localized: "Disconnect"))
+                }
+            }
             .preferredColorScheme(.dark)
             .onAppear {
                 // A shell or chat made while the hub was away was already opened by its maker; do not jump to it.

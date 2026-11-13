@@ -7,17 +7,17 @@ extension RemoteScreen {
         horizontalSizeClass == .regular || verticalSizeClass == .compact
     }
 
-    /// Split, the hub is not pushed at all: the stack sees no route, and ``hubSplit`` shows the same one.
+    /// Split, the hub is not pushed at all: the stack sees only the pages under it, and ``hubSplit`` shows the hub over them.
     var pushedRoute: Binding<[RemoteRoute]> {
         Binding(
-            get: { hubIsSplit ? [] : route },
-            set: { if !hubIsSplit { route = $0 } }
+            get: { hubIsSplit ? route.base : route },
+            set: { route = hubIsSplit ? $0 + route.drop { $0 != .hub } : $0 }
         )
     }
 
     @ViewBuilder
     var hubSplit: some View {
-        if hubIsSplit, !route.isEmpty {
+        if hubIsSplit, route.hubIsOpen {
             HubSplitView(route: $route)
                 .transition(.opacity)
         }
@@ -25,9 +25,7 @@ extension RemoteScreen {
 
     /// A shell or chat the Mac has just made opens on top of the pages that asked for it. Handled here, on the stack's owner, because the hub and its pages are covered by whatever is pushed above them and a covered page is not reliably told of a change.
     func openCreated(_ step: TerminalFlowStep) {
-        let steps = route.compactMap { entry -> TerminalFlowStep? in
-            if case .step(let step) = entry { step } else { nil }
-        }
+        let steps = route.steps
         // Only from the list or from the picker that asked: never over a page the person is reading.
         switch steps.last {
         case nil, .folder, .terminalFolder: break
@@ -40,7 +38,7 @@ extension RemoteScreen {
             default: true
             }
         }
-        route = [.hub] + (kept + [step]).map(RemoteRoute.step)
+        route = route.withHub(steps: kept + [step])
     }
 
     /// A tap on an in-app card, or a link from outside, asks for a chat or a shell by id.
@@ -49,9 +47,9 @@ extension RemoteScreen {
         switch target {
         case .chat(let id):
             model.selectedAgentSessionID = id
-            route = [.hub, .step(.chat(id))]
+            route = route.withHub(steps: [.chat(id)])
         case .terminal(let id):
-            route = [.hub, .step(.terminal(id))]
+            route = route.withHub(steps: [.terminal(id)])
         case .sshTerminal:
             break
         }

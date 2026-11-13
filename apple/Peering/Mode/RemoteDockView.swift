@@ -66,14 +66,12 @@ struct RemoteDockView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
+            headerButton("chevron.backward", label: String(localized: "Change how you use this Mac"), action: onSwitchMode)
+                .glassSurface(in: Circle(), interactive: true)
             TabScreenHeader(model.shownHostName ?? String(localized: "this Mac"))
-            .lineLimit(1)
-            HStack(spacing: 0) {
-                headerButton("macwindow", label: String(localized: "Screen"), action: onShowScreen)
-                headerButton("square.grid.2x2", label: String(localized: "Change how you use this Mac"), action: onSwitchMode)
-            }
-            .padding(.horizontal, 4)
-            .glassSurface(in: Capsule(), interactive: true)
+                .lineLimit(1)
+            headerButton("macwindow", label: String(localized: "Screen"), action: onShowScreen)
+                .glassSurface(in: Circle(), interactive: true)
         }
         .foregroundStyle(ColorPalette.ink)
         .padding(.top, 8)

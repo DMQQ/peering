@@ -8,41 +8,54 @@ struct SessionModePicker: View {
     let onChoose: (SessionMode) -> Void
     var onCancel: (() -> Void)?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            TabScreenHeader(
-                String(localized: "How do you want to use \(hostName)?"),
-                detail: String(localized: "You can change this at any time from the session menu.")
-            )
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.trailing, onCancel == nil ? 0 : 36)
+    @AppStorage(PreferenceKeys.asksSessionModeOnConnect) private var asksOnConnect = false
 
-            VStack(spacing: 12) {
-                ForEach(modes) { mode in
-                    Button { onChoose(mode) } label: { tile(mode) }
-                        .buttonStyle(RailButtonStyle(scale: 0.98))
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(String(localized: "How do you want to use it?"))
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+
+                VStack(spacing: 12) {
+                    ForEach(modes) { mode in
+                        Button { onChoose(mode) } label: { tile(mode) }
+                            .buttonStyle(RailButtonStyle(scale: 0.98))
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Controls.toggle(
+                        String(localized: "Ask every time I connect"),
+                        systemImage: "square.grid.2x2",
+                        isOn: $asksOnConnect
+                    )
+                    Text(String(localized: "You can change this at any time from the session menu."))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                }
+            }
+            .frame(maxWidth: 560)
+            .padding(.horizontal, ChromeMetrics.edgeInset)
+            .padding(.top, 4)
+            .padding(.bottom, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ColorPalette.backdrop.ignoresSafeArea())
+            .navigationTitle(hostName)
+            .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                if let onCancel {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: onCancel) { Image(systemName: "xmark") }
+                            .accessibilityLabel(String(localized: "Close"))
+                    }
                 }
             }
         }
-        .frame(maxWidth: 560)
-        .padding(.horizontal, ChromeMetrics.edgeInset)
-        .padding(.top, 24)
-        .padding(.bottom, 16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ColorPalette.backdrop.ignoresSafeArea())
-        .overlay(alignment: .topTrailing) {
-            if let onCancel {
-                Button(action: onCancel) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                }
-                .foregroundStyle(ColorPalette.ink)
-                .padding(.trailing, 8)
-                .padding(.top, 14)
-                .accessibilityLabel(String(localized: "Close"))
-            }
-        }
+        .preferredColorScheme(.dark)
     }
 
     /// Each tile takes an equal share of the height left under the header, so three of them fill the screen.

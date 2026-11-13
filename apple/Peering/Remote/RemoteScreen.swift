@@ -66,8 +66,8 @@ struct RemoteScreen: View {
     @State var watching: ChatWatch?
 
     var showsTerminals: Bool {
-        get { !route.isEmpty }
-        nonmutating set { route = newValue ? (route.isEmpty ? [.hub] : route) : [] }
+        get { route.hubIsOpen }
+        nonmutating set { route = newValue ? route.withHub(steps: route.steps) : route.base }
     }
 
     @State var speedBadge: String?
@@ -105,15 +105,39 @@ struct RemoteScreen: View {
 
     var body: some View {
         NavigationStack(path: pushedRoute) {
-            screen
-                .analyticsScreen(.session)
+            modeRoot
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: RemoteRoute.self) { route in
                     switch route {
+                    case .screen:
+                        screen
+                            .analyticsScreen(.session)
+                            .toolbar(.hidden, for: .navigationBar)
+                            .navigationBarBackButtonHidden()
+                            .interactivePopDisabled()
                     case .hub: TerminalPanel(route: $route)
                     case .step(let step): TerminalPanel(route: $route, step: step)
                     }
                 }
+        }
+        // On the stack's owner and not on a page: a page's handlers run again each time a pop reveals it.
+        .onChange(of: model.phase, initial: true) { _, phase in
+            guard phase == .ready else {
+                abandonPictureTransit()
+                return
+            }
+            resolveSessionMode()
+            presentLandscapeHint()
+        }
+        .onChange(of: model.activeSessionID) { _, _ in
+            endWatchIfMacChanged()
+            resolveSessionMode()
+        }
+        .onChange(of: route) { _, route in
+            endWatchIfHubOpened(route)
+        }
+        .onChange(of: interactionMode, initial: true) { _, mode in
+            model.setObserveOnly(mode == .observe)
         }
         // **The Mac's answer moves the screen, never the tap.** A new shell or chat has no id until the Mac says so; the note is cleared so it opens once.
         .onChange(of: model.newTerminalID) { _, id in
@@ -133,6 +157,20 @@ struct RemoteScreen: View {
         .overlay { backToChat }
         .animation(Motion.settle, value: watching)
         .environment(\.watchOnMac, { watchOnMac(from: $0) })
+    }
+
+    @ViewBuilder
+    private var modeRoot: some View {
+        if SessionModeFlow.rootIsPicker(modeResolved: model.activeSession?.modeResolved == true, asking: showsModePicker) {
+            SessionModePicker(
+                modes: SessionMode.allCases,
+                hostName: model.shownHostName ?? String(localized: "this Mac"),
+                onChoose: { chooseMode($0, source: "picker") },
+                onCancel: model.activeSession?.modeResolved == true ? { closeModePicker() } : nil
+            )
+        } else {
+            screen.analyticsScreen(.session)
+        }
     }
 
     private var screen: some View {
@@ -165,7 +203,7 @@ struct RemoteScreen: View {
                 remoteNoticeLayer
                 mosaicDismissButtons
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
-                modeLayers
+                remoteDock
 
                 if case .confirming(let code) = model.phase {
                     PairingPrompt(code: code, hostName: model.shownHostName ?? String(localized: "this Mac"))
@@ -189,8 +227,7 @@ struct RemoteScreen: View {
                 }
 
                 // Ready is the handshake, not the picture: the first keyframe follows, and a bare black screen in between reads as broken.
-                if model.phase == .ready, model.frameArrived == 0, !showsModePicker,
-                   model.activeSession?.mode != .workspace {
+                if model.phase == .ready, model.frameArrived == 0 {
                     PicturePlaceholder(hostName: model.shownHostName)
                         .allowsHitTesting(false)
                         .transition(.opacity)
@@ -227,25 +264,6 @@ struct RemoteScreen: View {
         // region that no longer has anything in it.
         .onChange(of: model.hostPointer) { _, reported in
             adoptHostPointer()
-        }
-        .onChange(of: model.phase, initial: true) { _, phase in
-            guard phase == .ready else {
-                abandonPictureTransit()
-                return
-            }
-            resolveSessionMode()
-            presentLandscapeHint()
-        }
-        .onChange(of: model.activeSessionID) { _, _ in
-            endWatchIfMacChanged()
-            resolveSessionMode()
-        }
-        .onChange(of: route) { _, route in
-            leaveWorkspaceIfClosed(route)
-            endWatchIfHubOpened(route)
-        }
-        .onChange(of: interactionMode, initial: true) { _, mode in
-            model.setObserveOnly(mode == .observe)
         }
         // A zoom and a pan are chosen for one picture and mean nothing against another. The picture
         // becomes a different one in exactly one place, and the model watches for it there. See

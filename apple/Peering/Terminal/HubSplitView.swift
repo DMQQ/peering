@@ -9,12 +9,8 @@ struct HubSplitView: View {
 
     private var steps: Binding<[TerminalFlowStep]> {
         Binding(
-            get: {
-                route.compactMap {
-                    if case .step(let step) = $0 { step } else { nil }
-                }
-            },
-            set: { route = [.hub] + $0.map(RemoteRoute.step) }
+            get: { route.steps },
+            set: { route = route.withHub(steps: $0) }
         )
     }
 
@@ -25,7 +21,7 @@ struct HubSplitView: View {
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button {
-                                route = []
+                                route = route.base
                             } label: {
                                 Image(systemName: "chevron.backward")
                             }
