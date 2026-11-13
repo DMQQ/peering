@@ -38,7 +38,7 @@ extension ClientSession {
             var attempt = 0
             let startedAt = ContinuousClock.now
             while !Task.isCancelled {
-                if attempt % Self.rediscoverEvery == 0 {
+                if attempt % Self.rediscoverEvery == 0, !socket.directPathIsLive {
                     if let address = try? await lookup.address(videoToken: relay.videoToken) {
                         // Not fatal but said: an unparseable address would go unnoticed all session. ``sendDirect`` does nothing meanwhile rather than sending to the relay.
                         let peer = "\(address.host):\(address.port)"
@@ -159,6 +159,31 @@ extension ClientSession {
         emit(.directPath(outcome))
     }
 
+    /// An authenticated datagram arrived from this address, so it is where the Mac is, whichever of the announced addresses it was.
+    private func adopt(host: String, port: UInt16) {
+        guard let socket = lock.withLock({ videoDatagrams }) else { return }
+        do {
+            try socket.adoptPeer(host: host, port: port)
+        } catch {
+            clientSessionLog.error("the address the Mac answered from could not be used: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// The Mac announced addresses it can be reached at (a port its router opened for it): each is probed alongside the one the relay named.
+    private func addProbeTargets(from frame: Frame) {
+        guard let socket = lock.withLock({ videoDatagrams }),
+              let announced = try? MessageCodec.decode(DirectCandidates.self, from: frame.payload)
+        else { return }
+        for address in announced.addresses {
+            guard let target = DirectCandidates.parse(address) else { continue }
+            do {
+                try socket.addProbeTarget(host: target.host, port: target.port)
+            } catch {
+                clientSessionLog.error("an address the Mac announced could not be used: \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
     func handleDatagram(_ datagram: Data, from source: VideoDatagramSocket.Source) {
         let outcome = lock.withLock { () -> Result<Frame?, any Error> in
             guard let current = videoOpener else { return .success(nil) }
@@ -173,6 +198,11 @@ extension ClientSession {
         case .success(let frame):
             guard let frame else { return }
             noteDatagramPath(source)
+            if case .peer(let host, let port) = source { adopt(host: host, port: port) }
+            if frame.kind == .directCandidates {
+                addProbeTargets(from: frame)
+                return
+            }
             // A probe has done its job by opening: it proved the datagram came from the peer, and its source address is now where the Mac sends. Nothing to render.
             guard frame.kind != .directProbe else { return }
             // A lane ping's reply, timed here rather than passed on: everything else the opener

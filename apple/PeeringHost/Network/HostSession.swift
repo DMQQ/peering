@@ -125,6 +125,8 @@ final class HostSession: @unchecked Sendable {
     var clientID = ""
     var clientName = String(localized: "Unknown device")
     var peerPublicKey: Data?
+    /// Whether the client probes addresses announced on the datagram lane. Read when it asks for that lane.
+    var clientSupportsDirectCandidates = false
     /// Whether `.clientConnected` has been emitted, so a disconnect is only ever reported
     /// for a connection the UI was told about in the first place.
     var announced = false

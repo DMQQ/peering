@@ -102,7 +102,7 @@ extension HostServer {
         if let relaySession = tunnel?.session {
             session.onVideoKeyRequest = { [weak self, weak session] in
                 guard let self, let session else { return nil }
-                return callbacks.onVideoKeyRequest?(session.peerPublicKey, relaySession)
+                return callbacks.onVideoKeyRequest?(session.peerPublicKey, relaySession, session.clientSupportsDirectCandidates)
             }
         }
         session.onVideoConnection = { [weak self] videoPeer in

@@ -79,6 +79,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// Pointer movement on the datagram path straight to the Mac. JSON-encoded ``DirectCommand``. Only sent to a host that set ``ServerHello/supportsDirectInput``.
     case directCommand = 0x25
+
+    /// Addresses at which the sender can be reached directly, sealed on the datagram lane. JSON-encoded ``DirectCandidates``. Only sent to a client that set ``ClientHello/supportsDirectCandidates``.
+    case directCandidates = 0x26
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

@@ -8,6 +8,8 @@ extension VideoDatagramSocket {
     enum Destination: Equatable {
         case relay
         case peer
+        /// The peer and every address it announced: only a probe goes here, since which of them is reachable is found out by sending to each.
+        case probe
     }
 
     /// One held group, remembering the destination chosen for it. Remembered rather than recomputed
@@ -91,13 +93,13 @@ extension VideoDatagramSocket {
                 completion(nil)
                 return
             }
-            let destination: Destination = direct || self.directPathIsLive ? .peer : .relay
+            let destination: Destination = direct ? .probe : (self.directPathIsLive ? .peer : .relay)
 
             // The token comes off exactly when the datagram is not going to the relay, and here
             // rather than in the caller, because this is the only place that knows where it is
             // going: the relay needs the token, and a peer reading it as a counter refuses every
             // datagram, which looks exactly like a lossy path.
-            let payloads = destination == .peer
+            let payloads = destination != .relay
                 ? datagrams.map { $0.dropFirst(VideoDatagram.tokenSize) }
                 : datagrams
 
@@ -170,7 +172,7 @@ extension VideoDatagramSocket {
         // Grouped by destination, because one flush can straddle both: the frames held before a bind
         // went to the relay, and the path may have been proved by the time the bind lands. Each
         // group is a single write, so every caller in it is told the same moment.
-        for destination in [Destination.relay, .peer] {
+        for destination in [Destination.relay, .peer, .probe] {
             let group = waiting.filter { $0.destination == destination }
             guard !group.isEmpty else { continue }
             write(group.flatMap(\.datagrams), to: destination) { error in
@@ -191,22 +193,30 @@ extension VideoDatagramSocket {
             completion?(nil)
             return
         }
-        var address = destination == .peer ? (peerAddress ?? relayAddress) : relayAddress
-        let peerIsSet = peerAddress != nil
-        let length = destination == .peer && peerIsSet ? peerLength : relayLength
+        var targets: [(address: sockaddr_storage, length: socklen_t)]
+        switch destination {
+        case .relay: targets = [(relayAddress, relayLength)]
+        case .peer: targets = [peerAddress.map { ($0, peerLength) } ?? (relayAddress, relayLength)]
+        case .probe:
+            targets = extraTargets
+            if let peerAddress { targets.insert((peerAddress, peerLength), at: 0) }
+        }
 
         var failure: Error?
         for datagram in datagrams {
-            let result: Int = datagram.withUnsafeBytes { bytes -> Int in
-                guard let base = bytes.baseAddress else { return -1 }
-                return withUnsafePointer(to: &address) { storage in
-                    storage.withMemoryRebound(to: sockaddr.self, capacity: 1) { pointer in
-                        sendto(fd, base, bytes.count, 0, pointer, length)
+            for target in targets {
+                var address = target.address
+                let result: Int = datagram.withUnsafeBytes { bytes -> Int in
+                    guard let base = bytes.baseAddress else { return -1 }
+                    return withUnsafePointer(to: &address) { storage in
+                        storage.withMemoryRebound(to: sockaddr.self, capacity: 1) { pointer in
+                            sendto(fd, base, bytes.count, 0, pointer, target.length)
+                        }
                     }
                 }
-            }
-            if result < 0, errno != EAGAIN, errno != EWOULDBLOCK, failure == nil {
-                failure = VideoDatagramError.sendFailed(errno)
+                if result < 0, errno != EAGAIN, errno != EWOULDBLOCK, failure == nil {
+                    failure = VideoDatagramError.sendFailed(errno)
+                }
             }
         }
 

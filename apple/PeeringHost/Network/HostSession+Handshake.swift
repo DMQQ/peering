@@ -128,6 +128,7 @@ extension HostSession {
 
     private func adoptCapabilities(of hello: ClientHello) {
         onVideoCodecsDeclared?(hello.videoCodecs)
+        clientSupportsDirectCandidates = hello.supportsDirectCandidates == true
     }
 
     /// What this Mac says about itself, and which optional features it will answer.

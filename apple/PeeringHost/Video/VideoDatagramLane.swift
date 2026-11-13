@@ -37,6 +37,10 @@ final class VideoDatagramLane: @unchecked Sendable {
     private var discoveryFailure: String?
 
     private let relay: RelaySession
+    private let announcesCandidates: Bool
+    private var portMapping: UDPPortMapping?
+    /// The public address the router forwards to this Mac, once it has said.
+    private var mappedAddress: String?
 
     private var probeTask: Task<Void, Never>?
     /// Once the lane has failed or been cancelled, no later race may install a fresh probe task.
@@ -48,8 +52,9 @@ final class VideoDatagramLane: @unchecked Sendable {
 /// - Throws: when the relay's allocation cannot be used: a token that is not the size the wire
 ///   contract fixes it at, or a port that is not a port. The caller refuses the request rather
 ///   than reporting a lane that cannot carry anything.
-    init(relay: RelaySession, secret: Data) throws {
+    init(relay: RelaySession, secret: Data, announcesCandidates: Bool) throws {
         self.relay = relay
+        self.announcesCandidates = announcesCandidates
         socket = try VideoDatagramSocket(
             host: relay.videoHost,
             port: relay.videoPort,
@@ -71,6 +76,30 @@ final class VideoDatagramLane: @unchecked Sendable {
         }
         socket.start()
         beginDirectPath()
+        beginPortMapping()
+    }
+
+    private func beginPortMapping() {
+        guard announcesCandidates else { return }
+        let mapping = UDPPortMapping(internalPort: socket.localPort) { [weak self] address in
+            self?.lock.withLock { self?.mappedAddress = address }
+        }
+        lock.withLock { portMapping = mapping }
+        mapping.start()
+    }
+
+    /// Tells the client where the router forwards to this Mac, through the relay lane it already has: a client that cannot punch to this Mac can still send to that address.
+    private func announceCandidates() {
+        guard announcesCandidates else { return }
+        let announced = lock.withLock { () -> String? in
+            if case .open = probeStatus { return nil }
+            return mappedAddress
+        }
+        guard let announced,
+              let payload = try? MessageCodec.encode(DirectCandidates(addresses: [announced]))
+        else { return }
+        let sealed = seal(kind: .directCandidates, payload: payload)
+        if !sealed.isEmpty { socket.send(sealed) { _ in } }
     }
 
 /// Asks the relay where the client is, and then keeps knocking on its door.
@@ -112,6 +141,7 @@ final class VideoDatagramLane: @unchecked Sendable {
 
                 let probe = seal(kind: .directProbe, payload: Data())
                 if !probe.isEmpty { socket.sendDirect(probe) { _ in } }
+                self.announceCandidates()
                 attempt += 1
                 if ContinuousClock.now - startedAt >= .seconds(ClientSession.DirectPath.verdictAfter) {
                     self.note(self.lock.withLock { self.probeStatus }.verdict())
@@ -258,13 +288,16 @@ final class VideoDatagramLane: @unchecked Sendable {
     }
 
     private func stopProbing() {
-        let task = lock.withLock { () -> Task<Void, Never>? in
+        let (task, mapping) = lock.withLock { () -> (Task<Void, Never>?, UDPPortMapping?) in
             stopped = true
             let task = probeTask
+            let mapping = portMapping
             probeTask = nil
-            return task
+            portMapping = nil
+            return (task, mapping)
         }
         task?.cancel()
+        mapping?.stop()
     }
 
     var sentDatagrams: Int { socket.sentDatagrams }

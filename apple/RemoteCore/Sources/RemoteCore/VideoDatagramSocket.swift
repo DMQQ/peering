@@ -39,6 +39,9 @@ public final class VideoDatagramSocket: @unchecked Sendable {
 
     var peerAddress: sockaddr_storage?
     var peerLength: socklen_t = 0
+    /// Further addresses a probe is sent to as well, announced by the peer: a port its router opened is reachable without a punch, and which of them answers is only known by asking each.
+    var adopted: (host: String, port: UInt16)?
+    var extraTargets: [(address: sockaddr_storage, length: socklen_t)] = []
 
     var readSource: DispatchSourceRead?
     var bindTimer: DispatchSourceTimer?
@@ -64,7 +67,7 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     /// because a path that works for a second and then stops looks like success in a boolean.
     public var receivedFromPeer: Int { counterLock.withLock { _receivedFromPeer } }
 
-    public var hasDirectPeer: Bool { onQueue { peerAddress != nil } }
+    public var hasDirectPeer: Bool { onQueue { peerAddress != nil || !extraTargets.isEmpty } }
 
     /// A plain `queue.sync` traps here: libdispatch aborts the process when the calling thread
     /// already owns the queue, and the receive path is one of the callers that enters this socket
@@ -156,6 +159,33 @@ public final class VideoDatagramSocket: @unchecked Sendable {
             }
             peerAddress = resolved.address
             peerLength = resolved.length
+        }
+    }
+
+    /// Makes the address an authenticated datagram arrived from the one the peer is at, and stops probing the others: it answered, so the rest are no longer needed.
+    public func adoptPeer(host: String, port: UInt16) throws {
+        try onQueue {
+            // Asked for every authenticated datagram, so the unchanged case costs a comparison and no resolution.
+            if let adopted, adopted.host == host, adopted.port == port { return }
+            guard let resolved = Self.resolvePeer(host: host, port: port, family: family) else {
+                throw VideoDatagramError.unusablePeerAddress(host)
+            }
+            peerAddress = resolved.address
+            peerLength = resolved.length
+            extraTargets.removeAll()
+            adopted = (host, port)
+        }
+    }
+
+    /// Adds an address a probe is sent to as well. Adding one already known changes nothing.
+    public func addProbeTarget(host: String, port: UInt16) throws {
+        try onQueue {
+            guard let resolved = Self.resolvePeer(host: host, port: port, family: family) else {
+                throw VideoDatagramError.unusablePeerAddress(host)
+            }
+            if let peerAddress, Self.sameAddress(peerAddress, resolved.address) { return }
+            if extraTargets.contains(where: { Self.sameAddress($0.address, resolved.address) }) { return }
+            extraTargets.append(resolved)
         }
     }
 

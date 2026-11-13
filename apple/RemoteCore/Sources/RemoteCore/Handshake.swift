@@ -22,6 +22,9 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// The codecs this client decodes, best first (`"hevc"`, `"h264"`). Optional and additive: `nil` is a client from before this field, which decodes both.
     public var videoCodecs: [String]?
 
+    /// Whether this client probes addresses the host announces on the datagram lane. `nil` reads as no.
+    public var supportsDirectCandidates: Bool?
+
     /// A random tag for this connection attempt, kept across automatic resumes, so analytics on the phone and the Mac can be joined. Optional and additive: `nil` is a client from before this field, and a host that does not know it ignores the key.
     public var sessionRef: String?
 
@@ -40,8 +43,10 @@ public struct ClientHello: Codable, Sendable, Equatable {
         takesOver: Bool? = nil,
         clientPlatform: String? = nil,
         videoCodecs: [String]? = nil,
-        sessionRef: String? = nil
+        sessionRef: String? = nil,
+        supportsDirectCandidates: Bool? = nil
     ) {
+        self.supportsDirectCandidates = supportsDirectCandidates
         self.sessionRef = sessionRef
         self.lostPairing = lostPairing
         self.takesOver = takesOver

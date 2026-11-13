@@ -388,4 +388,67 @@ struct VideoDatagramSocketTests {
             try socket.setDirectPeer(host: "not an address", port: relay.port)
         }
     }
+
+    @Test("a probe goes to the peer and to every announced address")
+    func probeReachesEveryTarget() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let first = try LoopbackSocket()
+        let second = try LoopbackSocket()
+        defer { first.closeSocket(); second.closeSocket() }
+        try socket.setDirectPeer(host: "::1", port: first.port)
+        try socket.addProbeTarget(host: "::1", port: second.port)
+        try socket.addProbeTarget(host: "::1", port: second.port)
+
+        socket.sendDirect([Self.token + Data([0x07])]) { _ in }
+
+        #expect(first.receive() == [0x07])
+        #expect(second.receive() == [0x07])
+        #expect(second.receive().isEmpty, "an address announced twice is probed once")
+    }
+
+    @Test("an announced address alone is enough to probe, with no address from the relay")
+    func announcedAddressNeedsNoRelayAddress() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let announced = try LoopbackSocket()
+        defer { announced.closeSocket() }
+        try socket.addProbeTarget(host: "::1", port: announced.port)
+
+        #expect(socket.hasDirectPeer)
+        socket.sendDirect([Self.token + Data([0x09])]) { _ in }
+        #expect(announced.receive() == [0x09])
+    }
+
+    @Test("adopting the address that answered stops probing the others")
+    func adoptingOneDropsTheRest() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let silent = try LoopbackSocket()
+        let answered = try LoopbackSocket()
+        defer { silent.closeSocket(); answered.closeSocket() }
+        try socket.setDirectPeer(host: "::1", port: silent.port)
+        try socket.addProbeTarget(host: "::1", port: answered.port)
+        try socket.adoptPeer(host: "::1", port: answered.port)
+
+        socket.sendDirect([Self.token + Data([0x0b])]) { _ in }
+
+        #expect(answered.receive() == [0x0b])
+        #expect(silent.receive().isEmpty)
+    }
 }

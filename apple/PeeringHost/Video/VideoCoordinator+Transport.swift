@@ -90,7 +90,7 @@ extension VideoCoordinator {
     }
 
 /// Opens the relay's datagram path for a client that asked for it.
-    func enableVideoDatagrams(clientKey: Data?, relay: RelaySession) -> Data? {
+    func enableVideoDatagrams(clientKey: Data?, relay: RelaySession, announcesCandidates: Bool) -> Data? {
         let served = lock.withLock { audience.served }
         if let served, let clientKey, served.peerPublicKey != clientKey {
             coordinatorLog.notice("refused a video datagram request from a client that is not being served")
@@ -106,7 +106,7 @@ extension VideoCoordinator {
         }
 
         do {
-            let lane = try VideoDatagramLane(relay: relay, secret: secret)
+            let lane = try VideoDatagramLane(relay: relay, secret: secret, announcesCandidates: announcesCandidates)
             lane.onInput = lock.withLock { directInput }
             guard streamer.useDatagrams(lane) else { return nil }
             coordinatorLog.notice("video is going on the relay's datagram path")

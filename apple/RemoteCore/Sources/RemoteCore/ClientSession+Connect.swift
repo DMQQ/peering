@@ -219,7 +219,8 @@ extension ClientSession {
             resumeSource: knowsHost ? resumeSource : nil,
             lostPairing: hostID != nil && !knowsHost ? true : nil,
             takesOver: knowsHost && takesOver ? true : nil,
-            sessionRef: sessionRef
+            sessionRef: sessionRef,
+            supportsDirectCandidates: true
         ))
 
         lock.withLock {

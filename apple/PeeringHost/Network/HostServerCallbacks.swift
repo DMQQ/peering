@@ -12,7 +12,7 @@ final class HostServerCallbacks: @unchecked Sendable {
     private var command: (@Sendable (RemoteCommand) -> Void)?
     private var videoConnection: (@Sendable (PeerConnection) -> Void)?
     private var videoTransport: (@Sendable (Data?, VideoTransportRequest, PeerConnection) -> Void)?
-    private var videoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)?
+    private var videoKeyRequest: (@Sendable (Data?, RelaySession, Bool) -> Data?)?
     private var videoEnabled: (@Sendable (Data?, Bool) -> Void)?
     private var clientVideoCodecs: (@Sendable (Data?, [String]?) -> Void)?
     private var requestClipboard: (@Sendable (@escaping @Sendable (ClipboardPayload?) -> Void) -> Void)?
@@ -66,7 +66,7 @@ final class HostServerCallbacks: @unchecked Sendable {
 
     /// Called when a relayed client asks for the secret that seals video datagrams, with the
     /// key that identifies it and the allocation the session came from.
-    var onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)? {
+    var onVideoKeyRequest: (@Sendable (Data?, RelaySession, Bool) -> Data?)? {
         get { lock.withLock { videoKeyRequest } }
         set { lock.withLock { videoKeyRequest = newValue } }
     }
