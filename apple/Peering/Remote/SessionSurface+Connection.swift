@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     /// A Mac being put back is neither green nor red: the frames stopping is why the retry exists.
     /// Read from the session, not `isResuming`: that flag clears on the first phase holding a session, which a dial is.
     var isReconnectingToMac: Bool { model.isBeingPutBack }

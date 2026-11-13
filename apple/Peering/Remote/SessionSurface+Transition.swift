@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     func animateBackToMosaic() {
         model.tileOpeningWatch?.cancel()
 

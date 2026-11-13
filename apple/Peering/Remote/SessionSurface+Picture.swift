@@ -4,7 +4,7 @@ import SwiftUI
 import UIKit
 
 /// Members are `internal` because `private` is file-scoped and state and gestures live in both files.
-extension RemoteScreen {
+extension SessionSurface {
     static let pausedCardDelay: Duration = .seconds(2)
 
     // MARK: - Picture

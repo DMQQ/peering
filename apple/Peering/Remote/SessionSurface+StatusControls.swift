@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     var lockDot: some View {
         Button {
             model.lockMac()

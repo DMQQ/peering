@@ -9,7 +9,7 @@ struct MosaicOverlay: View {
         /// windows, so an identity that is the *place* cannot tell the app that anything has
         /// happened, and the drawing has nothing to animate. Identified by the window, the outline
         /// being carried and the ones it displaces are all things that move. See
-        /// ``RemoteScreen/dropHeldTile()``.
+        /// ``SessionSurface/dropHeldTile()``.
         let id: String
         let rect: CGRect
         let title: String?

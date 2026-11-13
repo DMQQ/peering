@@ -21,7 +21,7 @@ extension View {
     }
 }
 
-extension RemoteScreen {
+extension SessionSurface {
     var dockHeight: CGFloat {
         dockCardHeight + ChromeMetrics.dockDotsGap + ChromeMetrics.dockPageDotsHeight
     }

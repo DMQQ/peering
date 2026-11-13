@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     // MARK: - The six controls
 
     var modeButton: some View {

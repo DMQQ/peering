@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     // MARK: - Status
 
     /// A `RoundedRectangle` not a `Capsule`: the corner radius carries the animation, and shape and clip read one property so glass and content agree about the edge.

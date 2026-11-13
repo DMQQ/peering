@@ -2,7 +2,7 @@ import PeeringKit
 import RemoteCore
 import SwiftUI
 
-extension RemoteScreen {
+extension SessionSurface {
     static let dockIconSize: CGFloat = 42
     static let dockDesktopSize = CGSize(width: 54, height: 34)
     static let dockDesktopsWidth: CGFloat = 232

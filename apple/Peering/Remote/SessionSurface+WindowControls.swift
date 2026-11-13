@@ -2,7 +2,7 @@ import PeeringKit
 import RemoteCore
 import SwiftUI
 
-extension RemoteScreen {
+extension SessionSurface {
     /// The window being cast, when the Mac is showing one window and nothing else.
     private var castWindowID: UInt32? {
         // The picture's own source, not the one asked for: while an arrangement is up the ask can still name a window.

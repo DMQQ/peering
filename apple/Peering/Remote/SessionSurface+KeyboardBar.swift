@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     /// With the keyboard up, the dock and both rails are behind it, so nothing else on this screen can
     /// be pressed. Esc, Tab and the arrows live in the shortcuts panel; see ``ModifierBar``.
     private var keyboardKeyRow: some View {

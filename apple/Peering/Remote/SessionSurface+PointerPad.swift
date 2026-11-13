@@ -2,7 +2,7 @@ import PeeringKit
 import RemoteCore
 import SwiftUI
 
-extension RemoteScreen {
+extension SessionSurface {
     static let pointerPadHeight: CGFloat = 200
 
     var pointerPad: some View {

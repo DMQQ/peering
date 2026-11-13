@@ -3,14 +3,6 @@ import RemoteCore
 import SwiftUI
 
 extension RemoteScreen {
-    @ViewBuilder
-    var remoteDock: some View {
-        if let session = model.activeSession, session.modeResolved, session.mode == .remote {
-            RemoteDockView()
-                .transition(.opacity)
-        }
-    }
-
     var showsRemoteBar: Bool {
         model.activeSession.map { $0.modeResolved && $0.mode == .remote } ?? false
     }

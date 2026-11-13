@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     // MARK: - Controls
 
     var hasSeveralMacs: Bool { model.openSessions.count > 1 }
@@ -97,7 +97,7 @@ extension RemoteScreen {
                 // contents, and one of those contents is the source's own name, a window's title,
                 // which on this Mac is a terminal's 74-character status line. Left alone the bar grew
                 // until it was drawn over both rails and the buttons under them. See
-                // ``RemoteScreen/statusBarWidthCap(in:)``.
+                // ``SessionSurface/statusBarWidthCap(in:)``.
                 statusBar(availableWidth: available.width)
                     .frame(maxWidth: statusBarWidthCap(in: available.width))
                     .tourAnchor(.screenStatus)

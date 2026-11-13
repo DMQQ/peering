@@ -2,7 +2,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     var shortcutsPanel: some View {
         VStack(spacing: 8) {
             if model.showKeyboard, !model.typedPreview.isEmpty {

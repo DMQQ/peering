@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     /// Drawn only while the mosaic is the picture, at rest, with no transition in flight.
     func mosaicTileRect(_ index: Int, in layout: MosaicLayout) -> CGRect? {
         guard layout.tiles.indices.contains(index) else { return nil }

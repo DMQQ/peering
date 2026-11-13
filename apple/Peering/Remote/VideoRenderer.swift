@@ -109,7 +109,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         lock.withLock { _stillPicture = image }
     }
 
-    /// The Mac rebuilds the canvas from scratch on leaving an arrangement (about 1.25 s); this is what the frozen layer shows meanwhile. See ``RemoteScreen/animateBackToMosaic()``.
+    /// The Mac rebuilds the canvas from scratch on leaving an arrangement (about 1.25 s); this is what the frozen layer shows meanwhile. See ``SessionSurface/animateBackToMosaic()``.
     var mosaicSnapshot: CGImage? { lock.withLock { _mosaicSnapshot } }
 
     func rememberMosaicSnapshot() {

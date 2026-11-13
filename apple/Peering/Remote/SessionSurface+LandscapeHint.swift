@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     func presentLandscapeHint() {
         // The landscape half of this guard is load-bearing for the flag: nothing is marked when a
         // session comes up sideways, so a phone whose first sessions are all landscape is still owed

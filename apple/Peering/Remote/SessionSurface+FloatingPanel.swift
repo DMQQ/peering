@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     @ViewBuilder
     /// `connectedWidth` is set when the panel is the upper half of the portrait tray: the tray draws the one glass, so the panel draws none and takes the dock's width.
     func floatingPanel(_ available: CGSize, isLandscape: Bool, connectedWidth: CGFloat? = nil) -> some View {

@@ -3,7 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-extension RemoteScreen {
+extension SessionSurface {
     func sendScroll(dy: Double) {
         model.send(.scroll(dx: 0, dy: dy))
     }
