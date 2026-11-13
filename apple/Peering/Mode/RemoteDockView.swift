@@ -11,7 +11,6 @@ struct RemoteDockView: View {
     @State private var ripple: RemoteDockRipple?
     @State private var openPanel: RemoteDockPanel?
     @State private var padFillsScreen = false
-    @State private var keyboardHeight: CGFloat = 0
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -22,9 +21,8 @@ struct RemoteDockView: View {
                     Color.clear.frame(height: RemoteDockControls.restingHeight)
                 }
             }
-            if !padFillsScreen {
+            if !padFillsScreen, !model.showKeyboard {
                 RemoteDockControls(
-                    typing: model.showKeyboard,
                     desktops: desktops,
                     actions: controlActions,
                     openPanel: openPanel,
@@ -36,17 +34,9 @@ struct RemoteDockView: View {
         .padding(.horizontal, ChromeMetrics.edgeInset)
         .padding(.top, 8)
         .padding(.bottom, ChromeMetrics.edgeInset)
-        // The session screen ignores the keyboard for the picture's sake, so the dock lifts itself or its typing field sits under the keys.
-        .padding(.bottom, keyboardHeight)
+        // The typing bar floats over the pad: reaching the screen's edge keeps its inset from shrinking the pad.
+        .ignoresSafeArea(.container, edges: model.showKeyboard ? .bottom : [])
         .background(ColorPalette.backdrop.ignoresSafeArea())
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
-            guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-            let screen = UIScreen.main.bounds.height
-            withAnimation(Motion.settle) { keyboardHeight = max(0, screen - frame.minY) }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(Motion.settle) { keyboardHeight = 0 }
-        }
         // A report lags the moves this pad just sent, so taking it mid-swipe snapped the pointer back to where it was and only taps seemed to work. Only a pointer moved on the Mac itself, while the pad is idle, is adopted.
         .onChange(of: model.hostPointer, initial: true) { _, reported in
             guard touch.point == nil, Date.now.timeIntervalSince(touch.lastMoveAt) > 0.5 else { return }

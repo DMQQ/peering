@@ -12,7 +12,6 @@ struct RemoteDockControlActions {
 
 /// The trackpad's dock, built as the screen view's is: a glass card of rail buttons that pages when shut and opens into three rows from a chevron, with its page dots underneath.
 struct RemoteDockControls: View {
-    let typing: Bool
     /// The Mac's desktop count and the current one (1-based), when it sent them.
     let desktops: (count: Int, current: Int?)?
     let actions: RemoteDockControlActions
@@ -63,7 +62,6 @@ struct RemoteDockControls: View {
             pageDots
         }
         .containerRelativeFrame(.horizontal) { width, _ in width * ChromeMetrics.dockWidthFraction }
-        .onChange(of: typing) { _, _ in page = 0 }
     }
 
     private var panelHandle: some View {
@@ -173,7 +171,6 @@ struct RemoteDockControls: View {
         }
     }
 
-    /// The keys lead while the keyboard is up, since that is when they are wanted.
     private var items: [Item] {
         let controls = [
             Item(id: "keyboard", icon: "keyboard", label: String(localized: "Keyboard"), action: actions.onKeyboard),
@@ -184,7 +181,7 @@ struct RemoteDockControls: View {
         let keys = Self.keys.map { key in
             Item(id: "key-\(key.keyCode)", icon: key.symbol, label: key.shortName) { actions.onKey(key) }
         }
-        return typing ? keys + controls : controls + keys
+        return controls + keys
     }
 
     private var desktopTitle: String {
