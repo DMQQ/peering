@@ -272,6 +272,8 @@ final class SessionModel {
     var lanUpgradeTask: Task<Void, Never>?
     /// Per Mac, not per session: the move replaces the session, so a failed LAN dial would otherwise forget it had just tried.
     var lastLANUpgradeAt: [String: Date] = [:]
+    /// Per Mac, since the network last changed. See ``LANUpgradePolicy/maxAttemptsPerNetwork``.
+    var lanUpgradeAttempts: [String: Int] = [:]
 
     /// Coming back to the foreground races the teardown of the session that just ended: its cancelled socket is not finished with, so the connect aborts before it starts. It clears within a second and nobody asked for this attempt, so nobody is told.
     var isResuming = false

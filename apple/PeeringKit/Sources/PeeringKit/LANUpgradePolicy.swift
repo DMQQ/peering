@@ -11,12 +11,23 @@ public enum LANUpgradePolicy {
     /// The least time between two attempts for one session.
     public static let cooldownSeconds: TimeInterval = 90
 
+    /// How often a session still off the LAN is looked at again. The trigger used to be an event, a path change or a Mac appearing, and one missed because the Mac was not yet in view left the session where it was for good.
+    public static let pollSeconds: TimeInterval = 10
+    /// Attempts per Mac on one network. A Mac that is visible but cannot be reached (a guest network that isolates devices) would otherwise be redialled for as long as the session lasts, and every redial interrupts it.
+    public static let maxAttemptsPerNetwork = 3
+
+    /// Only Wi-Fi and a cable can be the Mac's network: on cellular the Mac is visible only if a stale record says so.
+    public static func canReachLAN(interface: String) -> Bool {
+        interface == "wifi" || interface == "wired"
+    }
+
     public static func shouldUpgrade(
         path: ConnectionPath?,
         macVisibleOnLAN: Bool,
-        secondsSinceLastAttempt: TimeInterval?
+        secondsSinceLastAttempt: TimeInterval?,
+        attemptsOnThisNetwork: Int = 0
     ) -> Bool {
-        guard macVisibleOnLAN, let path, path != .lan else { return false }
+        guard macVisibleOnLAN, let path, path != .lan, attemptsOnThisNetwork < maxAttemptsPerNetwork else { return false }
         return secondsSinceLastAttempt.map { $0 >= cooldownSeconds } ?? true
     }
 }

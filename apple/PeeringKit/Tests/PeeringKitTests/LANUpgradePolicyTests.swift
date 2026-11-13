@@ -20,4 +20,17 @@ struct LANUpgradePolicyTests {
         #expect(!LANUpgradePolicy.shouldUpgrade(path: .relay, macVisibleOnLAN: true, secondsSinceLastAttempt: 10))
         #expect(LANUpgradePolicy.shouldUpgrade(path: .relay, macVisibleOnLAN: true, secondsSinceLastAttempt: 90))
     }
+
+    @Test func aMacThatCannotBeReachedIsGivenUpOnForThisNetwork() {
+        #expect(LANUpgradePolicy.shouldUpgrade(path: .relay, macVisibleOnLAN: true, secondsSinceLastAttempt: 90, attemptsOnThisNetwork: 2))
+        #expect(!LANUpgradePolicy.shouldUpgrade(path: .relay, macVisibleOnLAN: true, secondsSinceLastAttempt: 900, attemptsOnThisNetwork: LANUpgradePolicy.maxAttemptsPerNetwork))
+    }
+
+    @Test func onlyWifiAndACableCanBeTheMacsNetwork() {
+        #expect(LANUpgradePolicy.canReachLAN(interface: "wifi"))
+        #expect(LANUpgradePolicy.canReachLAN(interface: "wired"))
+        #expect(!LANUpgradePolicy.canReachLAN(interface: "cellular"))
+        #expect(!LANUpgradePolicy.canReachLAN(interface: "none"))
+        #expect(!LANUpgradePolicy.canReachLAN(interface: "other"))
+    }
 }

@@ -33,7 +33,8 @@ extension SessionModel {
         watcher.onUsableChange = { [weak self] in self?.networkChanged() }
         watcher.onPathChange = { [weak self] in
             self?.verifyLiveSessions()
-            self?.considerLANUpgrade()
+            self?.restartDirectPaths()
+            self?.networkPathChangedForLANUpgrade()
         }
         networkWatcher = watcher
         watcher.start()
@@ -60,6 +61,13 @@ extension SessionModel {
             if !session.isVideoStreaming {
                 session.wire?.retryVideoAfterNetworkChange()
             }
+        }
+    }
+
+    /// A new network voids the path a session proved on the old one; each relayed session knocks again at once.
+    func restartDirectPaths() {
+        for session in sessions where session.phase == .ready {
+            session.wire?.restartDirectPath()
         }
     }
 
