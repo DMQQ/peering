@@ -133,7 +133,10 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             guard let self else { return }
             self.renderer = renderer
             self.lock.withLock { self.liveRenderer = renderer }
-            guard let replay = self.deferredKeyframe.take(), let format = self.formatDescription else { return }
+            guard let replay = self.deferredKeyframe.take(), let format = self.formatDescription else {
+                self.repaintNewLayer(renderer)
+                return
+            }
             self.enqueue(replay.frame, on: renderer, format: format)
             guard replay.missedLaterFrames else { return }
             // The keyframe is shown, but the deltas that followed it are gone, so the next ones must wait for a fresh keyframe.
@@ -141,6 +144,20 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             let ask = self.lock.withLock { self._onNeedsKeyframe }
             Task { @MainActor in ask?() }
         }
+    }
+
+    /// A layer attached while a stream is already running starts empty, and a Mac with a still screen sends nothing until something moves, so it would stay black. It is given the last keyframe at once, and a fresh keyframe is asked for because the deltas since are not in it. Queue-confined.
+    private func repaintNewLayer(_ renderer: AVSampleBufferVideoRenderer) {
+        let (keyframe, streamIsLive) = lock.withLock {
+            (lastKeyframeSample, snapshot.readyGeneration == snapshot.configGeneration)
+        }
+        guard let keyframe, streamIsLive else { return }
+        renderer.enqueue(keyframe)
+        let ask = lock.withLock {
+            snapshot.awaitingKeyframe = true
+            return _onNeedsKeyframe
+        }
+        Task { @MainActor in ask?() }
     }
 
     // MARK: - Stream lifecycle
