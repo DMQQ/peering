@@ -11,9 +11,6 @@ extension ClientSession {
     /// How long a round trip stays in the reported figure: a duration, not a count, so one bad round trip does not own it.
     static let latencyWindow: TimeInterval = 10
 
-    /// Probe attempts between two asks at the relay for the peer's address: twelve, one re-ask per three seconds when fast and one per minute once slowed.
-    static let rediscoverEvery = 12
-
     func startPinging() {
         lock.lock()
         guard pingTask == nil else { lock.unlock(); return }

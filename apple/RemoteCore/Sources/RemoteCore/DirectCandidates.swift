@@ -27,4 +27,27 @@ public struct DirectCandidates: Codable, Sendable, Equatable {
         default: return true
         }
     }
+
+    /// The `host:port` to announce for what the router answered a mapping request with, or `nil` when there is nothing worth announcing. `externalAddress` and `externalPort` are in network byte order, as the system hands them over.
+    public static func mappedCandidate(errorCode: Int32, externalAddress: UInt32, externalPort: UInt16) -> String? {
+        guard errorCode == 0, externalAddress != 0, externalPort != 0 else { return nil }
+        var raw = in_addr(s_addr: externalAddress)
+        var text = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+        guard inet_ntop(AF_INET, &raw, &text, socklen_t(text.count)) != nil else { return nil }
+        let host = String(cString: text)
+        guard isPubliclyRoutable(ipv4: host) else { return nil }
+        return "\(host):\(UInt16(bigEndian: externalPort))"
+    }
+
+    /// The addresses in an announcement worth probing. A payload that does not decode gives none, and an address that does not parse is skipped without discarding the others.
+    public static func targets(in payload: Data) -> [(host: String, port: UInt16)] {
+        guard let announced = try? MessageCodec.decode(DirectCandidates.self, from: payload) else { return [] }
+        return announced.addresses.compactMap(parse)
+    }
+
+    /// What the Mac announces now: nothing until the router has answered, and nothing once the direct path is open, since the client has found it.
+    public static func announcement(mapped: String?, pathIsOpen: Bool) -> DirectCandidates? {
+        guard let mapped, !pathIsOpen else { return nil }
+        return DirectCandidates(addresses: [mapped])
+    }
 }

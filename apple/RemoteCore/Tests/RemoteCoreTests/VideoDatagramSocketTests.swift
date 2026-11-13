@@ -319,6 +319,7 @@ struct VideoDatagramSocketTests {
 
         peer.send([0x01], to: socket.localPort)
         #expect(await waitUntil { collected.firstFromPeer != nil })
+        try socket.adoptPeer(host: "::1", port: peer.port) // what the session does once the datagram has opened
 
         let sealed = Self.token + Data([0x01, 0x02, 0x03])
         socket.send([sealed]) { _ in }
@@ -329,7 +330,7 @@ struct VideoDatagramSocketTests {
         )
     }
 
-    @Test("the socket moves to the peer once the peer has been heard from")
+    @Test("the socket moves to the peer once an authenticated datagram has come from it")
     func movesToThePeerOnceItIsHeardFrom() async throws {
         let relay = try LoopbackSocket()
         defer { relay.closeSocket() }
@@ -353,6 +354,7 @@ struct VideoDatagramSocketTests {
         peer.send([0x01], to: socket.localPort)
 
         #expect(await waitUntil { collected.firstFromPeer != nil })
+        try socket.adoptPeer(host: "::1", port: peer.port) // what the session does once the datagram has opened
 
         socket.send([Self.token + Data([0xb2])]) { _ in }
         #expect(peer.receive() == [0xb2], "and now the peer carries it, without the token")
@@ -450,5 +452,70 @@ struct VideoDatagramSocketTests {
 
         #expect(answered.receive() == [0x0b])
         #expect(silent.receive().isEmpty)
+    }
+
+    @Test("a datagram that has not been authenticated does not make the path live")
+    func unauthenticatedDatagramDoesNotKeepThePathLive() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, collected) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let stranger = try LoopbackSocket()
+        defer { stranger.closeSocket() }
+        try socket.setDirectPeer(host: "::1", port: stranger.port)
+        stranger.send([0x01], to: socket.localPort)
+        #expect(await waitUntil { collected.firstFromPeer != nil })
+
+        #expect(!socket.pathIsLive, "anyone able to write to the port could otherwise hold the path open")
+        socket.send([Self.token + Data([0xc3])]) { _ in }
+        #expect(relay.receive() == [UInt8](Self.token) + [0xc3], "so the picture still goes by the relay")
+    }
+
+    @Test("adopting an address after the relay named another sends to the one that answered")
+    func adoptionSurvivesARelayLookup() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let answered = try LoopbackSocket()
+        let named = try LoopbackSocket()
+        defer { answered.closeSocket(); named.closeSocket() }
+        try socket.adoptPeer(host: "::1", port: answered.port)
+        try socket.setDirectPeer(host: "::1", port: named.port) // a later look-up
+        try socket.adoptPeer(host: "::1", port: answered.port) // the Mac answers from the same place again
+
+        socket.sendDirect([Self.token + Data([0x0d])]) { _ in }
+        #expect(answered.receive() == [0x0d], "the second adoption was not skipped as already done")
+    }
+
+    @Test("a change of network makes the path not live until something authenticated arrives again")
+    func pathChangedDropsLiveness() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let peer = try LoopbackSocket()
+        defer { peer.closeSocket() }
+        try socket.adoptPeer(host: "::1", port: peer.port)
+        #expect(socket.pathIsLive)
+
+        socket.pathChanged()
+
+        #expect(!socket.pathIsLive)
+        #expect(relay.receive() == [UInt8](Self.token), "the relay is told the new address at once")
+        socket.send([Self.token + Data([0x11])]) { _ in }
+        #expect(relay.receive() == [UInt8](Self.token) + [0x11], "and the picture goes by the relay meanwhile")
+
+        try socket.adoptPeer(host: "::1", port: peer.port)
+        #expect(socket.pathIsLive, "the same address, authenticated again, is adopted again")
     }
 }

@@ -159,12 +159,26 @@ public final class VideoDatagramSocket: @unchecked Sendable {
             }
             peerAddress = resolved.address
             peerLength = resolved.length
+            adopted = nil
         }
     }
 
-    /// Makes the address an authenticated datagram arrived from the one the peer is at, and stops probing the others: it answered, so the rest are no longer needed.
+    /// The network under this socket changed. The address the peer was proven at belongs to the old one, so the path is no longer live until something authenticated arrives again, and the relay is told the new address at once instead of at the next keepalive.
+    public func pathChanged() {
+        onQueue {
+            lastPeerAt = nil
+            adopted = nil
+            sendBind()
+        }
+    }
+
+    /// Whether the peer has been heard from, authenticated, recently enough for the picture to go straight to it. Read on the socket's queue: the address and the stamp it compares are written there.
+    public var pathIsLive: Bool { onQueue { directPathIsLive } }
+
+    /// Makes the address an authenticated datagram arrived from the one the peer is at, stops probing the others (it answered, so the rest are no longer needed), and counts the path as live. Only for a datagram the caller has opened with the session key: liveness decides where the picture is sent, and an unauthenticated datagram must not be able to keep it going.
     public func adoptPeer(host: String, port: UInt16) throws {
         try onQueue {
+            lastPeerAt = MonotonicStamp()
             // Asked for every authenticated datagram, so the unchanged case costs a comparison and no resolution.
             if let adopted, adopted.host == host, adopted.port == port { return }
             guard let resolved = Self.resolvePeer(host: host, port: port, family: family) else {

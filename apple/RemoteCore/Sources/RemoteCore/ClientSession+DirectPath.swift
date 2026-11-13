@@ -35,10 +35,10 @@ extension ClientSession {
 
             // Fast while there is any prospect, then slow for the rest of the session to recover a path a NAT mapping expiry took away. Each probe is sealed afresh: the counter is the AEAD nonce, so a reused probe would be discarded. Discovery repeats on the same cadence, since "no address yet" is the ordinary first answer.
             let lookup = RelayPeerLookup(url: ProtocolInfo.relaySignallingURL)
-            var attempt = 0
-            let startedAt = ContinuousClock.now
+            var schedule = DirectPathSchedule()
+            var seenRestarts = self.lock.withLock { self.directPathRestarts }
             while !Task.isCancelled {
-                if attempt % Self.rediscoverEvery == 0, !socket.directPathIsLive {
+                if schedule.asksRelayForPeerAddress, !socket.pathIsLive {
                     if let address = try? await lookup.address(videoToken: relay.videoToken) {
                         // Not fatal but said: an unparseable address would go unnoticed all session. ``sendDirect`` does nothing meanwhile rather than sending to the relay.
                         let peer = "\(address.host):\(address.port)"
@@ -57,12 +57,24 @@ extension ClientSession {
                 if !probe.isEmpty {
                     socket.sendDirect(probe) { _ in }
                 }
-                attempt += 1
-                if ContinuousClock.now - startedAt >= .seconds(DirectPath.verdictAfter) {
+                schedule.probeSent()
+                if schedule.verdictIsDue(now: .now) {
                     self.reportDirectPath(self.lock.withLock { self.reportedDirectPath }.verdict())
                 }
-                let interval: Duration = attempt <= 12 ? .milliseconds(250) : .seconds(5)
-                try? await Task.sleep(for: interval)
+
+                // Woken early by a network change, so the new network is knocked on at once and not after the slow interval.
+                var waited = Duration.zero
+                while waited < schedule.intervalToNextProbe, !Task.isCancelled,
+                      self.lock.withLock({ self.directPathRestarts }) == seenRestarts {
+                    try? await Task.sleep(for: DirectPathSchedule.fastInterval)
+                    waited += DirectPathSchedule.fastInterval
+                }
+                let restarts = self.lock.withLock { self.directPathRestarts }
+                if restarts != seenRestarts {
+                    seenRestarts = restarts
+                    schedule.restart(now: .now)
+                    self.reportDirectPath(.notTried)
+                }
             }
             await lookup.close()
         }
@@ -81,6 +93,15 @@ extension ClientSession {
         }
         previous.0?.cancel()
         previous.1?.cancel()
+    }
+
+    /// The phone's network changed: the path that was proven belongs to the old one. The picture goes by the relay until a probe proves a path on the new network, the relay is told the new address, and the knocking starts over at its fast pace.
+    public func restartDirectPath() {
+        let socket = lock.withLock { () -> VideoDatagramSocket? in
+            directPathRestarts += 1
+            return videoDatagrams
+        }
+        socket?.pathChanged()
     }
 
     /// Measures the lane the picture is on, once a second. The control lane's figure is the relay's even when the picture is direct. Seals through ``sealOnVideoLane(kind:payload:)``: a second sealer would repeat nonces.
@@ -147,12 +168,8 @@ extension ClientSession {
     /// Says what the direct-path attempt has come to, once per change.
     func reportDirectPath(_ outcome: DirectPath) {
         let changed = lock.withLock { () -> Bool in
-            // A path that is open is not closed by a later look-up: the probing loop re-asks the relay periodically and would otherwise downgrade a path demonstrably carrying the picture. Only the announcement is suppressed.
-            if case .open = reportedDirectPath, case .probing = outcome { return false }
-            // The same for a verdict: the periodic look-up would otherwise put "knocking" back over "gave up".
-            if case .gaveUp = reportedDirectPath, case .probing = outcome { return false }
-            guard reportedDirectPath != outcome else { return false }
-            reportedDirectPath = outcome
+            guard let next = reportedDirectPath.updated(with: outcome) else { return false }
+            reportedDirectPath = next
             return true
         }
         guard changed else { return }
@@ -171,11 +188,8 @@ extension ClientSession {
 
     /// The Mac announced addresses it can be reached at (a port its router opened for it): each is probed alongside the one the relay named.
     private func addProbeTargets(from frame: Frame) {
-        guard let socket = lock.withLock({ videoDatagrams }),
-              let announced = try? MessageCodec.decode(DirectCandidates.self, from: frame.payload)
-        else { return }
-        for address in announced.addresses {
-            guard let target = DirectCandidates.parse(address) else { continue }
+        guard let socket = lock.withLock({ videoDatagrams }) else { return }
+        for target in DirectCandidates.targets(in: frame.payload) {
             do {
                 try socket.addProbeTarget(host: target.host, port: target.port)
             } catch {

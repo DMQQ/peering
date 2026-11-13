@@ -74,7 +74,6 @@ extension VideoDatagramSocket {
                 _received += 1
                 if fromPeer { _receivedFromPeer += 1 }
             }
-            if fromPeer { lastPeerAt = MonotonicStamp() }
             onDatagram?(Data(buffer[0..<read]), source)
         }
     }

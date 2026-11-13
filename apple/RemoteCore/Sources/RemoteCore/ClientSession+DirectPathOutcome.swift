@@ -31,4 +31,17 @@ extension ClientSession.DirectPath {
         case .gaveUp(.noAnswer): "no_answer"
         }
     }
+
+    /// Whether the attempt has run long enough to be called.
+    public static func verdictIsDue(after elapsed: Duration) -> Bool {
+        elapsed >= .seconds(verdictAfter)
+    }
+
+    /// The state after `outcome` is reported, or `nil` when it is not news. A path that is open or given up on is not taken back by a later look-up saying "knocking": the probe loop re-asks the relay periodically and would otherwise put it back.
+    public func updated(with outcome: Self) -> Self? {
+        switch (self, outcome) {
+        case (.open, .probing), (.gaveUp, .probing): nil
+        default: self == outcome ? nil : outcome
+        }
+    }
 }

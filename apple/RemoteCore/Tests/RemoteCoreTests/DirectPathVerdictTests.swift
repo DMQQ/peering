@@ -34,4 +34,32 @@ struct DirectPathVerdictTests {
     func outcomeNamesHaveNoAddress() {
         #expect(!Path.gaveUp(.noAnswer(peer: "1.2.3.4:5")).outcomeName.contains("1.2"))
     }
+
+    @Test("the verdict is due at the deadline and not before")
+    func verdictDeadline() {
+        #expect(!Path.verdictIsDue(after: .seconds(7)))
+        #expect(!Path.verdictIsDue(after: .milliseconds(7_999)))
+        #expect(Path.verdictIsDue(after: .seconds(8)))
+        #expect(Path.verdictIsDue(after: .seconds(60)))
+    }
+
+    @Test("a repeated outcome is not news")
+    func repeatedOutcomeIsNotNews() {
+        #expect(Path.probing(peer: "a").updated(with: .probing(peer: "a")) == nil)
+        #expect(Path.noAddress.updated(with: .noAddress) == nil)
+    }
+
+    @Test("a look-up saying knocking does not take back a path that is open or given up")
+    func knockingDoesNotDowngrade() {
+        #expect(Path.open(peer: "a").updated(with: .probing(peer: "b")) == nil)
+        #expect(Path.gaveUp(.noAnswer(peer: "a")).updated(with: .probing(peer: "a")) == nil)
+    }
+
+    @Test("a path that was given up on can still open, and a new outcome replaces an old one")
+    func laterOutcomesReplace() {
+        #expect(Path.gaveUp(.noAnswer(peer: "a")).updated(with: .open(peer: "a")) == .open(peer: "a"))
+        #expect(Path.notTried.updated(with: .noAddress) == .noAddress)
+        #expect(Path.noAddress.updated(with: .probing(peer: "a")) == .probing(peer: "a"))
+        #expect(Path.open(peer: "a").updated(with: .open(peer: "b")) == .open(peer: "b"))
+    }
 }

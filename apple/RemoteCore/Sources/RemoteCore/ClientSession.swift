@@ -104,6 +104,8 @@ public final class ClientSession: @unchecked Sendable {
     var wantsVideoDatagrams = false
     var videoDatagrams: VideoDatagramSocket?
     var directPathTask: Task<Void, Never>?
+    /// Bumped by ``restartDirectPath()``; the probe loop restarts its schedule when it sees a new value.
+    var directPathRestarts = 0
     /// The last path reported to the owner. Seeded with `.relay` since every session starts there.
     var reportedPath: DatagramPath = .relay
 

@@ -46,9 +46,6 @@ final class VideoDatagramLane: @unchecked Sendable {
     /// Once the lane has failed or been cancelled, no later race may install a fresh probe task.
     private var stopped = false
 
-/// How many probe attempts go by between two asks at the relay for the client's address.
-    private static let rediscoverEvery = 12
-
 /// - Throws: when the relay's allocation cannot be used: a token that is not the size the wire
 ///   contract fixes it at, or a port that is not a port. The caller refuses the request rather
 ///   than reporting a lane that cannot carry anything.
@@ -84,20 +81,23 @@ final class VideoDatagramLane: @unchecked Sendable {
         let mapping = UDPPortMapping(internalPort: socket.localPort) { [weak self] address in
             self?.lock.withLock { self?.mappedAddress = address }
         }
-        lock.withLock { portMapping = mapping }
-        mapping.start()
+        // A lane already stopped has no later call to stop what is started here.
+        let kept = lock.withLock { () -> Bool in
+            guard !stopped else { return false }
+            portMapping = mapping
+            return true
+        }
+        if kept { mapping.start() }
     }
 
     /// Tells the client where the router forwards to this Mac, through the relay lane it already has: a client that cannot punch to this Mac can still send to that address.
     private func announceCandidates() {
         guard announcesCandidates else { return }
-        let announced = lock.withLock { () -> String? in
-            if case .open = probeStatus { return nil }
-            return mappedAddress
-        }
-        guard let announced,
-              let payload = try? MessageCodec.encode(DirectCandidates(addresses: [announced]))
-        else { return }
+        let announcement = DirectCandidates.announcement(
+            mapped: lock.withLock { mappedAddress },
+            pathIsOpen: socket.pathIsLive
+        )
+        guard let announcement, let payload = try? MessageCodec.encode(announcement) else { return }
         let sealed = seal(kind: .directCandidates, payload: payload)
         if !sealed.isEmpty { socket.send(sealed) { _ in } }
     }
@@ -111,10 +111,10 @@ final class VideoDatagramLane: @unchecked Sendable {
 
 // Quick while there is any prospect of it working, then slow for the rest of the session: the
 // fast phase is what opens the path, and the slow one recovers a mapping that expired.
-            var attempt = 0
-            let startedAt = ContinuousClock.now
+            var schedule = DirectPathSchedule()
             while !Task.isCancelled {
-                if attempt % Self.rediscoverEvery == 0 {
+                // Not while the path is carrying traffic: the relay's view of the client is the address it was punched at, and a client behind an address-dependent NAT answers from another one.
+                if schedule.asksRelayForPeerAddress, !socket.pathIsLive {
                     do {
                         if let address = try await lookup.address(videoToken: relay.videoToken) {
                             self.clearDiscoveryFailure()
@@ -142,12 +142,11 @@ final class VideoDatagramLane: @unchecked Sendable {
                 let probe = seal(kind: .directProbe, payload: Data())
                 if !probe.isEmpty { socket.sendDirect(probe) { _ in } }
                 self.announceCandidates()
-                attempt += 1
-                if ContinuousClock.now - startedAt >= .seconds(ClientSession.DirectPath.verdictAfter) {
+                schedule.probeSent()
+                if schedule.verdictIsDue(now: .now) {
                     self.note(self.lock.withLock { self.probeStatus }.verdict())
                 }
-                let interval: Duration = attempt <= 12 ? .milliseconds(250) : .seconds(5)
-                try? await Task.sleep(for: interval)
+                try? await Task.sleep(for: schedule.intervalToNextProbe)
             }
             await lookup.close()
         }
@@ -166,10 +165,8 @@ final class VideoDatagramLane: @unchecked Sendable {
 /// Whether this outcome is news, recording it if it is.
     private func record(_ outcome: ClientSession.DirectPath) -> Bool {
         lock.withLock {
-            if case .open = probeStatus, case .probing = outcome { return false }
-            if case .gaveUp = probeStatus, case .probing = outcome { return false }
-            guard probeStatus != outcome else { return false }
-            probeStatus = outcome
+            guard let next = probeStatus.updated(with: outcome) else { return false }
+            probeStatus = next
             return true
         }
     }
@@ -222,6 +219,7 @@ final class VideoDatagramLane: @unchecked Sendable {
             return try? opener.open(datagram)
         }
         guard let frame else { return }
+        if case .peer(let host, let port) = source { confirmPeer(host: host, port: port) }
 
 // Sealed through the lane's one sealer: the counter inside is the AEAD nonce, so a sealer of its
 // own here would reuse one. Sent back the way the question came, because a question that arrived
@@ -242,24 +240,26 @@ final class VideoDatagramLane: @unchecked Sendable {
             return
         }
 
-        guard case .peer(let host, let port) = source else { return }
+    }
 
+/// An authenticated datagram arrived from this address: the picture goes back to it, and the path counts as live.
+    private func confirmPeer(host: String, port: UInt16) {
+        do {
+            try socket.adoptPeer(host: host, port: port)
+        } catch {
+            Analytics.failed(error, in: .network, context: ["operation": "use client direct address"])
+            videoLog.error("the client's direct address could not be used: \(error.localizedDescription, privacy: .public)")
+            _ = record(.addressUnusable(peer: "\(host):\(port)"))
+            return
+        }
         let moved = lock.withLock { () -> Bool in
             let changed = directPeer?.host != host || directPeer?.port != port
             directPeer = (host, port)
             return changed
         }
         guard moved else { return }
-
-        do {
-            try socket.setDirectPeer(host: host, port: port)
-            videoLog.notice("the client is reachable directly at \(host, privacy: .public):\(port, privacy: .public)")
-            _ = record(.open(peer: "\(host):\(port)"))
-        } catch {
-            Analytics.failed(error, in: .network, context: ["operation": "use client direct address"])
-            videoLog.error("the client's direct address could not be used: \(error.localizedDescription, privacy: .public)")
-            _ = record(.addressUnusable(peer: "\(host):\(port)"))
-        }
+        videoLog.notice("the client is reachable directly at \(host, privacy: .public):\(port, privacy: .public)")
+        _ = record(.open(peer: "\(host):\(port)"))
     }
 
 /// Applied only from the address already proven by a probe, and only for the commands a loss or a reordering cannot hurt.

@@ -54,21 +54,11 @@ final class UDPPortMapping: @unchecked Sendable {
     }
 
     private func answered(errorCode: DNSServiceErrorType, address: UInt32, port: UInt16) {
-        guard errorCode == kDNSServiceErr_NoError, address != 0, port != 0 else {
-            mappingLog.notice("the router gave no port mapping (\(errorCode, privacy: .public))")
+        guard let mapped = DirectCandidates.mappedCandidate(errorCode: errorCode, externalAddress: address, externalPort: port) else {
+            mappingLog.notice("the router gave no usable port mapping (code \(errorCode, privacy: .public))")
             onChange(nil)
             return
         }
-        var raw = in_addr(s_addr: address)
-        var text = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-        guard inet_ntop(AF_INET, &raw, &text, socklen_t(text.count)) != nil else { return }
-        let host = String(cString: text)
-        guard DirectCandidates.isPubliclyRoutable(ipv4: host) else {
-            mappingLog.notice("the router's address is not reachable from the internet, so it is not announced")
-            onChange(nil)
-            return
-        }
-        let mapped = "\(host):\(UInt16(bigEndian: port))"
         mappingLog.notice("the router forwards \(mapped, privacy: .public) to this Mac")
         onChange(mapped)
     }
