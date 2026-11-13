@@ -42,4 +42,20 @@ struct SessionModeFlowTests {
         #expect(SessionModeFlow.rootIsPicker(modeResolved: false, asking: true))
         #expect(!SessionModeFlow.rootIsPicker(modeResolved: false, asking: false))
     }
+
+    @Test("the stack rests on the picker when empty, the picture when it starts with it, and the hub otherwise")
+    func targetFromFirstPage() {
+        #expect(SessionModeFlow.target(firstPage: nil) == .picker)
+        #expect(SessionModeFlow.target(firstPage: .screen) == .surface)
+        #expect(SessionModeFlow.target(firstPage: .hub) == .hub)
+        #expect(SessionModeFlow.target(firstPage: .step) == .hub)
+    }
+
+    @Test("the pages under the hub are the picture it was opened over, or none")
+    func basePageCount() {
+        #expect(SessionModeFlow.basePageCount(of: []) == 0)
+        #expect(SessionModeFlow.basePageCount(of: [.hub, .step]) == 0)
+        #expect(SessionModeFlow.basePageCount(of: [.screen, .hub, .step, .step]) == 1)
+        #expect(SessionModeFlow.basePageCount(of: [.screen]) == 1)
+    }
 }

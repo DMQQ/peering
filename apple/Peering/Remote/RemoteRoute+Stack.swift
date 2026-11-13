@@ -3,17 +3,13 @@ import PeeringKit
 extension [RemoteRoute] {
     /// What the stack is resting on: nothing pushed is the picker, the pushed picture is Screen or Remote, and the hub is Agents. A hub pushed over the picture is still resting on the picture.
     var target: SessionModeFlow.Target {
-        switch first {
-        case nil: .picker
-        case .screen: .surface
-        case .hub, .step: .hub
-        }
+        SessionModeFlow.target(firstPage: first?.kind)
     }
 
     var hubIsOpen: Bool { contains(.hub) }
 
     /// The pages under the hub: the picture it was opened over, or nothing.
-    var base: [RemoteRoute] { Array(prefix { $0 != .hub }) }
+    var base: [RemoteRoute] { Array(prefix(SessionModeFlow.basePageCount(of: map(\.kind)))) }
 
     var steps: [TerminalFlowStep] {
         compactMap {
@@ -31,6 +27,16 @@ extension [RemoteRoute] {
         case .picker: []
         case .surface: [.screen]
         case .hub: [.hub]
+        }
+    }
+}
+
+extension RemoteRoute {
+    var kind: SessionModeFlow.PageKind {
+        switch self {
+        case .screen: .screen
+        case .hub: .hub
+        case .step: .step
         }
     }
 }

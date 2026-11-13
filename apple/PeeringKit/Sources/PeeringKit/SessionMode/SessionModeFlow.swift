@@ -9,6 +9,13 @@ public enum SessionModeFlow {
         case hub
     }
 
+    /// What a page on the stack is, without what it holds: the stack's pages are app types, and the rules about them are not.
+    public enum PageKind: Equatable, Sendable {
+        case screen
+        case hub
+        case step
+    }
+
     public enum Entry: Equatable, Sendable {
         case reapply(SessionMode)
         case open(SessionMode)
@@ -41,5 +48,19 @@ public enum SessionModeFlow {
     /// The picker is the stack's root once a mode is resolved, or while one is being asked for. Before that the root is the connecting picture.
     public static func rootIsPicker(modeResolved: Bool, asking: Bool) -> Bool {
         modeResolved || asking
+    }
+
+    /// What the stack is resting on, from its first page. A hub pushed over the picture is still resting on the picture.
+    public static func target(firstPage: PageKind?) -> Target {
+        switch firstPage {
+        case nil: .picker
+        case .screen: .surface
+        case .hub, .step: .hub
+        }
+    }
+
+    /// How many pages lie under the hub: the picture it was opened over, or none. A stack with no hub is all base.
+    public static func basePageCount(of pages: [PageKind]) -> Int {
+        pages.firstIndex(of: .hub) ?? pages.count
     }
 }
