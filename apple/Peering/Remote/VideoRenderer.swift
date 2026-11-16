@@ -50,6 +50,9 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         videoLog.notice("waiting for a keyframe: \(reason, privacy: .public)")
     }
 
+    /// Queue-confined; removed when the renderer is replaced or detached.
+    private var failureObserver: NSObjectProtocol?
+
     /// Queue-confined, like the keyframe policy: whether a look at the keyframe wait is already scheduled.
     private var keyframeRecheckScheduled = false
 
@@ -133,6 +136,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             guard let self else { return }
             self.renderer = renderer
             self.lock.withLock { self.liveRenderer = renderer }
+            self.observeFailures(of: renderer)
             guard let replay = self.deferredKeyframe.take(), let format = self.formatDescription else {
                 self.repaintNewLayer(renderer)
                 return
@@ -143,6 +147,26 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.lock.withLock { self.snapshot.awaitingKeyframe = true }
             let ask = self.lock.withLock { self._onNeedsKeyframe }
             Task { @MainActor in ask?() }
+        }
+    }
+
+    /// A failed layer draws the system's yellow warning triangle over black, and recovery in ``enqueue(_:on:format:)`` only runs when another frame arrives, which a still Mac never sends. So the failure itself triggers the flush and the ask for a keyframe.
+    private func observeFailures(of renderer: AVSampleBufferVideoRenderer) {
+        if let failureObserver { NotificationCenter.default.removeObserver(failureObserver) }
+        failureObserver = NotificationCenter.default.addObserver(
+            forName: AVSampleBufferVideoRenderer.didFailToDecodeNotification, object: renderer, queue: nil
+        ) { [weak self, weak renderer] _ in
+            guard let self, let renderer else { return }
+            self.queue.async {
+                guard self.renderer === renderer else { return }
+                videoLog.notice("renderer failed to decode; flushing and asking for a keyframe · \(renderer.error?.localizedDescription ?? "no error", privacy: .public)")
+                renderer.flush()
+                self.lock.withLock {
+                    self.snapshot.awaitingKeyframe = true
+                    self.snapshot.lastError = renderer.error?.localizedDescription
+                }
+                self.askForKeyframeIfDue()
+            }
         }
     }
 
@@ -348,6 +372,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             guard let self else { return }
             self.renderer?.flush()
             self.renderer = nil
+            if let failureObserver = self.failureObserver { NotificationCenter.default.removeObserver(failureObserver) }
+            self.failureObserver = nil
             self.formatDescription = nil
             self.deferredKeyframe.reset()
             self.lock.withLock {
