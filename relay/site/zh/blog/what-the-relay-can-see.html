@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peering 的中继能看到什么，不能看到什么 · Peering</title>
+<meta name="description" content="如实说明 Peering 中继服务器知道什么（地址、设备 ID、用量），被设计成不知道什么（你的屏幕、按键、剪贴板），以及落实这一点的密钥。">
+<link rel="canonical" href="https://getpeering.app/zh/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/what-the-relay-can-see">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/blog/what-the-relay-can-see">
+<meta property="og:title" content="Peering 的中继能看到什么，不能看到什么 · Peering">
+<meta property="og:description" content="如实说明 Peering 中继服务器知道什么（地址、设备 ID、用量），被设计成不知道什么（你的屏幕、按键、剪贴板），以及落实这一点的密钥。">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Peering 的中继能看到什么，不能看到什么 · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peering 的中继能看到什么，不能看到什么 · Peering">
+<meta name="twitter:description" content="如实说明 Peering 中继服务器知道什么（地址、设备 ID、用量），被设计成不知道什么（你的屏幕、按键、剪贴板），以及落实这一点的密钥。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta name="twitter:image:alt" content="Peering 的中继能看到什么，不能看到什么 · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Peering 的中继能看到什么，不能看到什么",
+  "description": "如实说明 Peering 中继服务器知道什么（地址、设备 ID、用量），被设计成不知道什么（你的屏幕、按键、剪贴板），以及落实这一点的密钥。",
+  "image": "https://getpeering.app/assets/og/blog-what-the-relay-can-see.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "zh-Hans",
+  "mainEntityOfPage": "https://getpeering.app/zh/blog/what-the-relay-can-see",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/zh/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "博客",
+      "item": "https://getpeering.app/zh/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "中继能看到什么，不能看到什么",
+      "item": "https://getpeering.app/zh/blog/what-the-relay-can-see"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "zh-Hans",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peering 的中继能看到我的屏幕吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "不能。画面用一把密钥加密，这把密钥由 Mac 在一个中继无法打开的加密连接内发给手机，所以中继从头到尾只复制密文。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peering 的中继知道关于我的什么？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "设备标识符、你的 Mac 的名称、正在使用的套餐、中继用量，以及每台设备连接时所用的网络地址。它看不到视频、音频、按键或剪贴板内容。"
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/blog">博客</a>
+      <a href="/zh/download">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/zh/">Peering</a> / <a href="/zh/blog">博客</a></p>
+    <h1>Peering 的中继能看到什么，不能看到什么</h1>
+    <p class="post-meta">发布于 <time datetime="2026-11-11">2026年11月11日</time> · 阅读约 6 分钟</p>
+    <p class="lede">中继是处在你远程桌面会话中间的一台服务器，所以该问的是：什么在阻止它偷看。答案是一把它永远收不到的密钥。</p>
+
+<h2>它做什么</h2>
+<p>
+  中继承担三项工作。它为无法直接互通的两台设备做介绍；当它们仍然无法互通时，在两者之间复制字节；
+  它还会代 Mac 发送推送通知，例如“你的编程智能体需要回应”。它是一个小型的 Rust 程序，
+  让它的职责保持很小，正是设计所在。
+</p>
+
+<h2>它知道什么</h2>
+<p>
+  坦率地说明这一点，本身就是重点之一。为了完成工作，中继会看到：
+</p>
+<ul>
+  <li>设备标识符和 Mac 的名称，这样它才能把一部手机匹配到一台 Mac。</li>
+  <li>每台设备连接时所用的网络地址，这和任何服务器一样，并且它会把各自的地址交给对方，好让它们尝试直连。</li>
+  <li>正在使用的套餐，以及已用掉多少中继时间，用来执行每天 30 分钟的免费额度。</li>
+  <li>会话存在这一事实、开始的时间和持续的时长。</li>
+</ul>
+<p>
+  <a href="/zh/privacy">隐私政策</a>完整列出了这些内容。其中没有一项是你会话的内容。
+</p>
+
+<h2>它看不到什么</h2>
+<p>
+  画面、声音、剪贴板、按键和指针，都在一条终止于你两台设备的加密通道之中。
+  中继无法读取、修改或重放它们。有两种机制保证了这一点，而且都不依赖于对中继的信任。
+</p>
+
+<h3>控制通道是设备之间的 TLS</h3>
+<p>
+  当会话经由中继时，手机会通过中继与 Mac 进行 TLS 1.3 握手。中继只复制加密的记录而不终止它们，
+  所以它从不持有会话密钥。两端都用配对时固定下来的密钥进行认证，
+  因此中继无法让自己顶替进来，否则手机会拒绝这个连接。
+</p>
+
+<h3>视频密钥从不经过中继</h3>
+<p>
+  视频走的是另一条路，经由 UDP，所以它需要自己的密钥。会话准备好之后，
+  Mac 会生成 32 个随机字节，并<em>在 TLS 流内部</em>把它们发给手机。
+  中继承载这条流，却无法打开它。随后每个方向用 HKDF-SHA256 派生出各自的密钥，
+  每个数据报都用 ChaCha20-Poly1305 和一个计数器加密。
+</p>
+<pre>key = HKDF-SHA256(secret, salt = "pl.dmq.peering.video-datagram", info = direction)
+datagram = token | counter | ciphertext | tag</pre>
+<p>
+  最前面那个 16 字节的令牌是中继唯一会读取的东西。它是一个路由提示，说明该数据报属于哪个会话，
+  中继在转发之前会把它去掉。它之后的一切都是密文。
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-lock.webp" width="603" height="1311" loading="lazy"
+    alt="iPhone 锁定屏幕上显示两条 Peering 通知：一个终端已完成，另一个终端需要批准。">
+  <figcaption>推送通知只带有简短的文字和编码后的状态。你的屏幕绝不会成为其中的一部分。</figcaption>
+</figure>
+
+<h2>推送通知与实时活动</h2>
+<p>
+  当你的手机处于睡眠状态时，Mac 会请中继通过 Apple 推送来唤醒它。推送里放的内容刻意保持得很少：
+  提醒只有一个简短的标题和消息，而 Live Activity 的更新只包含编码后的状态，例如 ID、状态、数量和时间。
+  Mac 从不会把你的屏幕或终端输出发给中继。关于智能体的批准，请参见<a href="/zh/coding-agent-notifications">编程智能体通知</a>。
+</p>
+
+<h2>用证明代替账户</h2>
+<p>
+  免费额度总得附着在某样东西上。设备不使用账户，而是用自己的密钥为一条简短的消息签名，
+  中继在五分钟的时间窗口内校验这个签名。这样额度就绑定在一个密钥上，而不是一个可以重置的 ID 上，
+  而且任何人只要没有私钥，就无法冒充一台已注册的 Mac。
+</p>
+
+<h2>自己去验证</h2>
+<p>
+  线路格式有文档记录，而中继围绕着一项约束来构建：它只负责介绍对端并复制加密的字节，
+  无法检查、更改或授权它所承载的内容。至于会话一开始是如何接入中继的，请阅读
+  <a href="/zh/blog/connect-iphone-to-mac-anywhere">你的 iPhone 如何随时随地连上 Mac</a>，
+  而两端的密钥为何值得信任，请阅读<a href="/zh/blog/pairing-without-an-account">无需账户的配对</a>。
+</p>
+
+    <h2>常见问题</h2>
+    <h3>Peering 的中继能看到我的屏幕吗？</h3>
+    <p>不能。画面用一把密钥加密，这把密钥由 Mac 在一个中继无法打开的加密连接内发给手机，所以中继从头到尾只复制密文。</p>
+    <h3>Peering 的中继知道关于我的什么？</h3>
+    <p>设备标识符、你的 Mac 的名称、正在使用的套餐、中继用量，以及每台设备连接时所用的网络地址。它看不到视频、音频、按键或剪贴板内容。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/zh/download">下载 Mac 版 Peering</a>
+    </div>
+
+    <nav class="post-nav" aria-label="博客更多文章">
+      <h2>更多关于 Peering 工作原理的内容</h2>
+      <ul>
+        <li><a href="/zh/blog/connect-iphone-to-mac-anywhere">iPhone 如何随时随地连上 Mac</a></li>
+        <li><a href="/zh/blog/mac-screen-streaming">Mac 屏幕如何串流到你的 iPhone</a></li>
+        <li><a href="/zh/blog/pairing-without-an-account">无需账户的配对：信任如何建立</a></li>
+        <li><a href="/zh/blog/remote-input-latency">一次轻点如何变成 Mac 上的一次点击</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/blog">博客</a>
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/best-remote-desktop-app-for-ipad">最佳 iPad 应用</a>
+      <a href="/zh/apple-remote-desktop-alternative">ARD 替代方案</a>
+      <a href="/zh/apple-remote-desktop-vs-screen-sharing">ARD 与屏幕共享</a>
+      <a href="/zh/screens-vs-jump-desktop">Screens 与 Jump</a>
+      <a href="/zh/rustdesk-alternative-for-mac">RustDesk 替代方案</a>
+      <a href="/zh/control-mac-from-android">安卓控制 Mac</a>
+      <a href="/zh/claude-code-on-android">安卓上的 Claude Code</a>
+      <a href="/zh/chrome-remote-desktop-alternative">Chrome 远程桌面替代方案</a>
+      <a href="/zh/teamviewer-alternative-for-mac">TeamViewer 替代方案</a>
+      <a href="/zh/control-windows-pc-from-phone">手机控制 Windows</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/what-the-relay-can-see" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/what-the-relay-can-see" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/what-the-relay-can-see" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/what-the-relay-can-see" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/what-the-relay-can-see" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/what-the-relay-can-see" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/what-the-relay-can-see" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/what-the-relay-can-see" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/what-the-relay-can-see" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/what-the-relay-can-see" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

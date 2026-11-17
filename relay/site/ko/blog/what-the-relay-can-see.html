@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peering 릴레이가 볼 수 있는 것과 볼 수 없는 것 · Peering</title>
+<meta name="description" content="릴레이 서버가 아는 것(주소, 기기 ID, 사용량)과 알 수 없게 만든 것(화면, 키 입력, 클립보드).">
+<link rel="canonical" href="https://getpeering.app/ko/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/what-the-relay-can-see">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:url" content="https://getpeering.app/ko/blog/what-the-relay-can-see">
+<meta property="og:title" content="Peering 릴레이가 볼 수 있는 것과 볼 수 없는 것 · Peering">
+<meta property="og:description" content="릴레이 서버가 아는 것(주소, 기기 ID, 사용량)과 알 수 없게 만든 것(화면, 키 입력, 클립보드).">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Peering 릴레이가 볼 수 있는 것과 볼 수 없는 것 · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peering 릴레이가 볼 수 있는 것과 볼 수 없는 것 · Peering">
+<meta name="twitter:description" content="릴레이 서버가 아는 것(주소, 기기 ID, 사용량)과 알 수 없게 만든 것(화면, 키 입력, 클립보드).">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta name="twitter:image:alt" content="Peering 릴레이가 볼 수 있는 것과 볼 수 없는 것 · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Peering 릴레이가 볼 수 있는 것과 볼 수 없는 것",
+  "description": "릴레이 서버가 아는 것(주소, 기기 ID, 사용량)과 알 수 없게 만든 것(화면, 키 입력, 클립보드).",
+  "image": "https://getpeering.app/assets/og/blog-what-the-relay-can-see.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ko",
+  "mainEntityOfPage": "https://getpeering.app/ko/blog/what-the-relay-can-see",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ko/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "블로그",
+      "item": "https://getpeering.app/ko/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "릴레이가 볼 수 있는 것과 없는 것",
+      "item": "https://getpeering.app/ko/blog/what-the-relay-can-see"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ko",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peering의 릴레이는 내 화면을 볼 수 있나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "아니요. 화면은 Mac이 릴레이가 열 수 없는 암호화된 연결 안에서 iPhone에 보낸 키로 봉인됩니다. 릴레이는 암호문만 복사합니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peering의 릴레이는 나에 대해 무엇을 아나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "기기 식별자, Mac의 이름, 사용 중인 플랜, 릴레이 사용량, 각 기기가 접속해 오는 네트워크 주소입니다. 영상, 오디오, 키 입력, 클립보드 내용은 보지 못합니다."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ko/" aria-label="Peering, 홈">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="페이지">
+      <a href="/ko/">홈</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/blog">블로그</a>
+      <a href="/ko/download">다운로드</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ko/">Peering</a> / <a href="/ko/blog">블로그</a></p>
+    <h1>Peering 릴레이가 볼 수 있는 것과 볼 수 없는 것</h1>
+    <p class="post-meta">게시일 <time datetime="2026-11-11">2026년 11월 11일</time> · 6분 읽기</p>
+    <p class="lede">릴레이는 원격 데스크톱 세션의 중간에 있는 서버이므로, 올바른 질문은 무엇이 릴레이가 들여다보는 것을 막느냐입니다. 답은 릴레이가 절대 받지 못하는 키입니다.</p>
+
+<h2>하는 일</h2>
+<p>
+  릴레이는 세 가지 일을 합니다. 서로 직접 닿지 못하는 두 기기를 소개하고, 그래도 닿지 못하면 둘 사이에서 바이트를 복사하며,
+  &ldquo;코딩 에이전트가 답을 기다립니다&rdquo; 같은 푸시 알림을 Mac을 대신해 보냅니다. 작은 Rust 프로그램이며,
+  하는 일을 작게 유지하는 것이 곧 설계입니다.
+</p>
+
+<h2>아는 것</h2>
+<p>
+  이 점을 솔직하게 말하는 것도 요점의 일부입니다. 일을 하기 위해 릴레이가 보는 것은 다음과 같습니다.
+</p>
+<ul>
+  <li>iPhone과 Mac을 맞춰 주기 위한 기기 식별자와 Mac의 이름.</li>
+  <li>어느 서버나 그렇듯 각 기기가 접속해 오는 네트워크 주소. 이를 서로에게 전달해 직접 경로를 시도할 수 있게 합니다.</li>
+  <li>하루 30분의 무료 사용량을 적용하기 위한, 사용 중인 플랜과 소비한 릴레이 시간.</li>
+  <li>세션이 존재한다는 사실, 시작 시각, 지속 시간.</li>
+</ul>
+<p>
+  <a href="/ko/privacy">개인정보 처리방침</a>에 전체 목록이 있습니다. 이 중 어느 것도 세션의 내용은 아닙니다.
+</p>
+
+<h2>볼 수 없는 것</h2>
+<p>
+  화면, 소리, 클립보드, 키 입력, 포인터는 모두 두 기기에서 끝나는 암호화된 채널 안에 있습니다.
+  릴레이는 이를 읽거나 바꾸거나 재생할 수 없습니다. 이를 가능하게 하는 장치는 두 가지이며,
+  어느 쪽도 릴레이를 신뢰하는 데 의존하지 않습니다.
+</p>
+
+<h3>제어 채널은 기기 사이의 TLS입니다</h3>
+<p>
+  세션이 릴레이를 거칠 때, iPhone은 릴레이를 통해 Mac과 TLS 1.3 핸드셰이크를 수행합니다. 릴레이는 암호화된 레코드를
+  종료하지 않고 그대로 복사하므로 세션 키를 가진 적이 없습니다. 양쪽은 페어링할 때 고정해 둔 키로 인증하므로,
+  릴레이가 끼어들려 하면 iPhone이 연결을 거부합니다.
+</p>
+
+<h3>영상 키는 릴레이를 거치지 않습니다</h3>
+<p>
+  영상은 UDP를 통한 다른 길로 가므로 자체 키가 필요합니다. 세션이 준비되면 Mac이 무작위 32바이트를 만들어
+  <em>TLS 스트림 안에서</em> iPhone에 보냅니다. 릴레이는 그 스트림을 운반하지만 열 수는 없습니다.
+  그다음 각 방향이 HKDF-SHA256으로 자기 키를 도출하고, 모든 데이터그램은 ChaCha20-Poly1305와 카운터로 봉인됩니다.
+</p>
+<pre>key = HKDF-SHA256(secret, salt = "pl.dmq.peering.video-datagram", info = direction)
+datagram = token | counter | ciphertext | tag</pre>
+<p>
+  맨 앞의 16바이트 토큰이 릴레이가 읽는 유일한 부분입니다. 데이터그램이 어느 세션에 속하는지 알려 주는 라우팅 힌트이며,
+  릴레이는 전달하기 전에 이를 제거합니다. 그 뒤의 모든 것은 암호문입니다.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-lock.webp" width="603" height="1311" loading="lazy"
+    alt="Peering 알림 두 개가 표시된 iPhone 잠금 화면: 터미널이 끝났다는 알림과 터미널이 승인을 기다린다는 알림.">
+  <figcaption>푸시 알림에는 짧은 텍스트와 코드화된 상태만 담깁니다. 화면은 절대 포함되지 않습니다.</figcaption>
+</figure>
+
+<h2>푸시 알림과 Live Activity</h2>
+<p>
+  iPhone이 잠들어 있을 때 Mac은 릴레이에 Apple 푸시로 깨워 달라고 요청합니다. 그 푸시에 담기는 내용은 일부러 얇게 유지합니다.
+  알림에는 짧은 제목과 메시지, Live Activity 업데이트에는 ID, 상태, 개수, 시각 같은 코드화된 상태만 들어갑니다.
+  Mac은 릴레이에 화면이나 터미널 출력을 절대 보내지 않습니다. 에이전트 승인에 대해서는
+  <a href="/ko/coding-agent-notifications">코딩 에이전트 알림</a>을 참고하세요.
+</p>
+
+<h2>계정 대신 증명</h2>
+<p>
+  무료 사용량은 무언가에 연결되어야 합니다. 계정 대신 기기가 자신의 키로 짧은 메시지에 서명하고,
+  릴레이는 5분 이내의 시간 창 안에서 서명을 확인합니다. 이렇게 하면 사용량이 초기화할 수 있는 ID가 아니라 키에 묶이며,
+  개인 키를 가진 사람이 아니면 등록된 Mac을 사칭할 수 없습니다.
+</p>
+
+<h2>직접 확인하세요</h2>
+<p>
+  와이어 포맷은 문서화되어 있고, 릴레이는 하나의 제약을 중심으로 만들어졌습니다. 상대를 소개하고 암호화된 바이트를 복사할 뿐,
+  운반하는 것을 들여다보거나 바꾸거나 승인할 수 없습니다. 세션이 애초에 릴레이에 올라가는 과정은
+  <a href="/ko/blog/connect-iphone-to-mac-anywhere">iPhone은 어떻게 어디서나 Mac에 닿을까</a>에서,
+  양쪽의 키가 신뢰받게 되는 과정은
+  <a href="/ko/blog/pairing-without-an-account">계정 없는 페어링</a>에서 읽어 보세요.
+</p>
+
+    <h2>자주 묻는 질문</h2>
+    <h3>Peering의 릴레이는 내 화면을 볼 수 있나요?</h3>
+    <p>아니요. 화면은 Mac이 릴레이가 열 수 없는 암호화된 연결 안에서 iPhone에 보낸 키로 봉인됩니다. 릴레이는 암호문만 복사합니다.</p>
+    <h3>Peering의 릴레이는 나에 대해 무엇을 아나요?</h3>
+    <p>기기 식별자, Mac의 이름, 사용 중인 플랜, 릴레이 사용량, 각 기기가 접속해 오는 네트워크 주소입니다. 영상, 오디오, 키 입력, 클립보드 내용은 보지 못합니다.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ko/download">Mac용 Peering 다운로드</a>
+    </div>
+
+    <nav class="post-nav" aria-label="블로그의 다른 글">
+      <h2>Peering 작동 방식 더 보기</h2>
+      <ul>
+        <li><a href="/ko/blog/connect-iphone-to-mac-anywhere">iPhone이 어디서나 Mac에 닿는 방법</a></li>
+        <li><a href="/ko/blog/mac-screen-streaming">Mac 화면이 iPhone으로 스트리밍되는 방법</a></li>
+        <li><a href="/ko/blog/pairing-without-an-account">계정 없는 페어링: 신뢰가 작동하는 방식</a></li>
+        <li><a href="/ko/blog/remote-input-latency">탭이 Mac의 클릭이 되는 과정</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="가이드, 법적 고지, 지원">
+      <a href="/ko/blog">블로그</a>
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/keep-mac-awake-for-remote-access">집에 둔 Mac</a>
+      <a href="/ko/coding-agent-notifications">코딩 에이전트</a>
+      <a href="/ko/remote-desktop-apps-compared">앱 비교</a>
+      <a href="/ko/screens-alternative">Screens 대안</a>
+      <a href="/ko/best-remote-desktop-app-for-ipad">iPad용 추천</a>
+      <a href="/ko/apple-remote-desktop-alternative">ARD 대안</a>
+      <a href="/ko/apple-remote-desktop-vs-screen-sharing">ARD와 화면 공유</a>
+      <a href="/ko/screens-vs-jump-desktop">Screens와 Jump</a>
+      <a href="/ko/rustdesk-alternative-for-mac">RustDesk 대안</a>
+      <a href="/ko/control-mac-from-android">안드로이드로 Mac 제어</a>
+      <a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a>
+      <a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱 대안</a>
+      <a href="/ko/teamviewer-alternative-for-mac">팀뷰어 대안</a>
+      <a href="/ko/control-windows-pc-from-phone">휴대폰으로 Windows 제어</a>
+      <a href="/ko/download">다운로드</a>
+      <a href="/ko/privacy">개인정보 처리방침</a>
+      <a href="/ko/terms">이용약관</a>
+      <a href="/ko/support">지원</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/what-the-relay-can-see" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/what-the-relay-can-see" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/what-the-relay-can-see" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/what-the-relay-can-see" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/what-the-relay-can-see" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/what-the-relay-can-see" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/what-the-relay-can-see" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/what-the-relay-can-see" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/what-the-relay-can-see" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/what-the-relay-can-see" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone 및 Mac은 Apple Inc.의 상표입니다.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

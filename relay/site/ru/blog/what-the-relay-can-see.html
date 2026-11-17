@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Что релей Peering может и чего не может видеть · Peering</title>
+<meta name="description" content="Что знает релей Peering (адреса, ID устройств, использование) и что он знать не должен (экран, клавиши, буфер обмена), и какие ключи это обеспечивают.">
+<link rel="canonical" href="https://getpeering.app/ru/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/what-the-relay-can-see">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://getpeering.app/ru/blog/what-the-relay-can-see">
+<meta property="og:title" content="Что релей Peering может и чего не может видеть · Peering">
+<meta property="og:description" content="Что знает релей Peering (адреса, ID устройств, использование) и что он знать не должен (экран, клавиши, буфер обмена), и какие ключи это обеспечивают.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Что релей Peering может и чего не может видеть · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Что релей Peering может и чего не может видеть · Peering">
+<meta name="twitter:description" content="Что знает релей Peering (адреса, ID устройств, использование) и что он знать не должен (экран, клавиши, буфер обмена), и какие ключи это обеспечивают.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta name="twitter:image:alt" content="Что релей Peering может и чего не может видеть · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Что релей Peering может и чего не может видеть",
+  "description": "Что знает релей Peering (адреса, ID устройств, использование) и что он знать не должен (экран, клавиши, буфер обмена), и какие ключи это обеспечивают.",
+  "image": "https://getpeering.app/assets/og/blog-what-the-relay-can-see.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ru",
+  "mainEntityOfPage": "https://getpeering.app/ru/blog/what-the-relay-can-see",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ru/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Блог",
+      "item": "https://getpeering.app/ru/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Что релей может и чего не может видеть",
+      "item": "https://getpeering.app/ru/blog/what-the-relay-can-see"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ru",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Может ли релей Peering видеть мой экран?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Нет. Картинка запечатана ключом, который Mac отправляет на iPhone внутри зашифрованного соединения, которое релей не может открыть, поэтому релей копирует только шифртекст."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Что релей Peering знает обо мне?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Идентификаторы устройств, имя вашего Mac, используемый тариф, использование релея и сетевой адрес, с которого подключается каждое устройство. Видео, звук, нажатия клавиш и содержимое буфера обмена он не видит."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ru/" aria-label="Peering, главная">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Страницы">
+      <a href="/ru/">Главная</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/blog">Блог</a>
+      <a href="/ru/download">Скачать</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ru/">Peering</a> / <a href="/ru/blog">Блог</a></p>
+    <h1>Что релей Peering может и чего не может видеть</h1>
+    <p class="post-meta">Опубликовано <time datetime="2026-11-11">11 ноября 2026</time> · 6 мин чтения</p>
+    <p class="lede">Релей это сервер посреди вашего сеанса удалённого рабочего стола, поэтому правильный вопрос в том, что мешает ему подглядывать. Ответ: ключ, который он никогда не получает.</p>
+
+<h2>Что он делает</h2>
+<p>
+  У релея три задачи. Он знакомит два устройства, которые не могут связаться напрямую, копирует
+  байты между ними, когда они всё ещё не могут, и отправляет push-уведомления от имени Mac, например
+  «вашему агенту для программирования нужен ответ». Это небольшая программа на Rust, и держать её
+  задачи небольшими и есть замысел.
+</p>
+
+<h2>Что он знает</h2>
+<p>
+  Честность в этом вопросе часть замысла. Чтобы выполнять свою работу, релей видит:
+</p>
+<ul>
+  <li>Идентификаторы устройств и имя Mac, чтобы сопоставить iPhone с Mac.</li>
+  <li>Сетевой адрес, с которого подключается каждое устройство, как и любой сервер, и передаёт каждому адрес другого, чтобы они могли попробовать прямой путь.</li>
+  <li>Какой тариф используется и сколько времени релея израсходовано, чтобы соблюдать бесплатный лимит в 30 минут в день.</li>
+  <li>Что сеанс существует, когда он начался и сколько длился.</li>
+</ul>
+<p>
+  <a href="/ru/privacy">Политика конфиденциальности</a> перечисляет всё это полностью. Ничто из этого не
+  является содержимым вашего сеанса.
+</p>
+
+<h2>Чего он не видит</h2>
+<p>
+  Картинка, звук, буфер обмена, нажатия клавиш и указатель находятся внутри зашифрованного канала,
+  который заканчивается на ваших двух устройствах. Релей не может ни прочитать их, ни изменить, ни
+  воспроизвести повторно. Это обеспечивают два механизма, и ни один не зависит от доверия к релею.
+</p>
+
+<h3>Управляющий канал это TLS между устройствами</h3>
+<p>
+  Когда сеанс идёт через релей, iPhone выполняет рукопожатие TLS 1.3 с Mac сквозь релей. Релей
+  копирует зашифрованные записи, не завершая TLS, поэтому у него никогда нет ключа сеанса. Оба конца
+  проходят проверку подлинности ключами, которые запомнили при связывании, так что релей не может
+  подставить себя, не вызвав отказа iPhone в соединении.
+</p>
+
+<h3>Ключ видео никогда не проходит через релей</h3>
+<p>
+  Видео идёт другой дорогой, по UDP, поэтому ему нужен свой ключ. Когда сеанс готов, Mac создаёт 32
+  случайных байта и отправляет их на iPhone <em>внутри потока TLS</em>. Релей несёт этот поток и не
+  может его открыть. Затем каждое направление выводит свой ключ через HKDF-SHA256, и каждая датаграмма
+  запечатывается ChaCha20-Poly1305 вместе со счётчиком.
+</p>
+<pre>key = HKDF-SHA256(secret, salt = "pl.dmq.peering.video-datagram", info = direction)
+datagram = token | counter | ciphertext | tag</pre>
+<p>
+  16-байтный токен в начале это единственное, что читает релей. Это подсказка для маршрутизации,
+  которая говорит, к какому сеансу относится датаграмма, и релей убирает её перед пересылкой. Всё
+  после неё это шифртекст.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-lock.webp" width="603" height="1311" loading="lazy"
+    alt="Экран блокировки iPhone с двумя уведомлениями Peering: терминал завершил работу и терминалу нужно подтверждение.">
+  <figcaption>Push-уведомления несут короткий текст и кодированное состояние. Ваш экран никогда не входит в их состав.</figcaption>
+</figure>
+
+<h2>Push-уведомления и Live Activity</h2>
+<p>
+  Когда iPhone спит, Mac просит релей разбудить его push-сообщением Apple. Содержимое этого
+  сообщения намеренно скудное: короткий заголовок и текст для уведомления, а для обновлений Live
+  Activity только кодированное состояние: идентификаторы, состояния, счётчики и время. Mac никогда не
+  отправляет релею ваш экран или вывод терминала. О подтверждениях для агентов читайте в статье
+  <a href="/ru/coding-agent-notifications">уведомления для агентов для программирования</a>.
+</p>
+
+<h2>Доказательства вместо аккаунтов</h2>
+<p>
+  Бесплатный лимит должен к чему-то привязываться. Вместо аккаунта устройства подписывают короткое
+  сообщение своим ключом, а релей проверяет подпись в пятиминутном окне. Так лимит привязывается к
+  ключу, а не к сбрасываемому ID, и никто не может выдать себя за зарегистрированный Mac, не имея его
+  закрытого ключа.
+</p>
+
+<h2>Проверьте сами</h2>
+<p>
+  Формат передачи данных задокументирован, а релей построен вокруг ограничения: он знакомит
+  устройства и копирует зашифрованные байты, но не может проверять, изменять или разрешать то, что
+  несёт. О том, как сеанс вообще попадает на релей, читайте в статье
+  <a href="/ru/blog/connect-iphone-to-mac-anywhere">как iPhone достаёт до вашего Mac откуда угодно</a>, а о
+  том, как ключам на каждом конце начинают доверять, в статье
+  <a href="/ru/blog/pairing-without-an-account">связывание без аккаунта</a>.
+</p>
+
+    <h2>Вопросы</h2>
+    <h3>Может ли релей Peering видеть мой экран?</h3>
+    <p>Нет. Картинка запечатана ключом, который Mac отправляет на iPhone внутри зашифрованного соединения, которое релей не может открыть, поэтому релей копирует только шифртекст.</p>
+    <h3>Что релей Peering знает обо мне?</h3>
+    <p>Идентификаторы устройств, имя вашего Mac, используемый тариф, использование релея и сетевой адрес, с которого подключается каждое устройство. Видео, звук, нажатия клавиш и содержимое буфера обмена он не видит.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ru/download">Скачать Peering для Mac</a>
+    </div>
+
+    <nav class="post-nav" aria-label="Ещё в блоге">
+      <h2>Ещё о том, как работает Peering</h2>
+      <ul>
+        <li><a href="/ru/blog/connect-iphone-to-mac-anywhere">Как iPhone достаёт до Mac откуда угодно</a></li>
+        <li><a href="/ru/blog/mac-screen-streaming">Как экран Mac передаётся на iPhone</a></li>
+        <li><a href="/ru/blog/pairing-without-an-account">Связывание без аккаунта: как устроено доверие</a></li>
+        <li><a href="/ru/blog/remote-input-latency">Как касание становится кликом на Mac</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Руководства, правовая информация и поддержка">
+      <a href="/ru/blog">Блог</a>
+      <a href="/ru/how-to-pair-iphone-mac">Руководство по связыванию</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/keep-mac-awake-for-remote-access">Mac дома</a>
+      <a href="/ru/coding-agent-notifications">Агенты для кода</a>
+      <a href="/ru/remote-desktop-apps-compared">Сравнение приложений</a>
+      <a href="/ru/screens-alternative">Альтернатива Screens</a>
+      <a href="/ru/best-remote-desktop-app-for-ipad">Лучшее для iPad</a>
+      <a href="/ru/apple-remote-desktop-alternative">Альтернативы ARD</a>
+      <a href="/ru/apple-remote-desktop-vs-screen-sharing">ARD или «Общий экран»</a>
+      <a href="/ru/screens-vs-jump-desktop">Screens или Jump</a>
+      <a href="/ru/rustdesk-alternative-for-mac">Альтернатива RustDesk</a>
+      <a href="/ru/control-mac-from-android">Mac с Android</a>
+      <a href="/ru/claude-code-on-android">Claude Code на Android</a>
+      <a href="/ru/chrome-remote-desktop-alternative">Альтернатива Chrome Remote Desktop</a>
+      <a href="/ru/teamviewer-alternative-for-mac">Альтернатива TeamViewer</a>
+      <a href="/ru/control-windows-pc-from-phone">Windows с телефона</a>
+      <a href="/ru/download">Скачать</a>
+      <a href="/ru/privacy">Конфиденциальность</a>
+      <a href="/ru/terms">Условия</a>
+      <a href="mailto:support@getpeering.app">Поддержка</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/what-the-relay-can-see" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/what-the-relay-can-see" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/what-the-relay-can-see" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/what-the-relay-can-see" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/what-the-relay-can-see" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/what-the-relay-can-see" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/what-the-relay-can-see" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/what-the-relay-can-see" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/what-the-relay-can-see" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/what-the-relay-can-see" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone и Mac являются товарными знаками Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

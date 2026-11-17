@@ -35,8 +35,13 @@ struct RemoteScreen: View {
                 }
         }
         // On the stack's owner and not on a page: a page's handlers run again each time a pop reveals it.
-        .onChange(of: model.phase, initial: true) { _, phase in
+        .onChange(of: model.phase) { _, phase in
             if phase == .ready { resolveSessionMode() }
+        }
+        // Not `onChange(initial: true)`: that runs inside the stack's first render, and a path set then reaches SwiftUI before the `navigationDestination` is registered. It answers with its yellow missing-destination triangle over black and resets the path, so a remembered mode opened as a dead page. Picking by hand came seconds later, which worked.
+        .task {
+            await Task.yield()
+            if model.phase == .ready { resolveSessionMode() }
         }
         .onChange(of: model.activeSessionID) { _, _ in
             endWatchIfMacChanged()
@@ -79,7 +84,8 @@ struct RemoteScreen: View {
                 onCancel: model.activeSession?.modeResolved == true ? { closeModePicker() } : nil
             )
         } else {
-            surface.analyticsScreen(.session)
+            // Not the picture: it is only ever built as a pushed page, so no second display layer exists for the moment before the mode resolves.
+            ColorPalette.backdrop.ignoresSafeArea()
         }
     }
 }

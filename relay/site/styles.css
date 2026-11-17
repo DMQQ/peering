@@ -1005,268 +1005,150 @@ a { color: inherit; }
 
 /* ---------- Pricing ---------- */
 
-/* One table rather than four cards, and the table is the point. A card can only list what its own
-   plan has, which is why every card past the first opened with "everything free has" and then
-   stopped: a reader who wanted to know what Relay adds to Free had to hold two lists in their head
-   and diff them, and the two lists did not always agree. A row here is a question, and it is asked
-   once and answered four times.
-
-   The first column sticks, because on a phone this table is wider than the screen and a tick with
-   no row beside it answers nothing. */
-/* No scroll container here by default, which is what lets the header row stick to the viewport
-   rather than to a box inside the page. A narrow page cannot have it that way: see the table block
-   in the narrow-width section, where the wrapper becomes one. */
-/* Hidden until the table starts scrolling; see the media query where it is shown. */
-.plans-scroll-hint {
-  display: none;
-}
-
-.plans-wrap {
+.plan-cards {
   margin-top: 44px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.plan-card {
   position: relative;
-  /* The one thing on this page that widened the document without meaning to.
-
-     The table's cells are sticky so that a tick is never without the row it answers and never
-     without the plan it belongs to. A sticky box inside a scroll container still reports its full
-     width to the scrollable overflow of everything above that container, so on a phone the table
-     escaped the wrapper's own `overflow: auto` and the page could be dragged 324px sideways while
-     the wrapper sat there scrolling correctly, with the whole of the bug invisible in the wrapper.
-
-     `contain: paint` keeps every half of it: the cells go on sticking, the wrapper goes on scrolling
-     them, and nothing inside is part of the document's overflow any more. Turning the cells static
-     also stops it, and costs the feature. An `overflow-x` on `html` or `body` also stops it, and on
-     `body` it costs the sticky bar, because it makes the body a scroll container and takes the bar's
-     scrollport away from the viewport. This is the only place the containment is needed, so this is
-     where it goes. */
-  contain: paint;
+  display: flex;
+  flex-direction: column;
+  padding: 36px 28px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  text-align: center;
 }
 
-.plans {
-  width: 100%;
-  /* Below this the four price columns stop being readable side by side, which is the one thing the
-     table is for; the wrapper scrolls instead. */
-  min-width: 860px;
-  border-collapse: separate;
-  border-spacing: 0;
-  text-align: left;
-  /* Fixed rather than automatic, so the price columns are the same width as each other at
-     every viewport. Left to itself the browser gives the column holding "every Mac you own" more
-     room than the one holding a tick, and unequal columns stop reading as a comparison. */
-  table-layout: fixed;
-}
+.plan-card-pro { border-color: rgba(10, 132, 255, 0.55); }
 
-.plans .corner { width: 40%; }
-.plans thead th.plan-col { width: 20%; }
-
-.plans th,
-.plans td {
-  font-weight: 400;
-  text-align: left;
-  vertical-align: middle;
-  padding: 13px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-/* Visible to a screen reader and not to the eye: the ticks are drawn, so without this a row of
-   cells reads as a row of nothing. */
-.vh {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* The answers. */
-.plans .yes,
-.plans .no-cell,
-.plans .val { text-align: center; }
-
-.plans .yes::before {
-  content: "";
-  display: block;
-  width: 11px;
-  height: 6px;
-  margin: 0 auto;
-  border-left: 1.8px solid var(--ink-70);
-  border-bottom: 1.8px solid var(--ink-70);
-  transform: rotate(-45deg) translate(1px, -1px);
-}
-
-.plans .no-cell .no {
-  display: block;
-  font-size: 17px;
-  line-height: 1;
-  color: rgba(255, 255, 255, 0.20);
-}
-
-.plans .val {
-  font-size: 14.5px;
-  color: var(--ink-70);
-}
-
-/* Everything here that has to cover what scrolls behind it paints the page's own light rather
-   than a flat colour. That light is a gradient fixed to the viewport (see `body`), so a
-   cell painting #0a0a0c would cut a rectangle out of it wherever the two overlapped. Fixed
-   attachment paints the same gradient in the same place, and there is no seam. */
-.plans tbody th[scope="row"],
-.plans .corner,
-.plans .group-row th,
-.plans thead th.plan-col {
-  background-color: var(--backdrop);
-  background-image: radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
-  background-attachment: fixed;
-}
-
-/* The question in each row, flush to the page's own left edge so the price columns slide
-   underneath it rather than through it. */
-.plans tbody th[scope="row"],
-.plans .corner {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  padding-left: 0;
-  padding-right: 32px;
-  font-size: 15px;
-  color: var(--ink-70);
-}
-
-/* A group of rows. Named in the display face rather than as a tracked all-caps kicker: this is a
-   label inside a table, and the page does not use eyebrows above headings anywhere else. */
-.plans .group-row th {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  padding: 38px 28px 10px 0;
+.plan-card .plan-name {
   font-family: var(--display);
   font-size: 18px;
-  color: var(--ink);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-/* The four plans, as a header row rather than as four card tops. Centred, because a name sitting
-   to the left of a column of ticks reads as belonging to the column before it.
-   The header sticks, and on a phone it has to: the table is wider than the screen, so three of the
-   four columns are off it at any moment, and a tick whose plan name has scrolled off the top
-   answers nothing. Sticking by column means a name travels sideways with its own ticks and never
-   with anyone else's. */
-.plans thead .corner,
-.plans thead th.plan-col,
-.plans .group-row td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.plans thead th.plan-col {
-  position: sticky;
-  /* Under the bar, which is 64px and is itself sticky. */
-  top: 64px;
-  z-index: 2;
-  text-align: center;
-  vertical-align: bottom;
-  /* The top is the badge's room. Every column takes it rather than only the one with a badge, so
-     all four names land on the same line. */
-  padding: 34px 14px 20px;
-}
-
-.plans thead .corner {
-  position: sticky;
-  top: 64px;
-  left: 0;
-  z-index: 3;
-}
-
-/* The name and the price are one pair in the app's own plans page, and both of them are set in the
-   display face there. Here the name was the system face, which made the price read as the only
-   thing on the row that had been designed. */
-.plans .plan-name {
-  display: block;
-  font-family: var(--display);
-  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink-70);
 }
 
-.plans .plan-price {
-  display: block;
+.plan-card .plan-price {
+  margin-top: 12px;
   font-family: var(--display);
-  font-size: 30px;
+  font-size: 44px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin-top: 8px;
 }
 
-.plans .plan-price span {
+.plan-card .plan-price span {
   font-family: var(--text);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 400;
   color: var(--ink-50);
   letter-spacing: 0;
+  margin-left: 4px;
 }
 
-.plans .plan-note {
-  display: block;
-  font-size: 13px;
+.plan-card .plan-note {
+  margin-top: 6px;
+  min-height: 3em;
+  font-size: 14px;
   color: var(--ink-50);
-  margin-top: 3px;
 }
 
-.plans .plan-badge {
+.plan-badge {
   position: absolute;
-  top: 0;
+  top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 3px 9px;
+  padding: 3px 10px;
   border-radius: 999px;
-  /* A deeper blue than the accent, and only here. White on the accent itself is 3.6:1: legible
-     as a large shape and not as eleven-point type, which is what this is. */
   background: #0a63c9;
   color: #fff;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
-/* The rows every plan shares. They are read after the differences and they are quieter than they
-   were, because twelve identical ticks in a row is a block that says "free gets everything" to
-   anyone scanning, and the paid columns beside it then read as empty. They stay in the table
-   rather than moving to a list above it: what Free gets is a question this section has to answer,
-   and it is answered here as a row rather than as a claim. */
-.plans tr.quiet th[scope="row"] {
-  font-size: 14px;
+.plan-list {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 22px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  display: grid;
+  gap: 14px;
+  text-align: left;
+  font-size: 15px;
+  color: var(--ink-70);
+}
+
+.plan-list li { position: relative; padding-left: 26px; }
+.plan-list b { display: block; font-weight: 600; color: var(--ink); }
+
+.plan-list li::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.45em;
+  width: 10px;
+  height: 5px;
+  border-left: 1.8px solid var(--ink-70);
+  border-bottom: 1.8px solid var(--ink-70);
+  transform: rotate(-45deg);
+}
+
+.plan-list li.no { color: var(--ink-50); }
+.plan-list li.no s { text-decoration-color: rgba(255, 255, 255, 0.25); }
+.plan-list li.no::before {
+  width: 8px;
+  height: 0;
+  border-left: 0;
+  border-bottom: 1.8px solid rgba(255, 255, 255, 0.25);
+  transform: none;
+  top: 0.7em;
+}
+
+.plan-shared-title {
+  margin-top: 56px;
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.plan-shared {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  columns: 3;
+  column-gap: 28px;
+  font-size: 14.5px;
   color: var(--ink-55);
 }
 
-.plans tr.quiet .yes::before { border-color: rgba(255, 255, 255, 0.42); }
-.plans tr.quiet .no-cell .no { color: rgba(255, 255, 255, 0.12); }
-.plans tr.quiet td, .plans tr.quiet th { border-bottom-color: rgba(255, 255, 255, 0.045); }
-
-/* The Pro column, lifted out of the table the way the badge inside it is lifted out of the type.
-   The lift runs the whole height of the column, which is why a group row is one cell spanning four
-   columns and a bare cell for the fifth: a single cell across all five would cut the tint in two. */
-.plans .col-pro {
-  background: rgba(255, 255, 255, 0.05);
-  border-left: 1px solid rgba(10, 132, 255, 0.45);
-  border-right: 1px solid rgba(10, 132, 255, 0.45);
+.plan-shared li {
+  position: relative;
+  break-inside: avoid;
+  padding: 6px 0 6px 24px;
 }
 
-.plans thead .col-pro {
-  border-top: 1px solid rgba(10, 132, 255, 0.45);
-  border-radius: 14px 14px 0 0;
-  /* The same lift as the body of the column, over the same light rather than over a flat dark. */
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05)),
-    radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
-  background-attachment: scroll, fixed;
+.plan-shared li::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.8em;
+  width: 10px;
+  height: 5px;
+  border-left: 1.8px solid rgba(255, 255, 255, 0.42);
+  border-bottom: 1.8px solid rgba(255, 255, 255, 0.42);
+  transform: rotate(-45deg);
 }
 
-.plans tbody tr:last-child .col-pro {
-  border-bottom: 1px solid rgba(10, 132, 255, 0.45);
-  border-radius: 0 0 14px 14px;
+@media (max-width: 860px) {
+  .plan-cards { grid-template-columns: 1fr; gap: 28px; max-width: 420px; margin-left: auto; margin-right: auto; }
+  .plan-card .plan-note { min-height: 0; }
+  .plan-shared { columns: 1; }
 }
 
 /* ---------- FAQ ---------- */
@@ -1584,64 +1466,6 @@ a { color: inherit; }
   .hero-stage { padding-top: clamp(24px, 3.5vh, 52px); }
 }
 
-@media (max-width: 960px) {
-  /* Four plans and a label do not fit across a narrow page, so this is where the table stops
-     trying. It becomes its own scroll box: the wrapper scrolls both ways, the header row pins to the
-     top of that box and the row labels pin to its left, so a tick is never without the row it
-     answers and never without the plan it belongs to. The box is bounded because a sticky header
-     needs something to stick inside, and it is capped at most of the viewport so the table does not
-     become a page of its own.
-
-     This is the only place the page asks the reader to scroll something other than the page, and it
-     is confined to the widths where the alternative is a table two thirds off the screen. */
-  .plans-wrap {
-    max-height: 78vh;
-    overflow: auto;
-    overscroll-behavior: contain;
-    border-top: 1px solid rgba(255, 255, 255, 0.10);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-  }
-
-  .plans thead th.plan-col,
-  .plans thead .corner { top: 0; }
-
-  /* Narrower columns, so that the label column plus a whole plan column is what a phone shows.
-     At the desk width a label of 30% reads best; on a 390-point screen the same 30% is 258 of the
-     342 points available and the plan beside it arrives as three letters and a dollar sign. */
-  .plans { min-width: 760px; }
-  .plans .corner { width: 26%; }
-  .plans thead th.plan-col { width: 18.5%; }
-
-  /* iOS Safari draws no visible scrollbar and gives no hover state, so a box that scrolls
-     sideways with nothing marking its edge reads as a table that was simply cut off rather than
-     one with more to see. Said in words above the table instead. */
-  .plans-scroll-hint {
-    display: block;
-    margin-top: 12px;
-    font-size: 13px;
-    color: var(--ink-50);
-    text-align: center;
-  }
-
-  /* A row's own name and a cell's own answer both wrap onto a second line by default, but a word
-     with nowhere to break (a long product name, a run-together number) will not, and `fixed`
-     layout will not grow the column to fit it either: the word draws over the cell beside it
-     instead of inside its own. Letting it break stops that without touching the widths above. */
-  .plans .corner, .plans .group-row th, .plans tbody th[scope="row"], .plans .val {
-    overflow-wrap: break-word;
-  }
-}
-
-@media (max-width: 480px) {
-  /* True phone widths, narrower than the breakpoint above was tuned for. The label column gives
-     up some of its share, since the same words fit in less room once they are wrapping anyway,
-     and the price columns take the difference: "every Mac you own" and "unlimited" are the
-     widest things a column carries, and 140px left them tight against the tick marks above them. */
-  .plans { min-width: 700px; }
-  .plans .corner { width: 22%; }
-  .plans thead th.plan-col { width: 19.5%; }
-}
-
 @media (max-width: 900px) {
   /* The pair is sized off the display, so a narrower page shrinks both together and the phone
      eventually becomes a thumbnail. The phone's fraction goes up instead, which costs the Mac some
@@ -1720,3 +1544,61 @@ a { color: inherit; }
   .btn:active { transform: none; }
   .nav, .bar { transition: none; }
 }
+
+/* ---------- Screenshot gallery ---------- */
+
+.gallery {
+  --screen: 146px;
+  list-style: none;
+  margin: 48px 0 0;
+  padding: 0 0 8px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 28px 18px;
+}
+
+.gallery li { margin: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.gallery .phone { box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5); }
+.gallery h3 { font-size: 16px; margin-top: 18px; }
+.gallery p { margin-top: 6px; font-size: 14px; color: var(--ink-55); }
+.gallery-more { margin-top: 40px; text-align: center; color: var(--ink-55); }
+.gallery-more a { color: var(--ink); text-underline-offset: 3px; }
+
+@media (max-width: 960px) {
+  .gallery {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin-inline: -24px;
+    padding-inline: 24px;
+    gap: 22px;
+  }
+  .gallery { --screen: 176px; }
+  .gallery li { flex: none; width: 190px; scroll-snap-align: center; }
+}
+
+/* ---------- Blog ---------- */
+
+.post-list { list-style: none; margin: 40px 0 0; padding: 0; display: grid; gap: 20px; }
+.post-list li { margin: 0; }
+.post-card { display: block; padding: 26px 28px; text-decoration: none; color: inherit; }
+.post-card h2 { font-size: 24px; margin: 0; }
+.post-card p { margin: 10px 0 0; color: var(--ink-55); font-size: 16px; }
+.post-meta { margin: 0 0 10px; font-size: 13px; color: var(--ink-50); }
+.doc .post-meta { margin-top: 12px; }
+.doc .crumbs { font-size: 14px; color: var(--ink-50); margin: 0 0 18px; }
+.doc .crumbs a { color: var(--ink-70); text-underline-offset: 3px; }
+.doc .post-nav { margin-top: 56px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.10); }
+.doc .post-nav h2 { margin-top: 0; font-size: 18px; }
+.doc pre {
+  margin: 20px 0 0;
+  padding: 16px 18px;
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-70);
+  font: 13.5px/1.6 var(--mono);
+}
+.doc code { font-family: var(--mono); font-size: 0.92em; color: var(--ink-70); }
+.doc .lede { margin-top: 20px; font-size: 19px; line-height: 1.55; color: var(--ink-70); }
+.doc .post-nav ul { margin-top: 12px; }

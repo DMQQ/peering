@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pareamento sem conta: como o Peering decide em quem confiar · Peering</title>
+<meta name="description" content="O Peering não tem login. Cada dispositivo guarda a sua chave, e um código de seis dígitos comparado nas duas telas prova que ninguém está no meio.">
+<link rel="canonical" href="https://getpeering.app/pt/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/pairing-without-an-account">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:url" content="https://getpeering.app/pt/blog/pairing-without-an-account">
+<meta property="og:title" content="Pareamento sem conta: como o Peering decide em quem confiar · Peering">
+<meta property="og:description" content="O Peering não tem login. Cada dispositivo guarda a sua chave, e um código de seis dígitos comparado nas duas telas prova que ninguém está no meio.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-pairing-without-an-account.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pareamento sem conta: como o Peering decide em quem confiar · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Pareamento sem conta: como o Peering decide em quem confiar · Peering">
+<meta name="twitter:description" content="O Peering não tem login. Cada dispositivo guarda a sua chave, e um código de seis dígitos comparado nas duas telas prova que ninguém está no meio.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-pairing-without-an-account.png">
+<meta name="twitter:image:alt" content="Pareamento sem conta: como o Peering decide em quem confiar · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Pareamento sem conta: como o Peering decide em quem confiar",
+  "description": "O Peering não tem login. Cada dispositivo guarda a sua chave, e um código de seis dígitos comparado nas duas telas prova que ninguém está no meio.",
+  "image": "https://getpeering.app/assets/og/blog-pairing-without-an-account.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "pt-BR",
+  "mainEntityOfPage": "https://getpeering.app/pt/blog/pairing-without-an-account",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/pt/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://getpeering.app/pt/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Pareamento sem conta: como funciona a confiança",
+      "item": "https://getpeering.app/pt/blog/pairing-without-an-account"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "pt-BR",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "O Peering precisa de uma conta ou de um endereço de e-mail?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Não. Cada dispositivo cria a sua própria chave e a guarda no seu próprio Keychain. O pareamento é um código de seis dígitos que você compara nas duas telas."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Contra o que o código de pareamento de seis dígitos protege?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Contra alguém no meio entre o seu iPhone e o seu Mac. O código é derivado de todo o handshake, então um intermediário produz códigos diferentes nas duas telas e você vê a divergência."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/pt/" aria-label="Peering, início">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Páginas">
+      <a href="/pt/">Início</a>
+      <a href="/pt/remote-desktop-for-mac">Área de trabalho remota</a>
+      <a href="/pt/access-your-mac-from-anywhere">De qualquer lugar</a>
+      <a href="/pt/blog">Blog</a>
+      <a href="/pt/download">Baixar</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/pt/">Peering</a> / <a href="/pt/blog">Blog</a></p>
+    <h1>Pareamento sem conta: como o Peering decide em quem confiar</h1>
+    <p class="post-meta">Publicado <time datetime="2026-11-11">11 de novembro de 2026</time> · 6 min de leitura</p>
+    <p class="lede">A maioria das ferramentas de área de trabalho remota pede que você crie uma conta para que uma empresa decida se dois dispositivos pertencem um ao outro. O Peering dispensa a empresa e pergunta a você, com seis dígitos.</p>
+
+<h2>Cada dispositivo é a sua própria identidade</h2>
+<p>
+  Na primeira vez que o Peering roda em um Mac ou em um iPhone, ele gera um par de chaves P-256 e guarda a
+  metade privada no Keychain desse dispositivo. Essa chave é a identidade do dispositivo para sempre. Não há
+  nome de usuário, senha nem servidor que guarde uma cópia. A cada vez que o app inicia, ele assina um novo
+  certificado autoassinado sobre essa chave, e os outros dispositivos fixam a chave, não o certificado.
+</p>
+<p>
+  Isso importa porque um certificado autoassinado não prova nada sozinho. Ele diz "esta chave fez
+  este certificado", não "este é o Mac da sua sala". Alguma coisa precisa ligar uma chave a um
+  dispositivo físico, e essa coisa é você.
+</p>
+
+<h2>Os seis dígitos</h2>
+<p>
+  Quando um iPhone encontra um Mac pela primeira vez, as duas telas mostram um código de seis dígitos. Você confirma que
+  são iguais. Se forem, cada dispositivo guarda a chave do outro. Se não forem, há alguém no meio
+  dos dois e você recusa.
+</p>
+<p>
+  O código não é aleatório e não é uma senha. É um hash curto de todo o handshake: os dois
+  IDs de dispositivo, chaves descartáveis novas de cada lado, números aleatórios descartáveis de cada lado e a
+  chave de identidade do Mac. Mais precisamente, são os quatro primeiros bytes de um SHA-256 sobre esses campos,
+  reduzidos a seis dígitos decimais. Se um atacante retransmitir a conexão, o Mac e o iPhone verão
+  cada um uma transcrição diferente e, portanto, um número diferente.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/onboarding-pair-iphone.webp" width="1600" height="813" loading="lazy"
+    alt="A tela Pareie o seu primeiro iPhone do Peering no Mac, mostrando as três formas de conectar e um código QR.">
+  <figcaption>O Mac espera por um iPhone. O código aparece nas duas telas assim que eles se encontram.</figcaption>
+</figure>
+
+<h2>Por que se comprometer primeiro</h2>
+<p>
+  Um código de seis dígitos tem apenas um milhão de valores, então um atacante esperto poderia tentar percorrer
+  chaves descartáveis até que os dois lados mostrassem o mesmo número. O protocolo fecha essa
+  porta com uma etapa de compromisso e revelação:
+</p>
+<ol>
+  <li>Cada lado envia primeiro um hash da sua chave descartável e do seu número aleatório.</li>
+  <li>Só depois que os dois hashes chegam é que cada lado revela os valores reais.</li>
+  <li>Cada lado confere o que foi revelado com o hash que recebeu antes.</li>
+</ol>
+<p>
+  Como o atacante precisa se comprometer antes de ver qualquer coisa, ele não consegue ajustar os valores para coincidirem.
+  Sobra um palpite às cegas, com uma chance em um milhão de gerar um código igual a cada tentativa, e
+  uma tentativa fracassada aparece como uma divergência que você consegue ver.
+</p>
+
+<h2>O atalho do QR</h2>
+<p>
+  Se você escanear o código QR do Mac, não há nada para comparar a olho. O QR contém um
+  segredo de 16 bytes que só quem estivesse olhando para a tela do Mac poderia ter. O iPhone o usa para
+  calcular uma prova (um HMAC sobre o handshake), e o Mac a aceita como evidência de que a pessoa que
+  está pareando está fisicamente diante do Mac. Sem essa prova, o Mac pede ao próprio usuário que
+  aprove.
+</p>
+
+<h2>Depois do pareamento, a confiança é uma comparação de chaves</h2>
+<p>
+  Toda conexão seguinte é uma sessão TLS 1.3 em que os dois lados apresentam a sua chave. O iPhone
+  pega a chave do Mac do certificado que realmente recebeu, nunca de algo que o Mac diga
+  em uma mensagem, e a compara com a guardada em tempo constante. Uma chave diferente significa nenhuma
+  conexão. Depois da primeira vez, nada mais é pedido a você.
+</p>
+<p>
+  Se um Mac afirmar "eu já conheço você" mas o seu iPhone não tiver chave guardada para ele, o iPhone
+  recusa. A afirmação não prova nada, já que um estranho poderia dizê-la com a mesma facilidade.
+</p>
+<p>
+  O passo a passo prático está no <a href="/pt/how-to-pair-iphone-mac">guia de pareamento</a>. Para saber o que
+  acontece com a conexão depois que ela existe, veja <a href="/pt/blog/what-the-relay-can-see">o que o relay pode ver</a>.
+</p>
+
+    <h2>Perguntas</h2>
+    <h3>O Peering precisa de uma conta ou de um endereço de e-mail?</h3>
+    <p>Não. Cada dispositivo cria a sua própria chave e a guarda no seu próprio Keychain. O pareamento é um código de seis dígitos que você compara nas duas telas.</p>
+    <h3>Contra o que o código de pareamento de seis dígitos protege?</h3>
+    <p>Contra alguém no meio entre o seu iPhone e o seu Mac. O código é derivado de todo o handshake, então um intermediário produz códigos diferentes nas duas telas e você vê a divergência.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/pt/download">Baixar o Peering para Mac</a>
+    </div>
+
+    <nav class="post-nav" aria-label="Mais do blog">
+      <h2>Mais sobre como o Peering funciona</h2>
+      <ul>
+        <li><a href="/pt/blog/connect-iphone-to-mac-anywhere">Como o seu iPhone chega ao seu Mac de qualquer lugar</a></li>
+        <li><a href="/pt/blog/mac-screen-streaming">Como a tela do seu Mac é transmitida para o seu iPhone</a></li>
+        <li><a href="/pt/blog/remote-input-latency">Como um toque vira um clique no seu Mac</a></li>
+        <li><a href="/pt/blog/what-the-relay-can-see">O que o relay pode e não pode ver</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guias, avisos legais e suporte">
+      <a href="/pt/blog">Blog</a>
+      <a href="/pt/how-to-pair-iphone-mac">Guia de pareamento</a>
+      <a href="/pt/remote-desktop-for-mac">Área de trabalho remota</a>
+      <a href="/pt/access-your-mac-from-anywhere">De qualquer lugar</a>
+      <a href="/pt/keep-mac-awake-for-remote-access">Mac em casa</a>
+      <a href="/pt/coding-agent-notifications">Agentes de código</a>
+      <a href="/pt/remote-desktop-apps-compared">Comparar apps</a>
+      <a href="/pt/screens-alternative">Alternativa ao Screens</a>
+      <a href="/pt/best-remote-desktop-app-for-ipad">Melhor para iPad</a>
+      <a href="/pt/apple-remote-desktop-alternative">Alternativas ao ARD</a>
+      <a href="/pt/apple-remote-desktop-vs-screen-sharing">ARD vs Compartilhamento de Tela</a>
+      <a href="/pt/screens-vs-jump-desktop">Screens vs Jump</a>
+      <a href="/pt/rustdesk-alternative-for-mac">Alternativa ao RustDesk</a>
+      <a href="/pt/control-mac-from-android">Mac pelo Android</a>
+      <a href="/pt/claude-code-on-android">Claude Code no Android</a>
+      <a href="/pt/chrome-remote-desktop-alternative">Alternativa ao Chrome Remote Desktop</a>
+      <a href="/pt/teamviewer-alternative-for-mac">Alternativa ao TeamViewer</a>
+      <a href="/pt/control-windows-pc-from-phone">Windows pelo celular</a>
+      <a href="/pt/download">Baixar</a>
+      <a href="/pt/privacy">Privacidade</a>
+      <a href="/pt/terms">Termos</a>
+      <a href="mailto:support@getpeering.app">Suporte</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/pairing-without-an-account" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/pairing-without-an-account" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/pairing-without-an-account" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/pairing-without-an-account" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/pairing-without-an-account" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/pairing-without-an-account" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/pairing-without-an-account" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/pairing-without-an-account" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/pairing-without-an-account" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/pairing-without-an-account" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone e Mac são marcas registradas da Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

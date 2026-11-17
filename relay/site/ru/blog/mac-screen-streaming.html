@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Как Peering передаёт экран Mac на iPhone · Peering</title>
+<meta name="description" content="Захват, аппаратное кодирование, датаграммы и восстановление после потерь: путь кадра от дисплея Mac до iPhone и отличие от видеозвонка.">
+<link rel="canonical" href="https://getpeering.app/ru/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/mac-screen-streaming">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://getpeering.app/ru/blog/mac-screen-streaming">
+<meta property="og:title" content="Как Peering передаёт экран Mac на iPhone · Peering">
+<meta property="og:description" content="Захват, аппаратное кодирование, датаграммы и восстановление после потерь: путь кадра от дисплея Mac до iPhone и отличие от видеозвонка.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Как Peering передаёт экран Mac на iPhone · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Как Peering передаёт экран Mac на iPhone · Peering">
+<meta name="twitter:description" content="Захват, аппаратное кодирование, датаграммы и восстановление после потерь: путь кадра от дисплея Mac до iPhone и отличие от видеозвонка.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta name="twitter:image:alt" content="Как Peering передаёт экран Mac на iPhone · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Как Peering передаёт экран Mac на iPhone",
+  "description": "Захват, аппаратное кодирование, датаграммы и восстановление после потерь: путь кадра от дисплея Mac до iPhone и отличие от видеозвонка.",
+  "image": "https://getpeering.app/assets/og/blog-mac-screen-streaming.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ru",
+  "mainEntityOfPage": "https://getpeering.app/ru/blog/mac-screen-streaming",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ru/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Блог",
+      "item": "https://getpeering.app/ru/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Как экран Mac передаётся на iPhone",
+      "item": "https://getpeering.app/ru/blog/mac-screen-streaming"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ru",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Какой видеокодек использует Peering?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "H.264 или HEVC, кодирование на Mac через VideoToolbox, без B-кадров и с настройками малой задержки. iPhone сообщает Mac, что он умеет декодировать."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Почему картинка иногда на миг смазывается?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Потерянный сетевой пакет повреждает кадр, и картинка восстанавливается на следующем ключевом кадре, который приходит не реже чем раз в две секунды. Peering предпочитает короткую смазанность ожиданию повторной отправки."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ru/" aria-label="Peering, главная">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Страницы">
+      <a href="/ru/">Главная</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/blog">Блог</a>
+      <a href="/ru/download">Скачать</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ru/">Peering</a> / <a href="/ru/blog">Блог</a></p>
+    <h1>Как Peering передаёт экран Mac на iPhone</h1>
+    <p class="post-meta">Опубликовано <time datetime="2026-11-11">11 ноября 2026</time> · 7 мин чтения</p>
+    <p class="lede">Удалённый рабочий стол это видеопоток с одним необычным требованием: тот, кто смотрит, ещё и управляет. Все решения ниже вытекают из желания держать эту петлю короткой.</p>
+
+<h2>Захват: просим у системы картинку</h2>
+<p>
+  Приложение на Mac получает кадры через ScreenCaptureKit от Apple. Источником может быть весь
+  дисплей, все окна одного приложения или одно окно, и между ними можно переключаться, не разрывая
+  соединение. Поэтому macOS при первом запуске и спрашивает разрешение «Запись экрана»: без него Mac
+  может отдать только чёрную картинку.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-session.webp" width="603" height="1311" loading="lazy"
+    alt="Рабочий стол Mac с открытым редактором кода, который в реальном времени передаётся на iPhone с Peering.">
+  <figcaption>Картинка на iPhone это закодированный видеопоток, а не серия снимков экрана.</figcaption>
+</figure>
+
+<h2>Кодирование: малая задержка, без перестановки кадров</h2>
+<p>
+  Кадры попадают в кодировщик VideoToolbox от Apple на Mac, как H.264 или HEVC, в зависимости от
+  того, что iPhone умеет декодировать. Настройки противоположны тем, что у стриминговых сервисов:
+</p>
+<ul>
+  <li><strong>Без B-кадров.</strong> B-кадру нужен кадр из будущего, поэтому их использование означает, что картинки приходится придерживать. Без них порядок декодирования совпадает с порядком показа, и никто никого не ждёт.</li>
+  <li><strong>Управление битрейтом с малой задержкой.</strong> Кодировщик тратит биты по ходу дела, а не заглядывает вперёд.</li>
+  <li><strong>Ключевой кадр не реже чем раз в две секунды</strong> и сразу же, когда подключается новый зритель, возобновляется показ или меняется источник, так что потерянная картинка быстро восстанавливается.</li>
+  <li><strong>Битрейт, который растёт вместе с экраном.</strong> По умолчанию это число пикселей, умноженное на частоту кадров и на 0,12, в пределах от 4 до 30 Мбит/с, при 60 кадрах в секунду по умолчанию.</li>
+</ul>
+<p>
+  Служебная информация для декодера (наборы параметров) отправляется один раз отдельным сообщением и
+  не повторяется в каждом кадре. iPhone, который подключился посреди потока, получает это сообщение,
+  а затем ключевой кадр.
+</p>
+
+<h2>Отправка: кадры можно отбрасывать, ключевые кадры нельзя</h2>
+<p>
+  Каждый кадр идёт с небольшим 25-байтным заголовком: ключевой ли он, его размер в пикселях и время
+  показа. В релейном или прямом соединении он нарезается на датаграммы примерно по 1080 байт, и
+  каждая запечатывается ChaCha20-Poly1305 ключом, который знают только два устройства. Счётчик в
+  каждой датаграмме питает окно защиты от повторов на 64 записи, так что перехваченный пакет нельзя
+  воспроизвести позже.
+</p>
+<p>
+  Правило при перегрузке прямолинейно: видео можно отбрасывать, ключевые кадры нельзя. Если новый
+  кадр готов, пока старый ещё ждёт отправки, старый заменяется, кроме одного случая: недоставленный
+  ключевой кадр никогда не заменяется обычным. Показать экран таким, какой он сейчас, важнее, чем
+  показать каждый кадр, который когда-либо существовал.
+</p>
+<p>
+  В домашней сети картинка идёт по собственному TCP-соединению, где сеть достаточно надёжна, и это
+  правило срабатывает редко. На каждом сокете включён <code>TCP_NODELAY</code>. Поведение по
+  умолчанию, когда мелкие записи склеиваются в пакет, добавляет десятки миллисекунд на каждом
+  отрезке пути. При скачивании файла это незаметно, а когда вы двигаете курсор, очень заметно.
+</p>
+
+<h2>Восстановление: за потери платим картинкой, а не задержкой</h2>
+<p>
+  UDP не пересылает потерянное, поэтому потерянная датаграмма означает повреждённый кадр. iPhone её
+  не ждёт. Он продолжает декодировать, и искажение пропадает на следующем ключевом кадре, не позже
+  чем через две секунды. Если после неудачного участка Wi-Fi вы заметили смазанность, это она и есть.
+  Пауза и возобновление картинки немедленно вызывают ключевой кадр.
+</p>
+<p>
+  Если быстрый путь перестаёт доставлять вообще, поток переходит на управляющее соединение с меньшим
+  битрейтом, как описано в <a href="/ru/blog/connect-iphone-to-mac-anywhere">статье о соединении</a>, и
+  возвращается, когда быстрый путь оживает.
+</p>
+
+<h2>Показ: под iPhone, а не под Mac</h2>
+<p>
+  iPhone выбирает уровень качества и может запросить меньше кадров в секунду, а Mac приведёт это к
+  разумному диапазону. Приложение может уместить весь рабочий стол на экране или заполнить им экран,
+  а ещё попросить у Mac виртуальный дисплей по форме iPhone, чтобы широкий монитор не сжимался в
+  вертикальный экран. Касания картинки идут в обратную сторону, об этом рассказывает статья
+  <a href="/ru/blog/remote-input-latency">как касание становится кликом</a>.
+</p>
+
+    <h2>Вопросы</h2>
+    <h3>Какой видеокодек использует Peering?</h3>
+    <p>H.264 или HEVC, кодирование на Mac через VideoToolbox, без B-кадров и с настройками малой задержки. iPhone сообщает Mac, что он умеет декодировать.</p>
+    <h3>Почему картинка иногда на миг смазывается?</h3>
+    <p>Потерянный сетевой пакет повреждает кадр, и картинка восстанавливается на следующем ключевом кадре, который приходит не реже чем раз в две секунды. Peering предпочитает короткую смазанность ожиданию повторной отправки.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ru/download">Скачать Peering для Mac</a>
+    </div>
+
+    <nav class="post-nav" aria-label="Ещё в блоге">
+      <h2>Ещё о том, как работает Peering</h2>
+      <ul>
+        <li><a href="/ru/blog/connect-iphone-to-mac-anywhere">Как iPhone достаёт до Mac откуда угодно</a></li>
+        <li><a href="/ru/blog/pairing-without-an-account">Связывание без аккаунта: как устроено доверие</a></li>
+        <li><a href="/ru/blog/remote-input-latency">Как касание становится кликом на Mac</a></li>
+        <li><a href="/ru/blog/what-the-relay-can-see">Что релей может и чего не может видеть</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Руководства, правовая информация и поддержка">
+      <a href="/ru/blog">Блог</a>
+      <a href="/ru/how-to-pair-iphone-mac">Руководство по связыванию</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/keep-mac-awake-for-remote-access">Mac дома</a>
+      <a href="/ru/coding-agent-notifications">Агенты для кода</a>
+      <a href="/ru/remote-desktop-apps-compared">Сравнение приложений</a>
+      <a href="/ru/screens-alternative">Альтернатива Screens</a>
+      <a href="/ru/best-remote-desktop-app-for-ipad">Лучшее для iPad</a>
+      <a href="/ru/apple-remote-desktop-alternative">Альтернативы ARD</a>
+      <a href="/ru/apple-remote-desktop-vs-screen-sharing">ARD или «Общий экран»</a>
+      <a href="/ru/screens-vs-jump-desktop">Screens или Jump</a>
+      <a href="/ru/rustdesk-alternative-for-mac">Альтернатива RustDesk</a>
+      <a href="/ru/control-mac-from-android">Mac с Android</a>
+      <a href="/ru/claude-code-on-android">Claude Code на Android</a>
+      <a href="/ru/chrome-remote-desktop-alternative">Альтернатива Chrome Remote Desktop</a>
+      <a href="/ru/teamviewer-alternative-for-mac">Альтернатива TeamViewer</a>
+      <a href="/ru/control-windows-pc-from-phone">Windows с телефона</a>
+      <a href="/ru/download">Скачать</a>
+      <a href="/ru/privacy">Конфиденциальность</a>
+      <a href="/ru/terms">Условия</a>
+      <a href="mailto:support@getpeering.app">Поддержка</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/mac-screen-streaming" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/mac-screen-streaming" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/mac-screen-streaming" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/mac-screen-streaming" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/mac-screen-streaming" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/mac-screen-streaming" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/mac-screen-streaming" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/mac-screen-streaming" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/mac-screen-streaming" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/mac-screen-streaming" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone и Mac являются товарными знаками Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

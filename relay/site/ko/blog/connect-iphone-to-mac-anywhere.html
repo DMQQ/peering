@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>iPhone은 어떻게 어디서나 Mac에 닿을까 · Peering</title>
+<meta name="description" content="같은 Wi-Fi에서 Mac을 찾는 방법, 인터넷 너머로 릴레이가 둘을 소개하는 방법, 화면이 직접 오가는 방법.">
+<link rel="canonical" href="https://getpeering.app/ko/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/connect-iphone-to-mac-anywhere">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:url" content="https://getpeering.app/ko/blog/connect-iphone-to-mac-anywhere">
+<meta property="og:title" content="iPhone은 어떻게 어디서나 Mac에 닿을까 · Peering">
+<meta property="og:description" content="같은 Wi-Fi에서 Mac을 찾는 방법, 인터넷 너머로 릴레이가 둘을 소개하는 방법, 화면이 직접 오가는 방법.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="iPhone은 어떻게 어디서나 Mac에 닿을까 · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="iPhone은 어떻게 어디서나 Mac에 닿을까 · Peering">
+<meta name="twitter:description" content="같은 Wi-Fi에서 Mac을 찾는 방법, 인터넷 너머로 릴레이가 둘을 소개하는 방법, 화면이 직접 오가는 방법.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png">
+<meta name="twitter:image:alt" content="iPhone은 어떻게 어디서나 Mac에 닿을까 · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "iPhone은 어떻게 어디서나 Mac에 닿을까",
+  "description": "같은 Wi-Fi에서 Mac을 찾는 방법, 인터넷 너머로 릴레이가 둘을 소개하는 방법, 화면이 직접 오가는 방법.",
+  "image": "https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ko",
+  "mainEntityOfPage": "https://getpeering.app/ko/blog/connect-iphone-to-mac-anywhere",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ko/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "블로그",
+      "item": "https://getpeering.app/ko/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "iPhone이 어디서나 Mac에 닿는 방법",
+      "item": "https://getpeering.app/ko/blog/connect-iphone-to-mac-anywhere"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ko",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "집 밖에서 Peering을 쓰려면 공유기의 포트를 열어야 하나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "아니요. 모든 연결은 바깥쪽으로 나가는 방향입니다. Mac은 릴레이에 연결을 하나 열어 두고, 두 기기가 모두 릴레이로 접속하므로 포트 포워딩이 필요 없습니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peering은 세션 내내 릴레이를 쓰나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "릴레이는 연결 초기에만 관여합니다. 그 뒤 화면은 Mac과 iPhone 사이를 직접 오가려 하고, 네트워크가 직접 경로를 허용하지 않으면 릴레이로 되돌아갑니다."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ko/" aria-label="Peering, 홈">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="페이지">
+      <a href="/ko/">홈</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/blog">블로그</a>
+      <a href="/ko/download">다운로드</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ko/">Peering</a> / <a href="/ko/blog">블로그</a></p>
+    <h1>iPhone은 어떻게 어디서나 Mac에 닿을까</h1>
+    <p class="post-meta">게시일 <time datetime="2026-11-11">2026년 11월 11일</time> · 6분 읽기</p>
+    <p class="lede">Mac은 공유기 뒤에 있고 iPhone은 모바일 네트워크에 있습니다. 어느 쪽도 상대에게 먼저 연결할 수 없습니다. 두 기기가 대화를 시작하기까지의 과정을, 일어나는 순서대로 설명합니다.</p>
+
+<h2>같은 네트워크에서: Bonjour와 포트 하나</h2>
+<p>
+  Mac 앱은 TCP 포트 51515에서 대기하며, Bonjour로 <code>_remotedesktop._tcp</code> 서비스를 알립니다.
+  여기에는 기기 ID, Mac의 이름, 프로토콜 버전이라는 작은 정보 세 가지가 붙습니다.
+  iPhone이 이 서비스를 탐색하므로, 같은 Wi-Fi에 있는 Mac은 주소를 입력하지 않아도
+  주변 목록에 나타납니다.
+</p>
+<p>
+  이 알림은 힌트일 뿐입니다. 네트워크에 있는 누구나 무엇이든 알릴 수 있으므로, 보안과 관련된 판단은
+  여기서 하지 않습니다. 중요한 것은 다음 단계입니다. iPhone이 TLS 1.3 연결을 열고, 양쪽이 인증서를 제시하며,
+  각자 상대의 공개 키를 페어링할 때 저장해 둔 키와 비교합니다. <a href="/ko/blog/pairing-without-an-account">페어링이 작동하는 방식</a>은
+  별도의 글에서 다룹니다.
+</p>
+<p>
+  집 네트워크에서 iPhone은 연결을 두 개 엽니다. 하나는 제어용(입력, 설정, 창 목록)이고, 다른 하나는 화면만 전달합니다.
+  영상을 제어 스트림에서 분리해 두면, 큰 키프레임 때문에 마우스 클릭이 그 뒤에서 기다리는 일이 생기지 않습니다.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-connect.webp" width="603" height="1311" loading="lazy"
+    alt="iPhone의 Peering: 주변 Mac 목록, 다른 곳에 있는 Mac과 페어링하는 방법, 신뢰하는 Mac이 표시된 연결 화면.">
+  <figcaption>주변 Mac은 Bonjour로 찾습니다. 신뢰하는 Mac은 이미 페어링한 기기입니다.</figcaption>
+</figure>
+
+<h2>네트워크 밖에서: 소개만 하는 릴레이</h2>
+<p>
+  집을 나서면 iPhone은 공유기 뒤의 사설 주소에 닿을 수 없고, 공유기는 아무도 요청하지 않은 연결을 받지 않습니다.
+  그래서 Mac이 먼저, 일찍 움직입니다. 실행 중인 동안 Mac은 Peering 릴레이로 나가는 WebSocket을 하나 열어 두고
+  25초마다 작은 핑을 보냅니다. 이렇게 열려 있는 소켓이 곧 Mac의 존재 신호이며, 릴레이는 이것으로 Mac이 있고 깨어 있다는 것을 압니다.
+</p>
+<p>iPhone에서 내 Mac을 탭하면 다음 일이 일어납니다.</p>
+<ol>
+  <li>iPhone이 릴레이에 Mac의 기기 ID로 연결해 달라고 요청합니다.</li>
+  <li>릴레이가 양쪽에 주소와, 제어용과 영상용으로 한 쌍인 무작위 16바이트 토큰을 알려 줍니다.</li>
+  <li>두 기기가 각각 릴레이로 나가는 TCP 연결을 열고, 가장 먼저 자기 토큰을 씁니다.</li>
+  <li>릴레이가 두 토큰을 맞춰 보고 소켓을 이어 붙여, 한쪽의 바이트를 다른 쪽으로 복사합니다.</li>
+</ol>
+<p>
+  그다음 iPhone은 집 네트워크에서 쓰던 것과 같은 TLS 핸드셰이크를 시작하며, 이는 릴레이를 그대로 통과해
+  Mac에 도달합니다. 릴레이는 파이프일 뿐 대화의 당사자가 아닙니다. 키를 가진 적이 없습니다.
+  릴레이가 알 수 있는 것과 없는 것은
+  <a href="/ko/blog/what-the-relay-can-see">릴레이가 볼 수 있는 것</a>에서 자세히 읽어 보세요.
+</p>
+
+<h2>화면은 지름길로 갑니다</h2>
+<p>
+  모든 것을 릴레이로 보내도 동작은 하지만, 가장 느리고 비용이 큰 경로입니다. 그래서 화면은 TCP 연결에 머물지 않고
+  영상에 더 알맞은 UDP로 옮겨 갑니다. 늦게 도착한 프레임은 쓸모가 없고, 재전송은 다음 프레임을 더 늦출 뿐입니다.
+</p>
+<p>
+  양쪽은 릴레이에 질문도 하나 합니다. 상대는 어떤 주소에서 접속하는가? 릴레이는 자신이 관찰한 주소를 알려 주고,
+  두 기기는 250밀리초마다 서로에게 봉인된 작은 프로브 패킷을 보내기 시작합니다. 프로브 하나하나가 보낸 쪽 공유기에
+  구멍을 내며, 두 구멍이 맞물리면 프로브가 통과해 인증됩니다. 그 순간부터 화면은 Mac에서 iPhone으로 곧장 가고,
+  릴레이는 영상 경로에서 빠집니다.
+</p>
+<p>
+  이 기법은 보통 홀 펀칭이라고 부릅니다. 대부분의 가정용 공유기에서 동작하고, 엄격한 일부 모바일 및 회사 네트워크에서는
+  실패하며, 그 경우 화면은 그대로 릴레이를 거쳐 계속 흐릅니다. 어느 쪽이든 설정하거나 포트를 열 필요가 없습니다.
+</p>
+
+<h2>UDP가 막혀 있을 때</h2>
+<p>
+  일부 네트워크는 UDP를 아예 차단합니다. 제어 연결은 여전히 응답하는데 3초 동안 화면이 도착하지 않으면,
+  iPhone은 Mac에 영상을 제어 스트림으로 조각내어 보내 달라고 요청합니다. 비트레이트 상한이 낮아 화면이 흐릿해 보이지만,
+  흐릿한 화면이 멈춘 화면보다 낫습니다. Mac은 빠른 경로로도 몇 초마다 키프레임을 계속 보내고,
+  iPhone이 그 경로가 회복된 것을 보면 다시 전환합니다.
+</p>
+
+<h2>이렇게 만든 이유</h2>
+<ul>
+  <li><strong>들어오는 포트가 없습니다.</strong> 모든 연결이 나가는 방향이라 바꿀 공유기 설정도, 인터넷에 노출되는 것도 없습니다.</li>
+  <li><strong>계정이 없습니다.</strong> 기기는 로그인이 아니라 스스로 만든 키로 식별됩니다. <a href="/ko/blog/pairing-without-an-account">계정 없는 페어링</a>을 보세요.</li>
+  <li><strong>저렴한 경로가 먼저입니다.</strong> 같은 네트워크는 무료이며 제한이 없습니다. 릴레이는 직접 경로로 처리할 수 없는 것만 맡습니다.</li>
+</ul>
+<p>
+  사용자 관점의 설명과, 외출 중에도 Mac에 접속할 수 있게 유지하는 설정은
+  <a href="/ko/access-your-mac-from-anywhere">어디서나 Mac에 접속하기</a>와
+  <a href="/ko/keep-mac-awake-for-remote-access">원격 접속을 위해 Mac을 깨어 있게 유지하기</a>를 참고하세요.
+</p>
+
+    <h2>자주 묻는 질문</h2>
+    <h3>집 밖에서 Peering을 쓰려면 공유기의 포트를 열어야 하나요?</h3>
+    <p>아니요. 모든 연결은 바깥쪽으로 나가는 방향입니다. Mac은 릴레이에 연결을 하나 열어 두고, 두 기기가 모두 릴레이로 접속하므로 포트 포워딩이 필요 없습니다.</p>
+    <h3>Peering은 세션 내내 릴레이를 쓰나요?</h3>
+    <p>릴레이는 연결 초기에만 관여합니다. 그 뒤 화면은 Mac과 iPhone 사이를 직접 오가려 하고, 네트워크가 직접 경로를 허용하지 않으면 릴레이로 되돌아갑니다.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ko/download">Mac용 Peering 다운로드</a>
+    </div>
+
+    <nav class="post-nav" aria-label="블로그의 다른 글">
+      <h2>Peering 작동 방식 더 보기</h2>
+      <ul>
+        <li><a href="/ko/blog/mac-screen-streaming">Mac 화면이 iPhone으로 스트리밍되는 방법</a></li>
+        <li><a href="/ko/blog/pairing-without-an-account">계정 없는 페어링: 신뢰가 작동하는 방식</a></li>
+        <li><a href="/ko/blog/remote-input-latency">탭이 Mac의 클릭이 되는 과정</a></li>
+        <li><a href="/ko/blog/what-the-relay-can-see">릴레이가 볼 수 있는 것과 없는 것</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="가이드, 법적 고지, 지원">
+      <a href="/ko/blog">블로그</a>
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/keep-mac-awake-for-remote-access">집에 둔 Mac</a>
+      <a href="/ko/coding-agent-notifications">코딩 에이전트</a>
+      <a href="/ko/remote-desktop-apps-compared">앱 비교</a>
+      <a href="/ko/screens-alternative">Screens 대안</a>
+      <a href="/ko/best-remote-desktop-app-for-ipad">iPad용 추천</a>
+      <a href="/ko/apple-remote-desktop-alternative">ARD 대안</a>
+      <a href="/ko/apple-remote-desktop-vs-screen-sharing">ARD와 화면 공유</a>
+      <a href="/ko/screens-vs-jump-desktop">Screens와 Jump</a>
+      <a href="/ko/rustdesk-alternative-for-mac">RustDesk 대안</a>
+      <a href="/ko/control-mac-from-android">안드로이드로 Mac 제어</a>
+      <a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a>
+      <a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱 대안</a>
+      <a href="/ko/teamviewer-alternative-for-mac">팀뷰어 대안</a>
+      <a href="/ko/control-windows-pc-from-phone">휴대폰으로 Windows 제어</a>
+      <a href="/ko/download">다운로드</a>
+      <a href="/ko/privacy">개인정보 처리방침</a>
+      <a href="/ko/terms">이용약관</a>
+      <a href="/ko/support">지원</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/connect-iphone-to-mac-anywhere" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/connect-iphone-to-mac-anywhere" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/connect-iphone-to-mac-anywhere" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/connect-iphone-to-mac-anywhere" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/connect-iphone-to-mac-anywhere" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/connect-iphone-to-mac-anywhere" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/connect-iphone-to-mac-anywhere" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/connect-iphone-to-mac-anywhere" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/connect-iphone-to-mac-anywhere" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/connect-iphone-to-mac-anywhere" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone 및 Mac은 Apple Inc.의 상표입니다.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

@@ -196,6 +196,12 @@ CARDS = {
     "claude-code-on-android": ("Claude Code, on your Android phone.", v_agents_android),
     "remote-desktop-windows-from-phone": ("Your Windows PC, on your phone.", v_windows),
     "android-vs-iphone": ("Android or iPhone, the same Mac.", v_both_phones),
+    "blog": ("How Peering works.", v_home),
+    "blog-connect-iphone-to-mac-anywhere": ("How your iPhone finds your Mac.", v_pair),
+    "blog-mac-screen-streaming": ("How your Mac's screen reaches your phone.", v_mac),
+    "blog-pairing-without-an-account": ("Pairing without an account.", v_pair),
+    "blog-remote-input-latency": ("How a tap becomes a click.", v_mac),
+    "blog-what-the-relay-can-see": ("What the relay can't see.", v_mac),
 }
 
 HOME_I18N = {"de": "Dein Mac, von überall.", "es": "Tu Mac, desde cualquier lugar.", "fr": "Votre Mac, de n'importe où.",

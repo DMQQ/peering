@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>アカウントなしのペアリング：Peeringが信頼する相手を決める仕組み · Peering</title>
+<meta name="description" content="Peeringにログインはありません。デバイスごとの鍵と、両方の画面で見比べる6桁のコードで、信頼を築きます。">
+<link rel="canonical" href="https://getpeering.app/ja/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/pairing-without-an-account">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://getpeering.app/ja/blog/pairing-without-an-account">
+<meta property="og:title" content="アカウントなしのペアリング：Peeringが信頼する相手を決める仕組み · Peering">
+<meta property="og:description" content="Peeringにログインはありません。デバイスごとの鍵と、両方の画面で見比べる6桁のコードで、信頼を築きます。">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-pairing-without-an-account.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="アカウントなしのペアリング：Peeringが信頼する相手を決める仕組み · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="アカウントなしのペアリング：Peeringが信頼する相手を決める仕組み · Peering">
+<meta name="twitter:description" content="Peeringにログインはありません。デバイスごとの鍵と、両方の画面で見比べる6桁のコードで、信頼を築きます。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-pairing-without-an-account.png">
+<meta name="twitter:image:alt" content="アカウントなしのペアリング：Peeringが信頼する相手を決める仕組み · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "アカウントなしのペアリング：Peeringが信頼する相手を決める仕組み",
+  "description": "Peeringにログインはありません。デバイスごとの鍵と、両方の画面で見比べる6桁のコードで、信頼を築きます。",
+  "image": "https://getpeering.app/assets/og/blog-pairing-without-an-account.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ja",
+  "mainEntityOfPage": "https://getpeering.app/ja/blog/pairing-without-an-account",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ja/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "ブログ",
+      "item": "https://getpeering.app/ja/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "アカウントなしのペアリング：信頼の仕組み",
+      "item": "https://getpeering.app/ja/blog/pairing-without-an-account"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ja",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peeringにアカウントやメールアドレスは必要ですか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "いいえ。各デバイスが自分の鍵を作り、自分のKeychainに保存します。ペアリングは、両方の画面で見比べる6桁のコードで行います。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "6桁のペアリングコードは、何を防ぎますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "iPhoneとMacの間に入り込む第三者です。コードはハンドシェイク全体から導かれるので、中間者がいると2つの画面で異なるコードになり、不一致が見て分かります。"
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ja/" aria-label="Peering、ホーム">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="ページ">
+      <a href="/ja/">ホーム</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/blog">ブログ</a>
+      <a href="/ja/download">ダウンロード</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ja/">Peering</a> / <a href="/ja/blog">ブログ</a></p>
+    <h1>アカウントなしのペアリング：Peeringが信頼する相手を決める仕組み</h1>
+    <p class="post-meta">公開日 <time datetime="2026-11-11">2026年11月11日</time> · 読了目安 6分</p>
+    <p class="lede">多くのリモートデスクトップツールは、2台のデバイスが同じ持ち主のものかを会社が判断できるように、登録を求めます。Peeringは会社を介さず、代わりにあなたに、6桁の数字で尋ねます。</p>
+
+<h2>デバイスはそれぞれが自分のID</h2>
+<p>
+  MacまたはiPhoneでPeeringを初めて実行すると、P-256の鍵ペアを生成し、秘密鍵をそのデバイスのKeychainに保存します。
+  この鍵が、そのデバイスの恒久的なIDです。ユーザー名もパスワードもなく、コピーを持つサーバーもありません。
+  アプリを起動するたびに、その鍵で新しい自己署名証明書に署名し、ほかのデバイスは証明書ではなく鍵を固定して使います。
+</p>
+<p>
+  自己署名証明書は、それだけでは何も証明しません。言えるのは「この鍵がこの証明書を作った」ということで、
+  「これはリビングにあるMacだ」ではありません。鍵と物理的なデバイスを結びつける何かが必要で、その何かはあなた自身です。
+</p>
+
+<h2>6桁の数字</h2>
+<p>
+  iPhoneとMacが初めて出会うと、両方の画面に6桁のコードが表示されます。一致していることを確認してください。
+  一致していれば、それぞれのデバイスが相手の鍵を保存します。一致しなければ、誰かが2台の間に入っているので、拒否します。
+</p>
+<p>
+  このコードはランダムではなく、パスワードでもありません。ハンドシェイク全体の短いハッシュです。
+  両方のデバイスID、双方の新しい使い捨ての鍵、双方の使い捨ての乱数、そしてMacのID鍵が対象です。
+  具体的には、これらのフィールドに対するSHA-256の先頭4バイトを、6桁の10進数に縮めたものです。
+  攻撃者が接続を中継すると、MacとiPhoneはそれぞれ異なる記録を見ることになり、したがって異なる数字になります。
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/onboarding-pair-iphone.webp" width="1600" height="813" loading="lazy"
+    alt="MacのPeeringの「最初のiPhoneをペアリングする」画面。3つの接続方法とQRコードが表示されています。">
+  <figcaption>MacはiPhoneを待っています。両者が出会うと、コードが両方の画面に表示されます。</figcaption>
+</figure>
+
+<h2>なぜ先にコミットするのか</h2>
+<p>
+  6桁のコードには100万通りの値しかないので、賢い攻撃者は、両側がたまたま同じ数字を表示するまで、使い捨ての鍵を延々と試すかもしれません。
+  このプロトコルは、コミットとリビールの手順でその道をふさいでいます。
+</p>
+<ol>
+  <li>各側が最初に、自分の使い捨ての鍵と乱数のハッシュを送ります。</li>
+  <li>両方のハッシュが揃って初めて、どちらも本当の値を明かします。</li>
+  <li>各側が、明かされた値を、先に受け取ったハッシュと照合します。</li>
+</ol>
+<p>
+  攻撃者は何も見ないうちにコミットしなければならないので、値を調整して一致させることができません。
+  残るのは当てずっぽうで、1回の試行でコードが一致する確率は100万分の1です。失敗した試行は、目に見える不一致として現れます。
+</p>
+
+<h2>QRコードの近道</h2>
+<p>
+  MacのQRコードをスキャンする場合、目で比べるものはありません。QRには16バイトの秘密が入っていて、
+  Macの画面を見ている人にしか手に入りません。iPhoneはこれを使って証明（ハンドシェイクに対するHMAC）を計算し、
+  Macはそれを、ペアリングしている人が実際にMacの目の前にいる証拠として受け入れます。この証明がなければ、
+  Mac自身のユーザーに承認を求めます。
+</p>
+
+<h2>ペアリングのあとは、鍵の比較になる</h2>
+<p>
+  以降の接続はすべてTLS 1.3のセッションで、双方が鍵を提示します。iPhoneは、Macの鍵を実際に受け取った証明書から取り出し、
+  Macがメッセージで伝える内容は使いません。そして保存済みの鍵と、一定時間で比較します。鍵が違えば接続しません。
+  最初の1回のあとは、あなたに何も求めません。
+</p>
+<p>
+  Macが「あなたのことはすでに知っている」と主張しても、iPhoneにそのMacの保存済みの鍵がなければ、iPhoneは拒否します。
+  見知らぬ相手でも簡単に言えることなので、その主張は何も証明しません。
+</p>
+<p>
+  実際の手順は<a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>にあります。接続ができたあとに何が起きるかは、
+  <a href="/ja/blog/what-the-relay-can-see">リレーに見えるもの</a>をご覧ください。
+</p>
+
+    <h2>よくある質問</h2>
+    <h3>Peeringにアカウントやメールアドレスは必要ですか？</h3>
+    <p>いいえ。各デバイスが自分の鍵を作り、自分のKeychainに保存します。ペアリングは、両方の画面で見比べる6桁のコードで行います。</p>
+    <h3>6桁のペアリングコードは、何を防ぎますか？</h3>
+    <p>iPhoneとMacの間に入り込む第三者です。コードはハンドシェイク全体から導かれるので、中間者がいると2つの画面で異なるコードになり、不一致が見て分かります。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ja/download">Mac版Peeringをダウンロード</a>
+    </div>
+
+    <nav class="post-nav" aria-label="ブログのほかの記事">
+      <h2>Peeringの仕組みをもっと読む</h2>
+      <ul>
+        <li><a href="/ja/blog/connect-iphone-to-mac-anywhere">iPhoneがどこからでもMacに届く仕組み</a></li>
+        <li><a href="/ja/blog/mac-screen-streaming">Macの画面をiPhoneに届ける仕組み</a></li>
+        <li><a href="/ja/blog/remote-input-latency">タップがMacのクリックになる仕組み</a></li>
+        <li><a href="/ja/blog/what-the-relay-can-see">リレーに見えるもの、見えないもの</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="ガイド、法務、サポート">
+      <a href="/ja/blog">ブログ</a>
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
+      <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリ比較</a>
+      <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/best-remote-desktop-app-for-ipad">iPadに最適</a>
+      <a href="/ja/apple-remote-desktop-alternative">ARDの代替</a>
+      <a href="/ja/apple-remote-desktop-vs-screen-sharing">ARDと画面共有</a>
+      <a href="/ja/screens-vs-jump-desktop">ScreensとJump</a>
+      <a href="/ja/rustdesk-alternative-for-mac">RustDeskの代替</a>
+      <a href="/ja/control-mac-from-android">AndroidからMac</a>
+      <a href="/ja/claude-code-on-android">AndroidでClaude Code</a>
+      <a href="/ja/chrome-remote-desktop-alternative">Chromeリモートデスクトップの代替</a>
+      <a href="/ja/teamviewer-alternative-for-mac">TeamViewerの代替</a>
+      <a href="/ja/control-windows-pc-from-phone">スマホからWindows</a>
+      <a href="/ja/download">ダウンロード</a>
+      <a href="/ja/privacy">プライバシー</a>
+      <a href="/ja/terms">利用規約</a>
+      <a href="mailto:support@getpeering.app">サポート</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/pairing-without-an-account" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/pairing-without-an-account" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/pairing-without-an-account" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/pairing-without-an-account" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/pairing-without-an-account" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/pairing-without-an-account" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/pairing-without-an-account" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/pairing-without-an-account" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/pairing-without-an-account" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/pairing-without-an-account" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple、iPhone、MacはApple Inc.の商標です。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>iPhoneのタップがMacのクリックになる仕組み · Peering</title>
+<meta name="description" content="正規化した座標、まとめられるマウス移動、macOSのキーコード、Unicodeテキスト。入力がMacに届くまでの道筋です。">
+<link rel="canonical" href="https://getpeering.app/ja/blog/remote-input-latency">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/remote-input-latency">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/remote-input-latency">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/remote-input-latency">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/remote-input-latency">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/remote-input-latency">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/remote-input-latency">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/remote-input-latency">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/remote-input-latency">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/remote-input-latency">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/remote-input-latency">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/remote-input-latency">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://getpeering.app/ja/blog/remote-input-latency">
+<meta property="og:title" content="iPhoneのタップがMacのクリックになる仕組み · Peering">
+<meta property="og:description" content="正規化した座標、まとめられるマウス移動、macOSのキーコード、Unicodeテキスト。入力がMacに届くまでの道筋です。">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-remote-input-latency.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="iPhoneのタップがMacのクリックになる仕組み · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="iPhoneのタップがMacのクリックになる仕組み · Peering">
+<meta name="twitter:description" content="正規化した座標、まとめられるマウス移動、macOSのキーコード、Unicodeテキスト。入力がMacに届くまでの道筋です。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-remote-input-latency.png">
+<meta name="twitter:image:alt" content="iPhoneのタップがMacのクリックになる仕組み · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "iPhoneのタップがMacのクリックになる仕組み",
+  "description": "正規化した座標、まとめられるマウス移動、macOSのキーコード、Unicodeテキスト。入力がMacに届くまでの道筋です。",
+  "image": "https://getpeering.app/assets/og/blog-remote-input-latency.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ja",
+  "mainEntityOfPage": "https://getpeering.app/ja/blog/remote-input-latency",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ja/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "ブログ",
+      "item": "https://getpeering.app/ja/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "タップがMacのクリックになる仕組み",
+      "item": "https://getpeering.app/ja/blog/remote-input-latency"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ja",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peeringは絵文字や英語以外のキーボードに対応していますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "はい。キー入力でないテキストは文字として送られ、Mac側で入力されるので、絵文字もどんな言語も使えます。Macのショートカットは、キーコードを送るモードでのみ送られます。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "接続が弱くても、カーソルが滑らかなのはなぜですか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "マウスの移動は最新の位置だけを残すようにまとめられ、スクロールは足し合わされます。クリックとキーは、常に順序どおりに届きます。"
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ja/" aria-label="Peering、ホーム">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="ページ">
+      <a href="/ja/">ホーム</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/blog">ブログ</a>
+      <a href="/ja/download">ダウンロード</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ja/">Peering</a> / <a href="/ja/blog">ブログ</a></p>
+    <h1>iPhoneのタップがMacのクリックになる仕組み</h1>
+    <p class="post-meta">公開日 <time datetime="2026-11-11">2026年11月11日</time> · 読了目安 6分</p>
+    <p class="lede">クリックを1回送るのは簡単です。悪い接続で何千回も、順序を守って、カーソルを遅らせずに送るところに、リモート操作のおもしろさがあります。</p>
+
+<h2>位置はピクセルではなく割合</h2>
+<p>
+  映像に触れたとき、iPhoneは「ピクセル812、640」とは送りません。表示しているソースを基準に、各軸で0から1の間の点を送ります。
+  Macはそれを、キャプチャしているディスプレイまたはウィンドウの実際の座標に変換します。
+  そのため、映像が画面に収まっていても拡大されていても、縦向きでも横向きでも、RetinaパネルでもiPhoneの形をした仮想ディスプレイでも、
+  タップは正しい位置に当たります。どちらの側も、解像度を合意しておく必要がありません。
+</p>
+
+<h2>すべてのメッセージが同じ扱いではない</h2>
+<p>
+  入力は、暗号化された制御用の接続で、小さなJSONコマンドとして届きます。アプリは種類ごとに扱いを変えています。
+</p>
+<ul>
+  <li><strong>マウスの移動は最新のものだけ残す。</strong>ネットワークが止まっている間に3回の移動がたまったら、最初の2つは無意味です。最新のものがそれらを置き換え、移動は毎秒約60回に制限されます。</li>
+  <li><strong>スクロールは足し合わせる。</strong>一緒にたまった2つのスクロールイベントは、合計を持つ1つのイベントになるので、移動量は失われません。</li>
+  <li><strong>クリックとキーは、捨てず、並べ替えない。</strong>マウスダウンより先にマウスアップが届けば、目に見えるバグになります。</li>
+</ul>
+<p>
+  この小さな方針が、滑らかに動くカーソルと、途切れたあとにぎくしゃくするカーソルとの違いのほとんどです。
+  また、接続が悪くなってもポインターが少し滑らかでなくなるだけで、間違った操作にはならないということでもあります。
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-shortcuts.webp" width="603" height="1311" loading="lazy"
+    alt="iPhone版Peeringのショートカットパネル。Macの映像の上にVisual Studio Codeのショートカットが表示されています。">
+  <figcaption>ショートカットボタンは、キーボードと同じキーイベントを、正しい修飾キー付きで送ります。</figcaption>
+</figure>
+
+<h2>キーはmacOSのキーコード</h2>
+<p>
+  キー入力は、macOSの仮想キーコードに、shift、control、option、commandの修飾ビットを加えたものです。
+  Macアプリはそれを本物のキーボードイベントに変換してシステムに送ります。アクセシビリティの権限が必要なのはそのためです。
+  ショートカットは、使っているアプリに合わせて変わります。上のパネルが示しているのは、固定の一覧ではなく、前面にあるエディタのコマンドです。
+</p>
+<p>
+  キーを物理キーボードと同じように動かすには、意外な落とし穴があります。本物の矢印キーには、ファンクションフラグとテンキーフラグという2つの追加フラグが付きますが、
+  単純に作った合成イベントにはそれがありません。それがないと、正しいキーコードが届いていても、Controlと上矢印はMission Controlを開かずに、Macでは何も起きませんでした。
+  Peeringは今は、本物のキーボードと同じように両方のフラグを設定しています。
+</p>
+
+<h2>テキストはキー入力ではない</h2>
+<p>
+  絵文字、アクセント付きの文字、ラテン文字以外の文字は、キーコードに対応しません。それらについては、iPhoneが文字そのものをテキストとして送り、Macがそれを入力します。
+  キーボードがどんな言語でも動くのはそのためで、このモードでは一部のMacのショートカットが動かないのもそのためです。
+  これは設定で切り替えられる、トレードオフです。
+</p>
+
+<h2>同期を保つ</h2>
+<p>
+  iPhoneは毎秒Macにpingを送り、Macはそのpingをそのまま返します。これはそのままライブの遅延の測定値にもなります。
+  iPhoneがバックグラウンドに移るときは、先にそう伝えます。iOSは接続を閉じずにアプリを凍結することがあり、Macはその間、アプリが戻るまでiPhoneへの映像の送信を止めるからです。
+  セッションを観察のみに設定することもでき、その場合、映像は流れ続けますが、Macは入力を無視します。
+</p>
+<p>
+  このループのもう一方の方向は、<a href="/ja/blog/mac-screen-streaming">映像がiPhoneに届く仕組み</a>です。
+  両方が合わさって、全体の反応の良さが決まります。
+</p>
+
+    <h2>よくある質問</h2>
+    <h3>Peeringは絵文字や英語以外のキーボードに対応していますか？</h3>
+    <p>はい。キー入力でないテキストは文字として送られ、Mac側で入力されるので、絵文字もどんな言語も使えます。Macのショートカットは、キーコードを送るモードでのみ送られます。</p>
+    <h3>接続が弱くても、カーソルが滑らかなのはなぜですか？</h3>
+    <p>マウスの移動は最新の位置だけを残すようにまとめられ、スクロールは足し合わされます。クリックとキーは、常に順序どおりに届きます。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ja/download">Mac版Peeringをダウンロード</a>
+    </div>
+
+    <nav class="post-nav" aria-label="ブログのほかの記事">
+      <h2>Peeringの仕組みをもっと読む</h2>
+      <ul>
+        <li><a href="/ja/blog/connect-iphone-to-mac-anywhere">iPhoneがどこからでもMacに届く仕組み</a></li>
+        <li><a href="/ja/blog/mac-screen-streaming">Macの画面をiPhoneに届ける仕組み</a></li>
+        <li><a href="/ja/blog/pairing-without-an-account">アカウントなしのペアリング：信頼の仕組み</a></li>
+        <li><a href="/ja/blog/what-the-relay-can-see">リレーに見えるもの、見えないもの</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="ガイド、法務、サポート">
+      <a href="/ja/blog">ブログ</a>
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
+      <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリ比較</a>
+      <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/best-remote-desktop-app-for-ipad">iPadに最適</a>
+      <a href="/ja/apple-remote-desktop-alternative">ARDの代替</a>
+      <a href="/ja/apple-remote-desktop-vs-screen-sharing">ARDと画面共有</a>
+      <a href="/ja/screens-vs-jump-desktop">ScreensとJump</a>
+      <a href="/ja/rustdesk-alternative-for-mac">RustDeskの代替</a>
+      <a href="/ja/control-mac-from-android">AndroidからMac</a>
+      <a href="/ja/claude-code-on-android">AndroidでClaude Code</a>
+      <a href="/ja/chrome-remote-desktop-alternative">Chromeリモートデスクトップの代替</a>
+      <a href="/ja/teamviewer-alternative-for-mac">TeamViewerの代替</a>
+      <a href="/ja/control-windows-pc-from-phone">スマホからWindows</a>
+      <a href="/ja/download">ダウンロード</a>
+      <a href="/ja/privacy">プライバシー</a>
+      <a href="/ja/terms">利用規約</a>
+      <a href="mailto:support@getpeering.app">サポート</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/remote-input-latency" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/remote-input-latency" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/remote-input-latency" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/remote-input-latency" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/remote-input-latency" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/remote-input-latency" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/remote-input-latency" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/remote-input-latency" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/remote-input-latency" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/remote-input-latency" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple、iPhone、MacはApple Inc.の商標です。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

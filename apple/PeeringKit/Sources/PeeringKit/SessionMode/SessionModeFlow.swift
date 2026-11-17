@@ -45,7 +45,7 @@ public enum SessionModeFlow {
         }
     }
 
-    /// The picker is the stack's root once a mode is resolved, or while one is being asked for. Before that the root is the connecting picture.
+    /// The picker is the stack's root once a mode is resolved, or while one is being asked for. Before that the root is an empty backdrop, because the picture is only ever built as a pushed page.
     public static func rootIsPicker(modeResolved: Bool, asking: Bool) -> Bool {
         modeResolved || asking
     }

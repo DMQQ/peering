@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>So wird aus einem Tippen auf deinem iPhone ein Klick auf deinem Mac · Peering</title>
+<meta name="description" content="Normalisierte Koordinaten, zusammengefasste Mausbewegungen, macOS-Tastencodes, Unicode-Text: der Weg einer Eingabe vom Finger zum Mac.">
+<link rel="canonical" href="https://getpeering.app/de/blog/remote-input-latency">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/remote-input-latency">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/remote-input-latency">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/remote-input-latency">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/remote-input-latency">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/remote-input-latency">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/remote-input-latency">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/remote-input-latency">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/remote-input-latency">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/remote-input-latency">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/remote-input-latency">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/remote-input-latency">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="de_DE">
+<meta property="og:url" content="https://getpeering.app/de/blog/remote-input-latency">
+<meta property="og:title" content="So wird aus einem Tippen auf deinem iPhone ein Klick auf deinem Mac · Peering">
+<meta property="og:description" content="Normalisierte Koordinaten, zusammengefasste Mausbewegungen, macOS-Tastencodes, Unicode-Text: der Weg einer Eingabe vom Finger zum Mac.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-remote-input-latency.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="So wird aus einem Tippen auf deinem iPhone ein Klick auf deinem Mac · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="So wird aus einem Tippen auf deinem iPhone ein Klick auf deinem Mac · Peering">
+<meta name="twitter:description" content="Normalisierte Koordinaten, zusammengefasste Mausbewegungen, macOS-Tastencodes, Unicode-Text: der Weg einer Eingabe vom Finger zum Mac.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-remote-input-latency.png">
+<meta name="twitter:image:alt" content="So wird aus einem Tippen auf deinem iPhone ein Klick auf deinem Mac · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "So wird aus einem Tippen auf deinem iPhone ein Klick auf deinem Mac",
+  "description": "Normalisierte Koordinaten, zusammengefasste Mausbewegungen, macOS-Tastencodes, Unicode-Text: der Weg einer Eingabe vom Finger zum Mac.",
+  "image": "https://getpeering.app/assets/og/blog-remote-input-latency.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "de",
+  "mainEntityOfPage": "https://getpeering.app/de/blog/remote-input-latency",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/de/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://getpeering.app/de/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "So wird aus einem Tippen ein Klick auf deinem Mac",
+      "item": "https://getpeering.app/de/blog/remote-input-latency"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "de",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Unterstützt Peering Emoji und nicht englische Tastaturen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. Text, der kein Tastendruck ist, wird als Zeichen gesendet und auf dem Mac getippt, sodass Emoji und jede Sprache funktionieren. Mac-Kurzbefehle werden nur in dem Modus gesendet, der Tastencodes sendet."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Warum bleibt der Cursor bei schwacher Verbindung flüssig?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Mausbewegungen werden zusammengefasst, sodass nur die neueste Position bleibt, und Scrollbewegungen werden addiert. Klicks und Tasten werden immer in der richtigen Reihenfolge zugestellt."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/de/" aria-label="Peering, Startseite">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Seiten">
+      <a href="/de/">Start</a>
+      <a href="/de/remote-desktop-for-mac">Remote-Desktop</a>
+      <a href="/de/access-your-mac-from-anywhere">Von überall</a>
+      <a href="/de/blog">Blog</a>
+      <a href="/de/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/de/">Peering</a> / <a href="/de/blog">Blog</a></p>
+    <h1>So wird aus einem Tippen auf deinem iPhone ein Klick auf deinem Mac</h1>
+    <p class="post-meta">Veröffentlicht <time datetime="2026-11-11">11. November 2026</time> · 6 Minuten Lesezeit</p>
+    <p class="lede">Einen Klick zu senden ist leicht. Tausende davon über eine schlechte Verbindung zu senden, in der richtigen Reihenfolge und ohne dass der Cursor hinterherhinkt, ist der Punkt, an dem Fernsteuerung interessant wird.</p>
+
+<h2>Positionen sind Bruchteile, keine Pixel</h2>
+<p>
+  Wenn du das Bild berührst, sendet das iPhone nicht „Pixel 812, 640“. Es sendet einen Punkt zwischen 0
+  und 1 auf jeder Achse, bezogen auf die gezeigte Quelle. Der Mac macht daraus echte Koordinaten
+  für das Display oder Fenster, das er aufnimmt. Deshalb trifft ein Tippen die richtige Stelle, egal ob das
+  Bild eingepasst oder gezoomt ist, im Hoch- oder Querformat, auf einem Retina-Display
+  oder einem virtuellen Display in der Form des iPhones. Keine Seite muss sich auf eine Auflösung einigen.
+</p>
+
+<h2>Nicht jede Nachricht ist gleich</h2>
+<p>
+  Eingaben reisen als kleine JSON-Befehle über die verschlüsselte Steuerverbindung, und die App behandelt
+  jede Art anders:
+</p>
+<ul>
+  <li><strong>Mausbewegungen behalten nur die neueste.</strong> Stauen sich drei Bewegungen, während das Netzwerk stockt, sind die ersten beiden wertlos. Die neueste ersetzt sie, und Bewegungen sind auf etwa 60 pro Sekunde begrenzt.</li>
+  <li><strong>Scrollen addiert sich.</strong> Zwei Scroll-Ereignisse, die sich gemeinsam stauen, werden zu einem Ereignis mit der Summe, sodass keine Strecke verloren geht.</li>
+  <li><strong>Klicks und Tasten werden nie verworfen oder umsortiert.</strong> Ein Loslassen der Maustaste, das vor dem Drücken ankommt, wäre ein Fehler, den man sehen würde.</li>
+</ul>
+<p>
+  Diese kleine Regel macht den größten Teil des Unterschieds zwischen einem Cursor, der gleitet, und einem, der nach
+  einem Hänger ruckelt. Sie sorgt auch dafür, dass eine schlechte Verbindung zu einem weniger flüssigen Zeiger führt und nie zu
+  einer falschen Aktion.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-shortcuts.webp" width="603" height="1311" loading="lazy"
+    alt="Das Kurzbefehl-Feld von Peering auf dem iPhone mit Kurzbefehlen für Visual Studio Code über dem Bild des Macs.">
+  <figcaption>Eine Kurzbefehl-Taste sendet dieselben Tastenereignisse wie eine Tastatur, mit den richtigen Sondertasten.</figcaption>
+</figure>
+
+<h2>Tasten sind macOS-Tastencodes</h2>
+<p>
+  Ein Tastendruck ist ein virtueller macOS-Tastencode plus Modifikator-Bits für Umschalt, Control, Option und Befehl.
+  Die Mac-App wandelt ihn in ein echtes Tastaturereignis um und schickt es ans System, weshalb sie
+  die Berechtigung „Bedienungshilfen“ braucht. Kurzbefehle folgen der App, in der du bist: Das Feld oben zeigt die
+  Befehle für den Editor im Vordergrund, keine feste Liste.
+</p>
+<p>
+  Tasten wie an einer echten Tastatur zu verhalten hat überraschende Ecken. Eine echte Pfeiltaste
+  trägt zwei zusätzliche Flags, ein Funktions-Flag und ein Ziffernblock-Flag, die ein naives synthetisches Ereignis
+  weglässt. Ohne sie tat Control plus Pfeil nach oben auf dem Mac nichts, statt Mission
+  Control zu öffnen, obwohl der richtige Tastencode angekommen war. Peering setzt jetzt beide Flags, wie es eine echte Tastatur tut.
+</p>
+
+<h2>Text sind keine Tastendrücke</h2>
+<p>
+  Emoji, Akzente und nicht lateinische Schriften lassen sich keinen Tastencodes zuordnen. Dafür sendet das iPhone
+  die Zeichen selbst als Text, und der Mac tippt sie ein. Deshalb funktioniert die Tastatur in jeder
+  Sprache, und deshalb funktionieren in diesem Modus einige Mac-Kurzbefehle nicht. Das ist ein Kompromiss, den du
+  in den Einstellungen umschalten kannst.
+</p>
+
+<h2>Im Takt bleiben</h2>
+<p>
+  Das iPhone pingt den Mac jede Sekunde, und der Mac antwortet, indem er den Ping zurückgibt, was zugleich als
+  Live-Latenzmessung dient. Geht das iPhone in den Hintergrund, sagt es das vorher, weil iOS eine App
+  einfrieren kann, ohne ihre Verbindungen zu schließen, und der Mac sendet dann kein Video mehr an das iPhone, bis es zurückkehrt. Eine Sitzung kann
+  auch auf „nur beobachten“ gestellt werden, dann ignoriert der Mac Eingaben, während das Bild weiterläuft.
+</p>
+<p>
+  Die andere Richtung dieser Schleife ist <a href="/de/blog/mac-screen-streaming">wie das Bild
+  zum iPhone kommt</a>. Zusammen bestimmen beide, wie reaktionsschnell sich das Ganze anfühlt.
+</p>
+
+    <h2>Fragen</h2>
+    <h3>Unterstützt Peering Emoji und nicht englische Tastaturen?</h3>
+    <p>Ja. Text, der kein Tastendruck ist, wird als Zeichen gesendet und auf dem Mac getippt, sodass Emoji und jede Sprache funktionieren. Mac-Kurzbefehle werden nur in dem Modus gesendet, der Tastencodes sendet.</p>
+    <h3>Warum bleibt der Cursor bei schwacher Verbindung flüssig?</h3>
+    <p>Mausbewegungen werden zusammengefasst, sodass nur die neueste Position bleibt, und Scrollbewegungen werden addiert. Klicks und Tasten werden immer in der richtigen Reihenfolge zugestellt.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/de/download">Peering für Mac laden</a>
+    </div>
+
+    <nav class="post-nav" aria-label="Mehr aus dem Blog">
+      <h2>Mehr dazu, wie Peering funktioniert</h2>
+      <ul>
+        <li><a href="/de/blog/connect-iphone-to-mac-anywhere">So erreicht dein iPhone deinen Mac von überall</a></li>
+        <li><a href="/de/blog/mac-screen-streaming">So wird der Bildschirm deines Macs auf dein iPhone gestreamt</a></li>
+        <li><a href="/de/blog/pairing-without-an-account">Kopplung ohne Konto: wie Vertrauen funktioniert</a></li>
+        <li><a href="/de/blog/what-the-relay-can-see">Was das Relay sehen kann und was nicht</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Anleitungen, Rechtliches und Support">
+      <a href="/de/blog">Blog</a>
+      <a href="/de/how-to-pair-iphone-mac">Kopplungsanleitung</a>
+      <a href="/de/remote-desktop-for-mac">Remote-Desktop</a>
+      <a href="/de/access-your-mac-from-anywhere">Von überall</a>
+      <a href="/de/keep-mac-awake-for-remote-access">Mac zu Hause</a>
+      <a href="/de/coding-agent-notifications">Coding-Agenten</a>
+      <a href="/de/remote-desktop-apps-compared">Apps im Vergleich</a>
+      <a href="/de/screens-alternative">Screens-Alternative</a>
+      <a href="/de/best-remote-desktop-app-for-ipad">Beste App fürs iPad</a>
+      <a href="/de/apple-remote-desktop-alternative">ARD-Alternativen</a>
+      <a href="/de/apple-remote-desktop-vs-screen-sharing">ARD vs. Bildschirmfreigabe</a>
+      <a href="/de/screens-vs-jump-desktop">Screens vs. Jump</a>
+      <a href="/de/rustdesk-alternative-for-mac">RustDesk-Alternative</a>
+      <a href="/de/control-mac-from-android">Mac mit Android steuern</a>
+      <a href="/de/claude-code-on-android">Claude Code auf Android</a>
+      <a href="/de/chrome-remote-desktop-alternative">Chrome-Remote-Desktop-Alternative</a>
+      <a href="/de/teamviewer-alternative-for-mac">TeamViewer-Alternative</a>
+      <a href="/de/control-windows-pc-from-phone">Windows vom Handy</a>
+      <a href="/de/download">Download</a>
+      <a href="/de/privacy">Datenschutz</a>
+      <a href="/de/terms">Nutzungsbedingungen</a>
+      <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/remote-input-latency" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/remote-input-latency" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/remote-input-latency" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/remote-input-latency" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/remote-input-latency" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/remote-input-latency" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/remote-input-latency" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/remote-input-latency" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/remote-input-latency" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/remote-input-latency" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone und Mac sind Marken der Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

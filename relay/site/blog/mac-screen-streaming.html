@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Peering Streams Your Mac&#x27;s Screen to Your iPhone · Peering</title>
+<meta name="description" content="Capture, hardware encoding, datagrams and loss recovery: what happens to a frame between your Mac&#x27;s display and your iPhone, and why remote desktop video is built differently from a video call.">
+<link rel="canonical" href="https://getpeering.app/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/mac-screen-streaming">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="en_GB">
+<meta property="og:url" content="https://getpeering.app/blog/mac-screen-streaming">
+<meta property="og:title" content="How Peering Streams Your Mac&#x27;s Screen to Your iPhone · Peering">
+<meta property="og:description" content="Capture, hardware encoding, datagrams and loss recovery: what happens to a frame between your Mac&#x27;s display and your iPhone, and why remote desktop video is built differently from a video call.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="How Peering Streams Your Mac&#x27;s Screen to Your iPhone · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How Peering Streams Your Mac&#x27;s Screen to Your iPhone · Peering">
+<meta name="twitter:description" content="Capture, hardware encoding, datagrams and loss recovery: what happens to a frame between your Mac&#x27;s display and your iPhone, and why remote desktop video is built differently from a video call.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta name="twitter:image:alt" content="How Peering Streams Your Mac&#x27;s Screen to Your iPhone · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "How Peering Streams Your Mac's Screen to Your iPhone",
+  "description": "Capture, hardware encoding, datagrams and loss recovery: what happens to a frame between your Mac's display and your iPhone, and why remote desktop video is built differently from a video call.",
+  "image": "https://getpeering.app/assets/og/blog-mac-screen-streaming.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "en",
+  "mainEntityOfPage": "https://getpeering.app/blog/mac-screen-streaming",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://getpeering.app/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "How your Mac's screen is streamed to your iPhone",
+      "item": "https://getpeering.app/blog/mac-screen-streaming"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What video codec does Peering use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "H.264 or HEVC, encoded on the Mac with VideoToolbox, with no B-frames and low latency settings. The iPhone tells the Mac which it can decode."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the picture sometimes smear for a moment?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A lost network packet damages a frame, and the picture heals at the next keyframe, which arrives at least every two seconds. Peering prefers a brief smear to waiting for a retransmission."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/" aria-label="Peering, home">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/remote-desktop-for-mac">Remote desktop</a>
+      <a href="/access-your-mac-from-anywhere">From anywhere</a>
+      <a href="/blog">Blog</a>
+      <a href="/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/">Peering</a> / <a href="/blog">Blog</a></p>
+    <h1>How Peering Streams Your Mac&#x27;s Screen to Your iPhone</h1>
+    <p class="post-meta">Published <time datetime="2026-11-11">11 November 2026</time> · 7 minute read</p>
+    <p class="lede">A remote desktop is a video stream with one unusual requirement: the person watching is also the person driving. Every design choice below follows from keeping that loop short.</p>
+
+<h2>Capture: ask the system for the picture</h2>
+<p>
+  The Mac app uses Apple's ScreenCaptureKit to get frames. The source can be a whole display, every
+  window of one app, or a single window, and you can switch between them without dropping the
+  connection. This is also why macOS asks for the Screen Recording permission the first time:
+  without it the Mac can only hand over a black picture.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-session.webp" width="603" height="1311" loading="lazy"
+    alt="A Mac desktop with a code editor open, streamed live to an iPhone running Peering.">
+  <figcaption>The picture on the phone is an encoded video stream, not a series of screenshots.</figcaption>
+</figure>
+
+<h2>Encode: low latency, no reordering</h2>
+<p>
+  Frames go to Apple's VideoToolbox encoder on the Mac, as H.264 or HEVC, whichever
+  the phone says it can decode. The settings are the opposite of what a streaming service uses:
+</p>
+<ul>
+  <li><strong>No B-frames.</strong> A B-frame needs a frame from the future, so using them means holding pictures back. Without them, decode order is display order and nothing waits.</li>
+  <li><strong>Low latency rate control.</strong> The encoder spends its bits as it goes instead of looking ahead.</li>
+  <li><strong>A keyframe at least every two seconds</strong>, and immediately when a new viewer joins, resumes or switches source, so a lost picture heals quickly.</li>
+  <li><strong>A bitrate that scales with the screen.</strong> By default it is the pixel count times the frame rate times 0.12, held between 4 and 30 Mbps, at 60 frames a second by default.</li>
+</ul>
+<p>
+  The decoder's setup information (the parameter sets) is sent once, as its own message, and not
+  repeated in every frame. A phone that joins mid-stream receives that message and then a keyframe.
+</p>
+
+<h2>Send: droppable frames, protected keyframes</h2>
+<p>
+  Each frame travels with a small 25 byte header: whether it is a keyframe, its pixel size and a
+  presentation time. On a relayed or direct connection it is cut into datagrams of about 1,080
+  bytes, each one sealed with ChaCha20-Poly1305 using a key only the two devices know. A counter
+  in every datagram feeds a 64 entry replay window, so a captured packet cannot be played back later.
+</p>
+<p>
+  The rule for congestion is blunt: video is droppable and keyframes are not. If a new frame is
+  ready while an old one is still waiting to go out, the old one is replaced, except that an
+  undelivered keyframe is never replaced by an ordinary frame. Showing the screen as it is now matters
+  more than showing every frame that ever existed.
+</p>
+<p>
+  On a home network the picture travels over its own TCP connection instead, where the network
+  is reliable enough that the same rule rarely has to fire. Every socket sets <code>TCP_NODELAY</code>.
+  The default behaviour of batching small writes adds tens of milliseconds at each hop, which is
+  invisible in a download and very visible when you are moving a cursor.
+</p>
+
+<h2>Recover: pay for loss in pictures, not in latency</h2>
+<p>
+  UDP does not retransmit, so a lost datagram means a damaged frame. The phone does not wait for
+  it. It keeps decoding, and the damage clears at the next keyframe, at most two seconds away. If
+  you notice a smear after a bad bit of Wi-Fi, that is what you are seeing. Pausing and resuming
+  the picture forces a keyframe immediately.
+</p>
+<p>
+  If the fast path stops delivering altogether, the stream falls back to the control connection at
+  a lower bitrate, as <a href="/blog/connect-iphone-to-mac-anywhere">the connection post</a>
+  describes, and returns when the fast path recovers.
+</p>
+
+<h2>Show: fit the phone, not the Mac</h2>
+<p>
+  The phone chooses a quality tier and can ask for fewer frames per second, which the Mac clamps
+  to a sensible range. The app can fit the whole desktop on the screen or fill it, and even ask
+  the Mac for a virtual display shaped like the phone, so a landscape monitor is not squeezed into a portrait
+  screen. Taps on the picture travel the other way, which is the subject of
+  <a href="/blog/remote-input-latency">how a tap becomes a click</a>.
+</p>
+
+    <h2>Questions</h2>
+    <h3>What video codec does Peering use?</h3>
+    <p>H.264 or HEVC, encoded on the Mac with VideoToolbox, with no B-frames and low latency settings. The iPhone tells the Mac which it can decode.</p>
+    <h3>Why does the picture sometimes smear for a moment?</h3>
+    <p>A lost network packet damages a frame, and the picture heals at the next keyframe, which arrives at least every two seconds. Peering prefers a brief smear to waiting for a retransmission.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/download">Download Peering for Mac</a>
+    </div>
+
+    <nav class="post-nav" aria-label="More from the blog">
+      <h2>More on how Peering works</h2>
+      <ul>
+        <li><a href="/blog/connect-iphone-to-mac-anywhere">How your iPhone reaches your Mac from anywhere</a></li>
+        <li><a href="/blog/pairing-without-an-account">Pairing without an account: how trust works</a></li>
+        <li><a href="/blog/remote-input-latency">How a tap becomes a click on your Mac</a></li>
+        <li><a href="/blog/what-the-relay-can-see">What the relay can and cannot see</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guides, legal and support">
+      <a href="/blog">Blog</a>
+      <a href="/how-to-pair-iphone-mac">Pairing guide</a>
+      <a href="/remote-desktop-for-mac">Remote desktop</a>
+      <a href="/access-your-mac-from-anywhere">From anywhere</a>
+      <a href="/keep-mac-awake-for-remote-access">Mac at home</a>
+      <a href="/coding-agent-notifications">Coding agents</a>
+      <a href="/remote-desktop-apps-compared">Compare apps</a>
+      <a href="/screens-alternative">Screens alternative</a>
+      <a href="/best-remote-desktop-app-for-ipad">Best for iPad</a>
+      <a href="/apple-remote-desktop-alternative">ARD alternatives</a>
+      <a href="/apple-remote-desktop-vs-screen-sharing">ARD vs Screen Sharing</a>
+      <a href="/screens-vs-jump-desktop">Screens vs Jump</a>
+      <a href="/rustdesk-alternative-for-mac">RustDesk alternative</a>
+      <a href="/control-mac-from-android">Mac from Android</a>
+      <a href="/claude-code-on-android">Claude Code on Android</a>
+      <a href="/chrome-remote-desktop-alternative">Chrome Remote Desktop alternative</a>
+      <a href="/teamviewer-alternative-for-mac">TeamViewer alternative</a>
+      <a href="/control-windows-pc-from-phone">Windows from a phone</a>
+      <a href="/download">Download</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/support">Support</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/mac-screen-streaming" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/mac-screen-streaming" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/mac-screen-streaming" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/mac-screen-streaming" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/mac-screen-streaming" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/mac-screen-streaming" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/mac-screen-streaming" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/mac-screen-streaming" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/mac-screen-streaming" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/mac-screen-streaming" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone and Mac are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

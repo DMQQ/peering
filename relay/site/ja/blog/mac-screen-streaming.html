@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PeeringがMacの画面をiPhoneに届ける仕組み · Peering</title>
+<meta name="description" content="キャプチャ、ハードウェアエンコード、データグラム、損失からの回復。Macの画面がiPhoneに届くまでを解説します。">
+<link rel="canonical" href="https://getpeering.app/ja/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/mac-screen-streaming">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://getpeering.app/ja/blog/mac-screen-streaming">
+<meta property="og:title" content="PeeringがMacの画面をiPhoneに届ける仕組み · Peering">
+<meta property="og:description" content="キャプチャ、ハードウェアエンコード、データグラム、損失からの回復。Macの画面がiPhoneに届くまでを解説します。">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PeeringがMacの画面をiPhoneに届ける仕組み · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PeeringがMacの画面をiPhoneに届ける仕組み · Peering">
+<meta name="twitter:description" content="キャプチャ、ハードウェアエンコード、データグラム、損失からの回復。Macの画面がiPhoneに届くまでを解説します。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta name="twitter:image:alt" content="PeeringがMacの画面をiPhoneに届ける仕組み · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "PeeringがMacの画面をiPhoneに届ける仕組み",
+  "description": "キャプチャ、ハードウェアエンコード、データグラム、損失からの回復。Macの画面がiPhoneに届くまでを解説します。",
+  "image": "https://getpeering.app/assets/og/blog-mac-screen-streaming.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ja",
+  "mainEntityOfPage": "https://getpeering.app/ja/blog/mac-screen-streaming",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ja/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "ブログ",
+      "item": "https://getpeering.app/ja/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Macの画面をiPhoneに届ける仕組み",
+      "item": "https://getpeering.app/ja/blog/mac-screen-streaming"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ja",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "PeeringはどのビデオコーデックをMacで使いますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "H.264またはHEVCで、MacのVideoToolboxでエンコードします。Bフレームなし、低遅延の設定です。どちらを使うかは、iPhoneがデコードできるほうをMacに伝えます。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "映像が一瞬にじむことがあるのはなぜですか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "ネットワークのパケットが失われるとフレームが乱れ、映像は少なくとも2秒ごとに届く次のキーフレームで回復します。Peeringは、再送を待つよりも、一瞬のにじみを選びます。"
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ja/" aria-label="Peering、ホーム">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="ページ">
+      <a href="/ja/">ホーム</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/blog">ブログ</a>
+      <a href="/ja/download">ダウンロード</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ja/">Peering</a> / <a href="/ja/blog">ブログ</a></p>
+    <h1>PeeringがMacの画面をiPhoneに届ける仕組み</h1>
+    <p class="post-meta">公開日 <time datetime="2026-11-11">2026年11月11日</time> · 読了目安 7分</p>
+    <p class="lede">リモートデスクトップは映像ストリームですが、見ている人が同時に操作している人でもあるという、特殊な条件があります。以下の設計上の選択はすべて、このループを短く保つことから来ています。</p>
+
+<h2>キャプチャ：システムに映像を頼む</h2>
+<p>
+  MacアプリはAppleのScreenCaptureKitでフレームを取得します。取得元はディスプレイ全体、1つのアプリのすべてのウィンドウ、
+  または1つのウィンドウで、接続を切らずに切り替えられます。macOSが初回に画面収録の権限を求めるのもこのためで、
+  許可がないと、Macは真っ黒な画面しか渡せません。
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-session.webp" width="603" height="1311" loading="lazy"
+    alt="コードエディタを開いたMacのデスクトップが、Peeringを動かしているiPhoneにライブで映し出されています。">
+  <figcaption>iPhoneに映っているのは、スクリーンショットの連続ではなく、エンコードされた映像ストリームです。</figcaption>
+</figure>
+
+<h2>エンコード：低遅延で、並べ替えなし</h2>
+<p>
+  フレームはMacのAppleのVideoToolboxエンコーダーに渡され、iPhoneがデコードできるほうのH.264またはHEVCになります。
+  設定は、ストリーミングサービスが使うものとは正反対です。
+</p>
+<ul>
+  <li><strong>Bフレームなし。</strong>Bフレームは未来のフレームを必要とするので、使うと映像を保留しなければなりません。使わなければ、デコード順がそのまま表示順になり、待つものがありません。</li>
+  <li><strong>低遅延のレート制御。</strong>エンコーダーは先読みをせず、その場でビットを使っていきます。</li>
+  <li><strong>少なくとも2秒ごとのキーフレーム。</strong>新しい視聴者が加わったとき、再開したとき、取得元を切り替えたときにはすぐに送るので、失われた映像は素早く回復します。</li>
+  <li><strong>画面に合わせて変わるビットレート。</strong>初期値は、画素数にフレームレートと0.12を掛けた値で、4から30 Mbpsの範囲に収め、初期設定は毎秒60フレームです。</li>
+</ul>
+<p>
+  デコーダーの設定情報（パラメータセット）は、フレームごとに繰り返さず、独立したメッセージとして1回だけ送ります。
+  途中から参加したiPhoneは、そのメッセージを受け取り、続いてキーフレームを受け取ります。
+</p>
+
+<h2>送信：捨てられるフレームと、守られるキーフレーム</h2>
+<p>
+  各フレームには、25バイトの小さなヘッダーが付きます。キーフレームかどうか、ピクセルサイズ、表示時刻です。
+  リレー経由でも直接の接続でも、フレームは約1,080バイトのデータグラムに分割され、
+  2台のデバイスだけが知る鍵でChaCha20-Poly1305により封をされます。
+  各データグラムのカウンターは64エントリのリプレイウィンドウに渡されるので、取得されたパケットを後から再生することはできません。
+</p>
+<p>
+  輻輳に対するルールは単純です。映像は捨ててよく、キーフレームは捨てません。古いフレームがまだ送信待ちのうちに新しいフレームの準備ができたら、
+  古いほうが置き換えられます。ただし、未配信のキーフレームが通常のフレームに置き換えられることはありません。
+  存在したすべてのフレームを見せるより、今の画面を見せることのほうが大切です。
+</p>
+<p>
+  自宅のネットワークでは、映像は専用のTCP接続を通ります。ネットワークが十分に信頼できるので、同じルールが働くことはまずありません。
+  どのソケットも<code>TCP_NODELAY</code>を設定しています。小さな書き込みをまとめる初期の動作は、1ホップごとに数十ミリ秒を足します。
+  ダウンロードでは気づきませんが、カーソルを動かしているときには非常にはっきり分かります。
+</p>
+
+<h2>回復：損失は遅延ではなく映像で払う</h2>
+<p>
+  UDPは再送しないので、データグラムが失われるとフレームが乱れます。iPhoneはそれを待ちません。デコードを続け、
+  乱れは最大2秒後の次のキーフレームで消えます。Wi-Fiの調子が悪かったあとに映像がにじんで見えたら、これが起きています。
+  映像を一時停止して再開すると、すぐにキーフレームが送られます。
+</p>
+<p>
+  高速な経路がまったく届かなくなった場合、<a href="/ja/blog/connect-iphone-to-mac-anywhere">接続についての記事</a>で説明したとおり、
+  ストリームは低いビットレートで制御用の接続にフォールバックし、高速な経路が回復すると戻ります。
+</p>
+
+<h2>表示：Macではなく、iPhoneに合わせる</h2>
+<p>
+  iPhoneは画質の段階を選び、毎秒のフレーム数を減らすように頼むこともできます。Mac側はそれを妥当な範囲に収めます。
+  アプリはデスクトップ全体を画面に収めることも、画面いっぱいに広げることもでき、iPhoneの形をした仮想ディスプレイをMacに頼むこともできるので、
+  横長のモニターを縦長の画面に押し込むことがありません。映像上のタップは逆方向に届きます。それは
+  <a href="/ja/blog/remote-input-latency">タップがクリックになる仕組み</a>で扱っています。
+</p>
+
+    <h2>よくある質問</h2>
+    <h3>PeeringはどのビデオコーデックをMacで使いますか？</h3>
+    <p>H.264またはHEVCで、MacのVideoToolboxでエンコードします。Bフレームなし、低遅延の設定です。どちらを使うかは、iPhoneがデコードできるほうをMacに伝えます。</p>
+    <h3>映像が一瞬にじむことがあるのはなぜですか？</h3>
+    <p>ネットワークのパケットが失われるとフレームが乱れ、映像は少なくとも2秒ごとに届く次のキーフレームで回復します。Peeringは、再送を待つよりも、一瞬のにじみを選びます。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ja/download">Mac版Peeringをダウンロード</a>
+    </div>
+
+    <nav class="post-nav" aria-label="ブログのほかの記事">
+      <h2>Peeringの仕組みをもっと読む</h2>
+      <ul>
+        <li><a href="/ja/blog/connect-iphone-to-mac-anywhere">iPhoneがどこからでもMacに届く仕組み</a></li>
+        <li><a href="/ja/blog/pairing-without-an-account">アカウントなしのペアリング：信頼の仕組み</a></li>
+        <li><a href="/ja/blog/remote-input-latency">タップがMacのクリックになる仕組み</a></li>
+        <li><a href="/ja/blog/what-the-relay-can-see">リレーに見えるもの、見えないもの</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="ガイド、法務、サポート">
+      <a href="/ja/blog">ブログ</a>
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
+      <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリ比較</a>
+      <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/best-remote-desktop-app-for-ipad">iPadに最適</a>
+      <a href="/ja/apple-remote-desktop-alternative">ARDの代替</a>
+      <a href="/ja/apple-remote-desktop-vs-screen-sharing">ARDと画面共有</a>
+      <a href="/ja/screens-vs-jump-desktop">ScreensとJump</a>
+      <a href="/ja/rustdesk-alternative-for-mac">RustDeskの代替</a>
+      <a href="/ja/control-mac-from-android">AndroidからMac</a>
+      <a href="/ja/claude-code-on-android">AndroidでClaude Code</a>
+      <a href="/ja/chrome-remote-desktop-alternative">Chromeリモートデスクトップの代替</a>
+      <a href="/ja/teamviewer-alternative-for-mac">TeamViewerの代替</a>
+      <a href="/ja/control-windows-pc-from-phone">スマホからWindows</a>
+      <a href="/ja/download">ダウンロード</a>
+      <a href="/ja/privacy">プライバシー</a>
+      <a href="/ja/terms">利用規約</a>
+      <a href="mailto:support@getpeering.app">サポート</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/mac-screen-streaming" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/mac-screen-streaming" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/mac-screen-streaming" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/mac-screen-streaming" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/mac-screen-streaming" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/mac-screen-streaming" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/mac-screen-streaming" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/mac-screen-streaming" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/mac-screen-streaming" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/mac-screen-streaming" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple、iPhone、MacはApple Inc.の商標です。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

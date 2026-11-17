@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Come il tuo iPhone raggiunge il tuo Mac da ovunque · Peering</title>
+<meta name="description" content="Come Peering trova il Mac sullo stesso Wi-Fi, come un relay lo presenta all&#x27;iPhone via internet e come l&#x27;immagine passa poi direttamente tra i due.">
+<link rel="canonical" href="https://getpeering.app/it/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/connect-iphone-to-mac-anywhere">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="it_IT">
+<meta property="og:url" content="https://getpeering.app/it/blog/connect-iphone-to-mac-anywhere">
+<meta property="og:title" content="Come il tuo iPhone raggiunge il tuo Mac da ovunque · Peering">
+<meta property="og:description" content="Come Peering trova il Mac sullo stesso Wi-Fi, come un relay lo presenta all&#x27;iPhone via internet e come l&#x27;immagine passa poi direttamente tra i due.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Come il tuo iPhone raggiunge il tuo Mac da ovunque · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Come il tuo iPhone raggiunge il tuo Mac da ovunque · Peering">
+<meta name="twitter:description" content="Come Peering trova il Mac sullo stesso Wi-Fi, come un relay lo presenta all&#x27;iPhone via internet e come l&#x27;immagine passa poi direttamente tra i due.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png">
+<meta name="twitter:image:alt" content="Come il tuo iPhone raggiunge il tuo Mac da ovunque · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Come il tuo iPhone raggiunge il tuo Mac da ovunque",
+  "description": "Come Peering trova il Mac sullo stesso Wi-Fi, come un relay lo presenta all'iPhone via internet e come l'immagine passa poi direttamente tra i due.",
+  "image": "https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "it",
+  "mainEntityOfPage": "https://getpeering.app/it/blog/connect-iphone-to-mac-anywhere",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/it/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://getpeering.app/it/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Come il tuo iPhone raggiunge il tuo Mac da ovunque",
+      "item": "https://getpeering.app/it/blog/connect-iphone-to-mac-anywhere"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "it",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Devo aprire porte sul router per usare Peering fuori casa?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Ogni connessione è in uscita. Il Mac tiene aperta una connessione verso il relay ed entrambi i dispositivi si connettono a esso in uscita, quindi non serve inoltrare nulla."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peering usa il relay per tutta la sessione?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Il relay unisce la connessione all'inizio. L'immagine poi cerca di andare direttamente tra il tuo Mac e il tuo iPhone, e ripiega sul relay quando la tua rete non consente un percorso diretto."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/it/" aria-label="Peering, pagina iniziale">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Pagine">
+      <a href="/it/">Home</a>
+      <a href="/it/remote-desktop-for-mac">Desktop remoto</a>
+      <a href="/it/access-your-mac-from-anywhere">Da ovunque</a>
+      <a href="/it/blog">Blog</a>
+      <a href="/it/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/it/">Peering</a> / <a href="/it/blog">Blog</a></p>
+    <h1>Come il tuo iPhone raggiunge il tuo Mac da ovunque</h1>
+    <p class="post-meta">Pubblicato <time datetime="2026-11-11">11 novembre 2026</time> · 6 minuti di lettura</p>
+    <p class="lede">Il tuo Mac sta dietro un router e il tuo iPhone è su una rete mobile. Nessuno dei due può chiamare l&#x27;altro. Ecco la sequenza che li fa parlare, nell&#x27;ordine in cui avviene.</p>
+
+<h2>Sulla stessa rete: Bonjour e una porta</h2>
+<p>
+  L'app per Mac è in ascolto sulla porta TCP 51515 e si annuncia tramite Bonjour come
+  <code>_remotedesktop._tcp</code>, con tre piccole informazioni allegate: un ID dispositivo, il nome del Mac e la
+  versione del protocollo. L'iPhone cerca quel servizio, quindi un Mac sullo stesso Wi-Fi compare sotto
+  Nelle vicinanze senza che nessuno debba digitare un indirizzo.
+</p>
+<p>
+  L'annuncio è solo un indizio, niente di più. Nulla che riguardi la sicurezza viene deciso in base a esso, perché
+  chiunque su una rete può annunciare qualsiasi cosa. Conta quello che succede dopo: il telefono apre
+  una connessione TLS 1.3, entrambi i lati presentano un certificato e ciascuno controlla la chiave pubblica dell'altro
+  rispetto a quella che aveva memorizzato quando li hai associati. <a href="/it/blog/pairing-without-an-account">Come funziona quell'associazione</a>
+  è argomento di un altro articolo.
+</p>
+<p>
+  Su una rete domestica il telefono apre due connessioni: una per il controllo (input, impostazioni, elenco delle
+  finestre) e una che trasporta solo l'immagine. Tenere il video fuori dallo stream di controllo significa che un grosso
+  keyframe non può mai far aspettare un clic del mouse dietro di sé.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-connect.webp" width="603" height="1311" loading="lazy"
+    alt="Peering su iPhone: la schermata Connetti con un Mac nelle vicinanze, un modo per associare un Mac altrove e i Mac attendibili.">
+  <figcaption>I Mac nelle vicinanze arrivano da Bonjour. I Mac attendibili sono quelli che hai già associato.</figcaption>
+</figure>
+
+<h2>Fuori dalla rete: un relay che si limita a presentare</h2>
+<p>
+  Quando esci di casa, il telefono non può raggiungere un indirizzo privato dietro il tuo router, e il router
+  non accetta una connessione che nessuno ha richiesto. Quindi è il Mac a fare la prima mossa, in anticipo. Finché
+  è in esecuzione tiene aperto un WebSocket in uscita verso il relay di Peering e invia un piccolo ping ogni 25
+  secondi. Quel socket aperto è la presenza del Mac: è così che il relay sa che il Mac esiste ed è attivo.
+</p>
+<p>Quando tocchi il tuo Mac sull'iPhone, succede questo:</p>
+<ol>
+  <li>Il telefono chiede al relay di connettersi all'ID dispositivo del tuo Mac.</li>
+  <li>Il relay risponde a entrambe le estremità con un indirizzo e una coppia di token casuali da 16 byte, uno per il controllo e uno per il video.</li>
+  <li>Entrambi i dispositivi aprono una connessione TCP in uscita verso il relay e scrivono per prima cosa il proprio token.</li>
+  <li>Il relay abbina i due token e unisce i socket, copiando i byte dall'uno all'altro.</li>
+</ol>
+<p>
+  Poi il telefono avvia lo stesso handshake TLS che userebbe su una rete domestica, e passa
+  direttamente attraverso il relay fino al Mac. Il relay è un tubo, non una parte della conversazione.
+  Non possiede mai una chiave. Per i dettagli su cosa può e non può imparare,
+  <a href="/it/blog/what-the-relay-can-see">leggi cosa può vedere il relay</a>.
+</p>
+
+<h2>L'immagine prende una scorciatoia</h2>
+<p>
+  Far passare tutto dal relay funzionerebbe, ma è il percorso più lento e più costoso. Quindi
+  l'immagine non resta sulla connessione TCP. Passa a UDP, più adatto al video: un
+  fotogramma in ritardo non vale nulla, e ritrasmetterlo rende solo il successivo ancora più in ritardo.
+</p>
+<p>
+  Ogni estremità pone inoltre una domanda al relay: da quale indirizzo si connette l'altra parte? Il relay
+  risponde con l'indirizzo che ha osservato, e i due dispositivi iniziano a inviarsi a vicenda piccoli pacchetti di prova cifrati,
+  ogni 250 millisecondi. Ogni pacchetto apre un varco nel router di chi lo invia e, quando
+  i due varchi si allineano, un pacchetto passa e si autentica. Da quel momento l'immagine va
+  direttamente dal Mac all'iPhone e il relay è fuori dal percorso del video.
+</p>
+<p>
+  È la tecnica di solito chiamata hole punching. Funziona con la maggior parte dei router domestici e fallisce con
+  alcuni router mobili e aziendali più restrittivi, nel qual caso l'immagine continua semplicemente a passare dal
+  relay. In ogni caso, non devi configurare nulla né aprire alcuna porta.
+</p>
+
+<h2>Quando UDP è bloccato</h2>
+<p>
+  Alcune reti scartano completamente UDP. Se non arriva alcuna immagine da tre secondi mentre la connessione di controllo
+  risponde ancora, l'iPhone chiede al Mac di inviare il video sullo stream di controllo,
+  suddiviso in blocchi. Il bitrate è limitato a un valore più basso, quindi l'immagine appare più morbida, ma un'immagine
+  morbida è meglio di una congelata. Il Mac continua a inviare un keyframe sul percorso veloce ogni pochi secondi,
+  e quando il telefono vede che quel percorso si è ripreso, ci ritorna.
+</p>
+
+<h2>Perché è costruito così</h2>
+<ul>
+  <li><strong>Nessuna porta in ingresso.</strong> Ogni connessione è in uscita, quindi non c'è alcuna impostazione del router da cambiare e nulla è esposto su internet.</li>
+  <li><strong>Nessun account.</strong> I dispositivi sono identificati da chiavi che generano loro stessi, non da un login. Vedi <a href="/it/blog/pairing-without-an-account">l'associazione senza account</a>.</li>
+  <li><strong>Prima il percorso più economico.</strong> La stessa rete è gratuita e senza limiti. Il relay trasporta solo ciò che un percorso diretto non può.</li>
+</ul>
+<p>
+  Per la versione pensata per chi usa l'app, con le impostazioni che mantengono un Mac raggiungibile mentre sei
+  fuori, vedi <a href="/it/access-your-mac-from-anywhere">accedere al tuo Mac da ovunque</a> e
+  <a href="/it/keep-mac-awake-for-remote-access">tenere il tuo Mac attivo per l'accesso remoto</a>.
+</p>
+
+    <h2>Domande</h2>
+    <h3>Devo aprire porte sul router per usare Peering fuori casa?</h3>
+    <p>No. Ogni connessione è in uscita. Il Mac tiene aperta una connessione verso il relay ed entrambi i dispositivi si connettono a esso in uscita, quindi non serve inoltrare nulla.</p>
+    <h3>Peering usa il relay per tutta la sessione?</h3>
+    <p>Il relay unisce la connessione all&#x27;inizio. L&#x27;immagine poi cerca di andare direttamente tra il tuo Mac e il tuo iPhone, e ripiega sul relay quando la tua rete non consente un percorso diretto.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/it/download">Scarica Peering per Mac</a>
+    </div>
+
+    <nav class="post-nav" aria-label="Altro dal blog">
+      <h2>Altro su come funziona Peering</h2>
+      <ul>
+        <li><a href="/it/blog/mac-screen-streaming">Come lo schermo del tuo Mac viene trasmesso al tuo iPhone</a></li>
+        <li><a href="/it/blog/pairing-without-an-account">Associare senza un account: come funziona la fiducia</a></li>
+        <li><a href="/it/blog/remote-input-latency">Come un tocco diventa un clic sul tuo Mac</a></li>
+        <li><a href="/it/blog/what-the-relay-can-see">Cosa può e non può vedere il relay</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guide, note legali e supporto">
+      <a href="/it/blog">Blog</a>
+      <a href="/it/how-to-pair-iphone-mac">Guida all'associazione</a>
+      <a href="/it/remote-desktop-for-mac">Desktop remoto</a>
+      <a href="/it/access-your-mac-from-anywhere">Da ovunque</a>
+      <a href="/it/keep-mac-awake-for-remote-access">Mac a casa</a>
+      <a href="/it/coding-agent-notifications">Agenti di coding</a>
+      <a href="/it/remote-desktop-apps-compared">Confronto tra app</a>
+      <a href="/it/screens-alternative">Alternativa a Screens</a>
+      <a href="/it/best-remote-desktop-app-for-ipad">Il migliore per iPad</a>
+      <a href="/it/apple-remote-desktop-alternative">Alternative ad ARD</a>
+      <a href="/it/apple-remote-desktop-vs-screen-sharing">ARD o Condivisione schermo</a>
+      <a href="/it/screens-vs-jump-desktop">Screens o Jump</a>
+      <a href="/it/rustdesk-alternative-for-mac">Alternativa a RustDesk</a>
+      <a href="/it/control-mac-from-android">Mac da Android</a>
+      <a href="/it/claude-code-on-android">Claude Code su Android</a>
+      <a href="/it/chrome-remote-desktop-alternative">Alternativa a Chrome Remote Desktop</a>
+      <a href="/it/teamviewer-alternative-for-mac">Alternativa a TeamViewer</a>
+      <a href="/it/control-windows-pc-from-phone">Windows dal telefono</a>
+      <a href="/it/download">Download</a>
+      <a href="/it/privacy">Privacy</a>
+      <a href="/it/terms">Condizioni</a>
+      <a href="mailto:support@getpeering.app">Supporto</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/connect-iphone-to-mac-anywhere" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/connect-iphone-to-mac-anywhere" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/connect-iphone-to-mac-anywhere" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/connect-iphone-to-mac-anywhere" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/connect-iphone-to-mac-anywhere" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/connect-iphone-to-mac-anywhere" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/connect-iphone-to-mac-anywhere" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/connect-iphone-to-mac-anywhere" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/connect-iphone-to-mac-anywhere" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/connect-iphone-to-mac-anywhere" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone e Mac sono marchi di Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

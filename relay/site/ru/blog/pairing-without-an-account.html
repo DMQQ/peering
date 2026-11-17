@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Связывание без аккаунта: как Peering решает, кому доверять · Peering</title>
+<meta name="description" content="В Peering нет логина. У каждого устройства свой ключ, а шестизначный код на двух экранах доказывает, что посредника нет. Вот протокол за кодом.">
+<link rel="canonical" href="https://getpeering.app/ru/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/pairing-without-an-account">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/pairing-without-an-account">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://getpeering.app/ru/blog/pairing-without-an-account">
+<meta property="og:title" content="Связывание без аккаунта: как Peering решает, кому доверять · Peering">
+<meta property="og:description" content="В Peering нет логина. У каждого устройства свой ключ, а шестизначный код на двух экранах доказывает, что посредника нет. Вот протокол за кодом.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-pairing-without-an-account.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Связывание без аккаунта: как Peering решает, кому доверять · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Связывание без аккаунта: как Peering решает, кому доверять · Peering">
+<meta name="twitter:description" content="В Peering нет логина. У каждого устройства свой ключ, а шестизначный код на двух экранах доказывает, что посредника нет. Вот протокол за кодом.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-pairing-without-an-account.png">
+<meta name="twitter:image:alt" content="Связывание без аккаунта: как Peering решает, кому доверять · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Связывание без аккаунта: как Peering решает, кому доверять",
+  "description": "В Peering нет логина. У каждого устройства свой ключ, а шестизначный код на двух экранах доказывает, что посредника нет. Вот протокол за кодом.",
+  "image": "https://getpeering.app/assets/og/blog-pairing-without-an-account.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ru",
+  "mainEntityOfPage": "https://getpeering.app/ru/blog/pairing-without-an-account",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ru/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Блог",
+      "item": "https://getpeering.app/ru/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Связывание без аккаунта: как устроено доверие",
+      "item": "https://getpeering.app/ru/blog/pairing-without-an-account"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ru",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Нужен ли Peering аккаунт или адрес электронной почты?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Нет. Каждое устройство создаёт свой ключ и хранит его в своём Keychain. Связывание это шестизначный код, который вы сверяете на двух экранах."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "От чего защищает шестизначный код связывания?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "От того, кто сидит между iPhone и Mac. Код выводится из всего рукопожатия, поэтому атакующий посередине даёт на двух экранах разные коды, и несовпадение видно."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ru/" aria-label="Peering, главная">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Страницы">
+      <a href="/ru/">Главная</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/blog">Блог</a>
+      <a href="/ru/download">Скачать</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ru/">Peering</a> / <a href="/ru/blog">Блог</a></p>
+    <h1>Связывание без аккаунта: как Peering решает, кому доверять</h1>
+    <p class="post-meta">Опубликовано <time datetime="2026-11-11">11 ноября 2026</time> · 6 мин чтения</p>
+    <p class="lede">Большинство программ удалённого доступа просят зарегистрироваться, чтобы компания решала, принадлежат ли два устройства друг другу. Peering обходится без компании и спрашивает вас, шестью цифрами.</p>
+
+<h2>Каждое устройство само себе личность</h2>
+<p>
+  При первом запуске на Mac или iPhone Peering создаёт пару ключей P-256 и хранит закрытую часть в
+  Keychain этого устройства. Этот ключ и есть личность устройства навсегда. Нет ни имени
+  пользователя, ни пароля, ни сервера, где хранилась бы копия. При каждом запуске приложение
+  подписывает на этом ключе свежий самоподписанный сертификат, а другие устройства запоминают ключ,
+  а не сертификат.
+</p>
+<p>
+  Это важно, потому что самоподписанный сертификат сам по себе ничего не доказывает. Он говорит «этот
+  ключ создал этот сертификат», а не «это Mac из вашей гостиной». Кто-то должен связать ключ с
+  физическим устройством, и этот кто-то вы.
+</p>
+
+<h2>Шесть цифр</h2>
+<p>
+  Когда iPhone встречает Mac впервые, на обоих экранах появляется шестизначный код. Вы подтверждаете,
+  что они совпадают. Если да, каждое устройство сохраняет ключ другого. Если нет, между ними кто-то
+  сидит, и вы отклоняете запрос.
+</p>
+<p>
+  Этот код не случаен и не является паролем. Это короткий хеш всего рукопожатия: ID обоих устройств,
+  свежие одноразовые ключи с каждой стороны, одноразовые случайные числа с каждой стороны и ключ
+  личности Mac. Точнее, это первые четыре байта SHA-256 от этих полей, приведённые к шести десятичным
+  цифрам. Если злоумышленник ретранслирует соединение, Mac и iPhone видят разные записи рукопожатия, а
+  значит, и разные числа.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/onboarding-pair-iphone.webp" width="1600" height="813" loading="lazy"
+    alt="Экран Peering «Свяжите первый iPhone» на Mac: три способа подключения и QR-код.">
+  <figcaption>Mac ждёт iPhone. Код появляется на обоих экранах, когда они встретились.</figcaption>
+</figure>
+
+<h2>Зачем сначала фиксировать</h2>
+<p>
+  В шестизначном коде всего миллион значений, поэтому хитрый злоумышленник мог бы перебирать
+  одноразовые ключи, пока обе стороны случайно не покажут одно число. Протокол закрывает эту лазейку
+  шагом фиксации и раскрытия:
+</p>
+<ol>
+  <li>Каждая сторона сначала отправляет хеш своего одноразового ключа и случайного числа.</li>
+  <li>Только когда оба хеша получены, любая из сторон раскрывает настоящие значения.</li>
+  <li>Каждая сторона сверяет раскрытое значение с хешем, полученным ранее.</li>
+</ol>
+<p>
+  Злоумышленнику приходится фиксировать значения, ничего не увидев, поэтому подогнать их под нужный
+  код он не может. Остаётся слепая догадка с шансом один на миллион совпасть за попытку, а неудачная
+  попытка проявляется как несовпадение, которое вы видите.
+</p>
+
+<h2>Короткий путь через QR</h2>
+<p>
+  Если вы сканируете QR-код на Mac, сравнивать глазами нечего. В QR-коде лежит 16-байтный секрет,
+  который мог знать только тот, кто видит экран Mac. iPhone использует его, чтобы вычислить
+  доказательство (HMAC от рукопожатия), а Mac принимает его как подтверждение, что связывающий
+  физически находится перед Mac. Без этого доказательства Mac просит подтверждения у своего
+  пользователя.
+</p>
+
+<h2>После связывания доверие это сравнение ключей</h2>
+<p>
+  Каждое следующее соединение это сеанс TLS 1.3, где обе стороны предъявляют свой ключ. iPhone берёт
+  ключ Mac из сертификата, который он на самом деле получил, а не из того, что Mac сообщает в
+  сообщении, и сравнивает его с сохранённым за постоянное время. Другой ключ означает отсутствие
+  соединения. После первого раза от вас ничего не требуется.
+</p>
+<p>
+  Если Mac заявляет «я вас уже знаю», а у iPhone нет сохранённого ключа этого Mac, iPhone отказывает.
+  Заявление ничего не доказывает, ведь посторонний скажет то же самое так же легко.
+</p>
+<p>
+  Практическая инструкция есть в <a href="/ru/how-to-pair-iphone-mac">руководстве по связыванию</a>. О том,
+  что происходит с соединением, когда оно уже есть, см. <a href="/ru/blog/what-the-relay-can-see">что видит релей</a>.
+</p>
+
+    <h2>Вопросы</h2>
+    <h3>Нужен ли Peering аккаунт или адрес электронной почты?</h3>
+    <p>Нет. Каждое устройство создаёт свой ключ и хранит его в своём Keychain. Связывание это шестизначный код, который вы сверяете на двух экранах.</p>
+    <h3>От чего защищает шестизначный код связывания?</h3>
+    <p>От того, кто сидит между iPhone и Mac. Код выводится из всего рукопожатия, поэтому атакующий посередине даёт на двух экранах разные коды, и несовпадение видно.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ru/download">Скачать Peering для Mac</a>
+    </div>
+
+    <nav class="post-nav" aria-label="Ещё в блоге">
+      <h2>Ещё о том, как работает Peering</h2>
+      <ul>
+        <li><a href="/ru/blog/connect-iphone-to-mac-anywhere">Как iPhone достаёт до Mac откуда угодно</a></li>
+        <li><a href="/ru/blog/mac-screen-streaming">Как экран Mac передаётся на iPhone</a></li>
+        <li><a href="/ru/blog/remote-input-latency">Как касание становится кликом на Mac</a></li>
+        <li><a href="/ru/blog/what-the-relay-can-see">Что релей может и чего не может видеть</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Руководства, правовая информация и поддержка">
+      <a href="/ru/blog">Блог</a>
+      <a href="/ru/how-to-pair-iphone-mac">Руководство по связыванию</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/keep-mac-awake-for-remote-access">Mac дома</a>
+      <a href="/ru/coding-agent-notifications">Агенты для кода</a>
+      <a href="/ru/remote-desktop-apps-compared">Сравнение приложений</a>
+      <a href="/ru/screens-alternative">Альтернатива Screens</a>
+      <a href="/ru/best-remote-desktop-app-for-ipad">Лучшее для iPad</a>
+      <a href="/ru/apple-remote-desktop-alternative">Альтернативы ARD</a>
+      <a href="/ru/apple-remote-desktop-vs-screen-sharing">ARD или «Общий экран»</a>
+      <a href="/ru/screens-vs-jump-desktop">Screens или Jump</a>
+      <a href="/ru/rustdesk-alternative-for-mac">Альтернатива RustDesk</a>
+      <a href="/ru/control-mac-from-android">Mac с Android</a>
+      <a href="/ru/claude-code-on-android">Claude Code на Android</a>
+      <a href="/ru/chrome-remote-desktop-alternative">Альтернатива Chrome Remote Desktop</a>
+      <a href="/ru/teamviewer-alternative-for-mac">Альтернатива TeamViewer</a>
+      <a href="/ru/control-windows-pc-from-phone">Windows с телефона</a>
+      <a href="/ru/download">Скачать</a>
+      <a href="/ru/privacy">Конфиденциальность</a>
+      <a href="/ru/terms">Условия</a>
+      <a href="mailto:support@getpeering.app">Поддержка</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/pairing-without-an-account" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/pairing-without-an-account" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/pairing-without-an-account" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/pairing-without-an-account" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/pairing-without-an-account" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/pairing-without-an-account" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/pairing-without-an-account" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/pairing-without-an-account" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/pairing-without-an-account" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/pairing-without-an-account" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone и Mac являются товарными знаками Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Как iPhone достаёт до вашего Mac откуда угодно · Peering</title>
+<meta name="description" content="Как Peering находит Mac в той же сети Wi-Fi, как релей знакомит его с iPhone через интернет и как картинка в итоге идёт напрямую между ними.">
+<link rel="canonical" href="https://getpeering.app/ru/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/connect-iphone-to-mac-anywhere">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/connect-iphone-to-mac-anywhere">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://getpeering.app/ru/blog/connect-iphone-to-mac-anywhere">
+<meta property="og:title" content="Как iPhone достаёт до вашего Mac откуда угодно · Peering">
+<meta property="og:description" content="Как Peering находит Mac в той же сети Wi-Fi, как релей знакомит его с iPhone через интернет и как картинка в итоге идёт напрямую между ними.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Как iPhone достаёт до вашего Mac откуда угодно · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Как iPhone достаёт до вашего Mac откуда угодно · Peering">
+<meta name="twitter:description" content="Как Peering находит Mac в той же сети Wi-Fi, как релей знакомит его с iPhone через интернет и как картинка в итоге идёт напрямую между ними.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png">
+<meta name="twitter:image:alt" content="Как iPhone достаёт до вашего Mac откуда угодно · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Как iPhone достаёт до вашего Mac откуда угодно",
+  "description": "Как Peering находит Mac в той же сети Wi-Fi, как релей знакомит его с iPhone через интернет и как картинка в итоге идёт напрямую между ними.",
+  "image": "https://getpeering.app/assets/og/blog-connect-iphone-to-mac-anywhere.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ru",
+  "mainEntityOfPage": "https://getpeering.app/ru/blog/connect-iphone-to-mac-anywhere",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ru/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Блог",
+      "item": "https://getpeering.app/ru/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Как iPhone достаёт до Mac откуда угодно",
+      "item": "https://getpeering.app/ru/blog/connect-iphone-to-mac-anywhere"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ru",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Нужно ли открывать порты на роутере, чтобы пользоваться Peering вне дома?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Нет. Все соединения исходящие. Mac держит одно соединение с релеем, и оба устройства подключаются к нему сами, поэтому ничего пробрасывать не нужно."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Использует ли Peering релей на протяжении всего сеанса?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Релей соединяет устройства в начале. Затем картинка пытается пойти напрямую между Mac и iPhone и возвращается на релей, если ваша сеть не допускает прямого пути."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ru/" aria-label="Peering, главная">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Страницы">
+      <a href="/ru/">Главная</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/blog">Блог</a>
+      <a href="/ru/download">Скачать</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ru/">Peering</a> / <a href="/ru/blog">Блог</a></p>
+    <h1>Как iPhone достаёт до вашего Mac откуда угодно</h1>
+    <p class="post-meta">Опубликовано <time datetime="2026-11-11">11 ноября 2026</time> · 6 мин чтения</p>
+    <p class="lede">Ваш Mac стоит за роутером, а iPhone сидит в мобильной сети. Ни один не может позвонить другому. Вот последовательность, которая заставляет их заговорить, в том порядке, в каком всё происходит.</p>
+
+<h2>В одной сети: Bonjour и один порт</h2>
+<p>
+  Приложение на Mac слушает TCP-порт 51515 и объявляет о себе через Bonjour как
+  <code>_remotedesktop._tcp</code>, прикладывая три небольших сведения: ID устройства, имя Mac и
+  версию протокола. iPhone ищет эту службу, поэтому Mac в той же сети Wi-Fi появляется в разделе
+  «Рядом» без ввода адреса.
+</p>
+<p>
+  Объявление это лишь подсказка. Ничего, что касается безопасности, по нему не решается, потому что
+  в сети любой может объявить что угодно. Важно то, что происходит дальше: iPhone открывает
+  соединение TLS 1.3, обе стороны предъявляют сертификат, и каждая сверяет открытый ключ другой с
+  тем, который сохранила при связывании. <a href="/ru/blog/pairing-without-an-account">Как устроено это связывание</a>,
+  рассказано в отдельной статье.
+</p>
+<p>
+  В домашней сети iPhone открывает два соединения: одно для управления (ввод, настройки, список
+  окон) и одно только для картинки. Если видео не идёт по управляющему потоку, тяжёлый ключевой кадр
+  никогда не заставит клик ждать своей очереди.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-connect.webp" width="603" height="1311" loading="lazy"
+    alt="Peering на iPhone: экран подключения со списком ближайших Mac, способом связать Mac в другой сети и доверенными Mac.">
+  <figcaption>Ближайшие Mac находятся через Bonjour. Доверенные Mac это те, которые вы уже связали.</figcaption>
+</figure>
+
+<h2>Вне сети: релей, который только знакомит</h2>
+<p>
+  Когда вы уходите из дома, iPhone не может достучаться до частного адреса за вашим роутером, а
+  роутер не принимает соединение, о котором его никто не просил. Поэтому Mac делает первый шаг,
+  заранее. Пока он работает, он держит один исходящий WebSocket к релею Peering и каждые 25 секунд
+  отправляет короткий пинг. Этот открытый сокет и есть присутствие Mac: так релей узнаёт, что Mac
+  существует и не спит.
+</p>
+<p>Когда вы касаетесь своего Mac на iPhone, происходит следующее:</p>
+<ol>
+  <li>iPhone просит релей соединить его с ID устройства вашего Mac.</li>
+  <li>Релей отвечает обоим концам адресом и парой случайных 16-байтных токенов: один для управления, другой для видео.</li>
+  <li>Оба устройства открывают исходящее TCP-соединение к релею и первым записывают свой токен.</li>
+  <li>Релей сопоставляет два токена и соединяет сокеты, копируя байты из одного в другой.</li>
+</ol>
+<p>
+  Затем iPhone начинает то же рукопожатие TLS, что и в домашней сети, и оно проходит прямо через
+  релей к Mac. Релей это труба, а не участник разговора. У него никогда нет ключа. Подробнее о том,
+  что он может и чего не может узнать, читайте в статье
+  <a href="/ru/blog/what-the-relay-can-see">что видит релей</a>.
+</p>
+
+<h2>Картинка идёт короткой дорогой</h2>
+<p>
+  Пропускать всё через релей можно, но это самый медленный и самый дорогой путь. Поэтому картинка не
+  остаётся в TCP-соединении. Она переходит на UDP, который лучше подходит для видео: опоздавший кадр
+  ничего не стоит, а его повторная отправка только задерживает следующий.
+</p>
+<p>
+  Каждый конец также задаёт релею вопрос: с какого адреса подключается другая сторона? Релей отвечает
+  адресом, который он наблюдал, и оба устройства начинают слать друг другу небольшие запечатанные
+  пробные пакеты каждые 250 миллисекунд. Каждый пробный пакет пробивает отверстие в роутере
+  отправителя, и когда два отверстия совпадают, пакет проходит и проходит проверку подлинности. С этого
+  момента картинка идёт напрямую с Mac на iPhone, а релей выпадает из пути видео.
+</p>
+<p>
+  Этот приём обычно называют пробиванием NAT (hole punching). Он работает с большинством домашних
+  роутеров и не работает с некоторыми строгими мобильными и корпоративными, и тогда картинка просто
+  продолжает идти через релей. В любом случае ничего настраивать и открывать порты не нужно.
+</p>
+
+<h2>Если UDP заблокирован</h2>
+<p>
+  Некоторые сети вообще отбрасывают UDP. Если картинки нет уже три секунды, а управляющее соединение
+  всё ещё отвечает, iPhone просит Mac отправлять видео по управляющему потоку, нарезав его на куски.
+  Битрейт при этом ограничен, поэтому картинка мягче, но мягкая картинка лучше замершей. Mac продолжает
+  отправлять ключевой кадр по быстрому пути каждые несколько секунд, и когда iPhone видит, что этот
+  путь ожил, он переключается обратно.
+</p>
+
+<h2>Почему всё устроено именно так</h2>
+<ul>
+  <li><strong>Никаких входящих портов.</strong> Все соединения исходящие, поэтому не нужно менять настройки роутера, и ничего не торчит в интернет.</li>
+  <li><strong>Никакого аккаунта.</strong> Устройства определяются по ключам, которые они создают сами, а не по логину. См. <a href="/ru/blog/pairing-without-an-account">связывание без аккаунта</a>.</li>
+  <li><strong>Сначала дешёвый путь.</strong> Та же сеть бесплатна и не ограничена. Релей несёт только то, что не может пройти напрямую.</li>
+</ul>
+<p>
+  Версию для пользователей, с настройками, которые держат Mac доступным, пока вас нет, смотрите в
+  материалах <a href="/ru/access-your-mac-from-anywhere">доступ к Mac откуда угодно</a> и
+  <a href="/ru/keep-mac-awake-for-remote-access">как не давать Mac засыпать при удалённом доступе</a>.
+</p>
+
+    <h2>Вопросы</h2>
+    <h3>Нужно ли открывать порты на роутере, чтобы пользоваться Peering вне дома?</h3>
+    <p>Нет. Все соединения исходящие. Mac держит одно соединение с релеем, и оба устройства подключаются к нему сами, поэтому ничего пробрасывать не нужно.</p>
+    <h3>Использует ли Peering релей на протяжении всего сеанса?</h3>
+    <p>Релей соединяет устройства в начале. Затем картинка пытается пойти напрямую между Mac и iPhone и возвращается на релей, если ваша сеть не допускает прямого пути.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ru/download">Скачать Peering для Mac</a>
+    </div>
+
+    <nav class="post-nav" aria-label="Ещё в блоге">
+      <h2>Ещё о том, как работает Peering</h2>
+      <ul>
+        <li><a href="/ru/blog/mac-screen-streaming">Как экран Mac передаётся на iPhone</a></li>
+        <li><a href="/ru/blog/pairing-without-an-account">Связывание без аккаунта: как устроено доверие</a></li>
+        <li><a href="/ru/blog/remote-input-latency">Как касание становится кликом на Mac</a></li>
+        <li><a href="/ru/blog/what-the-relay-can-see">Что релей может и чего не может видеть</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Руководства, правовая информация и поддержка">
+      <a href="/ru/blog">Блог</a>
+      <a href="/ru/how-to-pair-iphone-mac">Руководство по связыванию</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/keep-mac-awake-for-remote-access">Mac дома</a>
+      <a href="/ru/coding-agent-notifications">Агенты для кода</a>
+      <a href="/ru/remote-desktop-apps-compared">Сравнение приложений</a>
+      <a href="/ru/screens-alternative">Альтернатива Screens</a>
+      <a href="/ru/best-remote-desktop-app-for-ipad">Лучшее для iPad</a>
+      <a href="/ru/apple-remote-desktop-alternative">Альтернативы ARD</a>
+      <a href="/ru/apple-remote-desktop-vs-screen-sharing">ARD или «Общий экран»</a>
+      <a href="/ru/screens-vs-jump-desktop">Screens или Jump</a>
+      <a href="/ru/rustdesk-alternative-for-mac">Альтернатива RustDesk</a>
+      <a href="/ru/control-mac-from-android">Mac с Android</a>
+      <a href="/ru/claude-code-on-android">Claude Code на Android</a>
+      <a href="/ru/chrome-remote-desktop-alternative">Альтернатива Chrome Remote Desktop</a>
+      <a href="/ru/teamviewer-alternative-for-mac">Альтернатива TeamViewer</a>
+      <a href="/ru/control-windows-pc-from-phone">Windows с телефона</a>
+      <a href="/ru/download">Скачать</a>
+      <a href="/ru/privacy">Конфиденциальность</a>
+      <a href="/ru/terms">Условия</a>
+      <a href="mailto:support@getpeering.app">Поддержка</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/connect-iphone-to-mac-anywhere" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/connect-iphone-to-mac-anywhere" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/connect-iphone-to-mac-anywhere" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/connect-iphone-to-mac-anywhere" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/connect-iphone-to-mac-anywhere" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/connect-iphone-to-mac-anywhere" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/connect-iphone-to-mac-anywhere" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/connect-iphone-to-mac-anywhere" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/connect-iphone-to-mac-anywhere" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/connect-iphone-to-mac-anywhere" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone и Mac являются товарными знаками Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

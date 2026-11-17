@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peering은 Mac 화면을 iPhone으로 어떻게 스트리밍할까 · Peering</title>
+<meta name="description" content="캡처, 하드웨어 인코딩, 데이터그램, 손실 복구: Mac 화면의 한 프레임이 iPhone에 닿기까지.">
+<link rel="canonical" href="https://getpeering.app/ko/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/mac-screen-streaming">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:url" content="https://getpeering.app/ko/blog/mac-screen-streaming">
+<meta property="og:title" content="Peering은 Mac 화면을 iPhone으로 어떻게 스트리밍할까 · Peering">
+<meta property="og:description" content="캡처, 하드웨어 인코딩, 데이터그램, 손실 복구: Mac 화면의 한 프레임이 iPhone에 닿기까지.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Peering은 Mac 화면을 iPhone으로 어떻게 스트리밍할까 · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peering은 Mac 화면을 iPhone으로 어떻게 스트리밍할까 · Peering">
+<meta name="twitter:description" content="캡처, 하드웨어 인코딩, 데이터그램, 손실 복구: Mac 화면의 한 프레임이 iPhone에 닿기까지.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta name="twitter:image:alt" content="Peering은 Mac 화면을 iPhone으로 어떻게 스트리밍할까 · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Peering은 Mac 화면을 iPhone으로 어떻게 스트리밍할까",
+  "description": "캡처, 하드웨어 인코딩, 데이터그램, 손실 복구: Mac 화면의 한 프레임이 iPhone에 닿기까지.",
+  "image": "https://getpeering.app/assets/og/blog-mac-screen-streaming.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ko",
+  "mainEntityOfPage": "https://getpeering.app/ko/blog/mac-screen-streaming",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ko/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "블로그",
+      "item": "https://getpeering.app/ko/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Mac 화면이 iPhone으로 스트리밍되는 방법",
+      "item": "https://getpeering.app/ko/blog/mac-screen-streaming"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ko",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peering은 어떤 비디오 코덱을 쓰나요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Mac에서 VideoToolbox로 인코딩하는 H.264 또는 HEVC이며, B 프레임 없이 저지연 설정을 씁니다. 어느 쪽을 디코딩할 수 있는지는 iPhone이 Mac에 알려 줍니다."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "화면이 가끔 잠깐 번지는 이유는 무엇인가요?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "네트워크 패킷이 손실되면 프레임이 손상되고, 화면은 최소 2초마다 오는 다음 키프레임에서 복구됩니다. Peering은 재전송을 기다리는 것보다 잠깐 번지는 쪽을 택합니다."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ko/" aria-label="Peering, 홈">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="페이지">
+      <a href="/ko/">홈</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/blog">블로그</a>
+      <a href="/ko/download">다운로드</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ko/">Peering</a> / <a href="/ko/blog">블로그</a></p>
+    <h1>Peering은 Mac 화면을 iPhone으로 어떻게 스트리밍할까</h1>
+    <p class="post-meta">게시일 <time datetime="2026-11-11">2026년 11월 11일</time> · 7분 읽기</p>
+    <p class="lede">원격 데스크톱은 요구 사항이 하나 특이한 영상 스트림입니다. 보는 사람이 곧 조작하는 사람이라는 점입니다. 아래의 모든 설계 선택은 이 순환을 짧게 유지하는 데서 나옵니다.</p>
+
+<h2>캡처: 시스템에 화면을 요청합니다</h2>
+<p>
+  Mac 앱은 Apple의 ScreenCaptureKit으로 프레임을 얻습니다. 소스는 디스플레이 전체, 한 앱의 모든 창,
+  또는 창 하나이며, 연결을 끊지 않고 서로 전환할 수 있습니다. macOS가 처음에 화면 기록 권한을 요청하는 이유도
+  여기에 있습니다. 권한이 없으면 Mac은 검은 화면밖에 넘길 수 없습니다.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-session.webp" width="603" height="1311" loading="lazy"
+    alt="코드 편집기가 열린 Mac 데스크톱이 Peering이 실행 중인 iPhone으로 실시간 스트리밍되는 모습.">
+  <figcaption>iPhone에 보이는 화면은 스크린샷의 연속이 아니라 인코딩된 영상 스트림입니다.</figcaption>
+</figure>
+
+<h2>인코딩: 낮은 지연, 순서 바꿈 없음</h2>
+<p>
+  프레임은 Mac의 Apple VideoToolbox 인코더로 들어가 H.264 또는 HEVC가 되며, iPhone이 디코딩할 수 있다고 알린 쪽을 씁니다.
+  설정은 스트리밍 서비스가 쓰는 것과 정반대입니다.
+</p>
+<ul>
+  <li><strong>B 프레임 없음.</strong> B 프레임은 미래의 프레임이 필요하므로, 쓰면 화면을 붙잡아 두게 됩니다. 없으면 디코딩 순서가 곧 표시 순서이고 기다리는 것이 없습니다.</li>
+  <li><strong>저지연 레이트 컨트롤.</strong> 인코더는 미리 내다보지 않고 진행하면서 비트를 씁니다.</li>
+  <li><strong>최소 2초마다 키프레임</strong>, 그리고 새 시청자가 들어오거나 재개하거나 소스를 바꿀 때는 즉시 보냅니다. 그래서 잃어버린 화면이 빠르게 복구됩니다.</li>
+  <li><strong>화면에 따라 달라지는 비트레이트.</strong> 기본값은 픽셀 수에 프레임 레이트를 곱하고 0.12를 곱한 값이며, 4에서 30Mbps 사이로 유지하고, 기본 프레임 레이트는 초당 60입니다.</li>
+</ul>
+<p>
+  디코더의 설정 정보(파라미터 세트)는 프레임마다 반복하지 않고, 별도의 메시지로 한 번만 보냅니다.
+  스트림 중간에 들어온 iPhone은 이 메시지를 받은 뒤 키프레임을 받습니다.
+</p>
+
+<h2>전송: 버려도 되는 프레임, 보호되는 키프레임</h2>
+<p>
+  각 프레임에는 25바이트의 작은 헤더가 붙습니다. 키프레임인지 여부, 픽셀 크기, 표시 시각이 들어 있습니다.
+  릴레이 연결이나 직접 연결에서는 약 1,080바이트의 데이터그램으로 잘라 보내며, 각 데이터그램은 두 기기만 아는 키로
+  ChaCha20-Poly1305로 봉인됩니다. 모든 데이터그램의 카운터는 64개 항목의 리플레이 윈도에 들어가므로,
+  가로챈 패킷을 나중에 다시 재생할 수 없습니다.
+</p>
+<p>
+  혼잡 시의 규칙은 단순합니다. 영상은 버려도 되고 키프레임은 아닙니다. 오래된 프레임이 아직 나가기를 기다리는 중에
+  새 프레임이 준비되면 오래된 것을 교체하되, 전달되지 않은 키프레임은 일반 프레임으로 교체하지 않습니다.
+  존재했던 모든 프레임을 보여 주는 것보다 지금의 화면을 보여 주는 것이 더 중요합니다.
+</p>
+<p>
+  집 네트워크에서는 화면이 별도의 TCP 연결로 전달됩니다. 네트워크가 충분히 안정적이어서 같은 규칙이 발동할 일이 거의 없습니다.
+  모든 소켓은 <code>TCP_NODELAY</code>를 설정합니다.
+  작은 쓰기를 모아 보내는 기본 동작은 홉마다 수십 밀리초를 더하는데, 다운로드에서는 눈에 띄지 않지만
+  커서를 움직일 때는 아주 잘 느껴집니다.
+</p>
+
+<h2>복구: 손실은 지연이 아니라 화면으로 치릅니다</h2>
+<p>
+  UDP는 재전송하지 않으므로, 데이터그램이 손실되면 프레임이 손상됩니다. iPhone은 그것을 기다리지 않습니다.
+  계속 디코딩하며, 손상은 최대 2초 뒤에 오는 다음 키프레임에서 사라집니다. 불안정한 Wi-Fi를 지난 뒤 화면이 번져 보인다면
+  바로 이것을 보고 있는 것입니다. 화면을 일시정지했다가 재개하면 즉시 키프레임이 강제됩니다.
+</p>
+<p>
+  빠른 경로가 아예 전달을 멈추면, <a href="/ko/blog/connect-iphone-to-mac-anywhere">연결에 대한 글</a>에서 설명한 대로
+  스트림은 더 낮은 비트레이트로 제어 연결로 되돌아가고, 빠른 경로가 회복되면 다시 돌아옵니다.
+</p>
+
+<h2>표시: Mac이 아니라 iPhone에 맞춥니다</h2>
+<p>
+  iPhone은 품질 단계를 고르고 초당 프레임 수를 줄여 달라고 요청할 수 있으며, Mac은 이를 적절한 범위로 제한합니다.
+  앱은 데스크톱 전체를 화면에 맞추거나 화면을 채울 수 있고, iPhone 모양의 가상 디스플레이를 Mac에 요청할 수도 있어서
+  가로로 긴 모니터를 세로 화면에 욱여넣지 않습니다. 화면을 탭하는 입력은 반대 방향으로 이동하며, 이는
+  <a href="/ko/blog/remote-input-latency">탭이 클릭이 되는 과정</a>에서 다룹니다.
+</p>
+
+    <h2>자주 묻는 질문</h2>
+    <h3>Peering은 어떤 비디오 코덱을 쓰나요?</h3>
+    <p>Mac에서 VideoToolbox로 인코딩하는 H.264 또는 HEVC이며, B 프레임 없이 저지연 설정을 씁니다. 어느 쪽을 디코딩할 수 있는지는 iPhone이 Mac에 알려 줍니다.</p>
+    <h3>화면이 가끔 잠깐 번지는 이유는 무엇인가요?</h3>
+    <p>네트워크 패킷이 손실되면 프레임이 손상되고, 화면은 최소 2초마다 오는 다음 키프레임에서 복구됩니다. Peering은 재전송을 기다리는 것보다 잠깐 번지는 쪽을 택합니다.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ko/download">Mac용 Peering 다운로드</a>
+    </div>
+
+    <nav class="post-nav" aria-label="블로그의 다른 글">
+      <h2>Peering 작동 방식 더 보기</h2>
+      <ul>
+        <li><a href="/ko/blog/connect-iphone-to-mac-anywhere">iPhone이 어디서나 Mac에 닿는 방법</a></li>
+        <li><a href="/ko/blog/pairing-without-an-account">계정 없는 페어링: 신뢰가 작동하는 방식</a></li>
+        <li><a href="/ko/blog/remote-input-latency">탭이 Mac의 클릭이 되는 과정</a></li>
+        <li><a href="/ko/blog/what-the-relay-can-see">릴레이가 볼 수 있는 것과 없는 것</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="가이드, 법적 고지, 지원">
+      <a href="/ko/blog">블로그</a>
+      <a href="/ko/how-to-pair-iphone-mac">페어링 가이드</a>
+      <a href="/ko/remote-desktop-for-mac">원격 데스크톱</a>
+      <a href="/ko/access-your-mac-from-anywhere">어디서나 접속</a>
+      <a href="/ko/keep-mac-awake-for-remote-access">집에 둔 Mac</a>
+      <a href="/ko/coding-agent-notifications">코딩 에이전트</a>
+      <a href="/ko/remote-desktop-apps-compared">앱 비교</a>
+      <a href="/ko/screens-alternative">Screens 대안</a>
+      <a href="/ko/best-remote-desktop-app-for-ipad">iPad용 추천</a>
+      <a href="/ko/apple-remote-desktop-alternative">ARD 대안</a>
+      <a href="/ko/apple-remote-desktop-vs-screen-sharing">ARD와 화면 공유</a>
+      <a href="/ko/screens-vs-jump-desktop">Screens와 Jump</a>
+      <a href="/ko/rustdesk-alternative-for-mac">RustDesk 대안</a>
+      <a href="/ko/control-mac-from-android">안드로이드로 Mac 제어</a>
+      <a href="/ko/claude-code-on-android">안드로이드에서 Claude Code</a>
+      <a href="/ko/chrome-remote-desktop-alternative">크롬 원격 데스크톱 대안</a>
+      <a href="/ko/teamviewer-alternative-for-mac">팀뷰어 대안</a>
+      <a href="/ko/control-windows-pc-from-phone">휴대폰으로 Windows 제어</a>
+      <a href="/ko/download">다운로드</a>
+      <a href="/ko/privacy">개인정보 처리방침</a>
+      <a href="/ko/terms">이용약관</a>
+      <a href="/ko/support">지원</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/mac-screen-streaming" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/mac-screen-streaming" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/mac-screen-streaming" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/mac-screen-streaming" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/mac-screen-streaming" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/mac-screen-streaming" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/mac-screen-streaming" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/mac-screen-streaming" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/mac-screen-streaming" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/mac-screen-streaming" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone 및 Mac은 Apple Inc.의 상표입니다.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

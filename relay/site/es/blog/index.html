@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cómo funciona Peering: notas de ingeniería · Peering</title>
+<meta name="description" content="Cómo funciona Peering por dentro: cómo un iPhone llega a un Mac, cómo se transmite la pantalla, cómo se empareja sin cuenta y qué ve el relay.">
+<link rel="canonical" href="https://getpeering.app/es/blog">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="es_ES">
+<meta property="og:url" content="https://getpeering.app/es/blog">
+<meta property="og:title" content="Cómo funciona Peering: notas de ingeniería · Peering">
+<meta property="og:description" content="Cómo funciona Peering por dentro: cómo un iPhone llega a un Mac, cómo se transmite la pantalla, cómo se empareja sin cuenta y qué ve el relay.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cómo funciona Peering: notas de ingeniería · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cómo funciona Peering: notas de ingeniería · Peering">
+<meta name="twitter:description" content="Cómo funciona Peering por dentro: cómo un iPhone llega a un Mac, cómo se transmite la pantalla, cómo se empareja sin cuenta y qué ve el relay.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog.png">
+<meta name="twitter:image:alt" content="Cómo funciona Peering: notas de ingeniería · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Cómo funciona Peering",
+  "url": "https://getpeering.app/es/blog",
+  "inLanguage": "es",
+  "description": "Cómo funciona Peering por dentro: cómo un iPhone llega a un Mac, cómo se transmite la pantalla, cómo se empareja sin cuenta y qué ve el relay.",
+  "hasPart": [
+    {
+      "@type": "TechArticle",
+      "headline": "Cómo llega tu iPhone a tu Mac desde cualquier lugar",
+      "url": "https://getpeering.app/es/blog/connect-iphone-to-mac-anywhere"
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Cómo transmite Peering la pantalla de tu Mac a tu iPhone",
+      "url": "https://getpeering.app/es/blog/mac-screen-streaming"
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Emparejar sin cuenta: cómo decide Peering en quién confiar",
+      "url": "https://getpeering.app/es/blog/pairing-without-an-account"
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Cómo un toque en tu iPhone se convierte en un clic en tu Mac",
+      "url": "https://getpeering.app/es/blog/remote-input-latency"
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "Lo que el relay de Peering puede y no puede ver",
+      "url": "https://getpeering.app/es/blog/what-the-relay-can-see"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/es/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://getpeering.app/es/blog"
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/es/" aria-label="Peering, inicio">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Páginas">
+      <a href="/es/">Inicio</a>
+      <a href="/es/remote-desktop-for-mac">Escritorio remoto</a>
+      <a href="/es/access-your-mac-from-anywhere">Desde cualquier lugar</a>
+      <a href="/es/blog">Blog</a>
+      <a href="/es/download">Descargar</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Cómo funciona Peering</h1>
+    <p class="updated">Notas de ingeniería sobre la conexión, la imagen, la entrada y la confianza que hay debajo de un escritorio remoto sin cuenta.</p>
+    <ul class="post-list">
+      <li>
+        <a class="card post-card" href="/es/blog/connect-iphone-to-mac-anywhere">
+          <p class="post-meta">6 min de lectura</p>
+          <h2>Cómo llega tu iPhone a tu Mac desde cualquier lugar</h2>
+          <p>Cómo Peering encuentra tu Mac en el mismo Wi-Fi, cómo un relay lo presenta a tu iPhone por internet y cómo la imagen va directa entre ambos.</p>
+        </a>
+      </li>
+      <li>
+        <a class="card post-card" href="/es/blog/mac-screen-streaming">
+          <p class="post-meta">7 min de lectura</p>
+          <h2>Cómo transmite Peering la pantalla de tu Mac a tu iPhone</h2>
+          <p>Captura, codificación por hardware, datagramas y recuperación de pérdidas: qué le pasa a un fotograma entre tu Mac y tu iPhone.</p>
+        </a>
+      </li>
+      <li>
+        <a class="card post-card" href="/es/blog/pairing-without-an-account">
+          <p class="post-meta">6 min de lectura</p>
+          <h2>Emparejar sin cuenta: cómo decide Peering en quién confiar</h2>
+          <p>Peering no tiene inicio de sesión. Cada dispositivo guarda su clave y un código de seis dígitos, igual en ambas pantallas, prueba que nadie se interpone.</p>
+        </a>
+      </li>
+      <li>
+        <a class="card post-card" href="/es/blog/remote-input-latency">
+          <p class="post-meta">6 min de lectura</p>
+          <h2>Cómo un toque en tu iPhone se convierte en un clic en tu Mac</h2>
+          <p>Coordenadas normalizadas, movimientos agrupados, códigos de tecla de macOS y texto Unicode: el camino de un toque desde tu dedo hasta tu Mac.</p>
+        </a>
+      </li>
+      <li>
+        <a class="card post-card" href="/es/blog/what-the-relay-can-see">
+          <p class="post-meta">6 min de lectura</p>
+          <h2>Lo que el relay de Peering puede y no puede ver</h2>
+          <p>Qué sabe el relay de Peering (direcciones, ID, uso) y qué no puede saber (tu pantalla, tus pulsaciones, tu portapapeles), y las claves que lo garantizan.</p>
+        </a>
+      </li>
+    </ul>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guías, información legal y soporte">
+      <a href="/es/blog">Blog</a>
+      <a href="/es/how-to-pair-iphone-mac">Guía de emparejamiento</a>
+      <a href="/es/remote-desktop-for-mac">Escritorio remoto</a>
+      <a href="/es/access-your-mac-from-anywhere">Desde cualquier lugar</a>
+      <a href="/es/keep-mac-awake-for-remote-access">Mac en casa</a>
+      <a href="/es/coding-agent-notifications">Agentes de programación</a>
+      <a href="/es/remote-desktop-apps-compared">Comparar apps</a>
+      <a href="/es/screens-alternative">Alternativa a Screens</a>
+      <a href="/es/best-remote-desktop-app-for-ipad">La mejor para iPad</a>
+      <a href="/es/apple-remote-desktop-alternative">Alternativas a ARD</a>
+      <a href="/es/apple-remote-desktop-vs-screen-sharing">ARD vs Compartir pantalla</a>
+      <a href="/es/screens-vs-jump-desktop">Screens vs Jump</a>
+      <a href="/es/rustdesk-alternative-for-mac">Alternativa a RustDesk</a>
+      <a href="/es/control-mac-from-android">Mac desde Android</a>
+      <a href="/es/claude-code-on-android">Claude Code en Android</a>
+      <a href="/es/chrome-remote-desktop-alternative">Alternativa a Chrome Remote Desktop</a>
+      <a href="/es/teamviewer-alternative-for-mac">Alternativa a TeamViewer</a>
+      <a href="/es/control-windows-pc-from-phone">Windows desde el móvil</a>
+      <a href="/es/download">Descargar</a>
+      <a href="/es/privacy">Privacidad</a>
+      <a href="/es/terms">Términos</a>
+      <a href="mailto:support@getpeering.app">Soporte</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog" hreflang="en" lang="en">English</a>
+      <a href="/de/blog" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone y Mac son marcas comerciales de Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

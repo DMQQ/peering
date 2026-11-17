@@ -304,6 +304,50 @@
     </div>
   </section>
 
+  <section class="section" id="screens">
+    <div class="wrap">
+      <h2>Ваш Mac на iPhone</h2>
+      <p class="section-lede">
+        Настоящее приложение таким, каким оно выглядит сегодня: рабочий стол Mac, которым можно управлять трекпадом и полной клавиатурой, сочетания клавиш под текущее приложение и уведомления, когда вас ждёт агент для программирования.
+      </p>
+
+      <ul class="gallery">
+        <li>
+          <div class="phone"><div class="phone-screen"><img src="/assets/app-session.webp" alt="Рабочий стол Mac с открытым редактором кода, который в реальном времени передаётся на iPhone с Peering." width="603" height="1311" loading="lazy"></div><div class="phone-island" aria-hidden="true"></div></div>
+          <h3>Смотрите и управляйте Mac</h3>
+          <p>Трекпад и прокрутка прямо на живой картинке.</p>
+        </li>
+        <li>
+          <div class="phone"><div class="phone-screen"><img src="/assets/app-keyboard.webp" alt="Peering на iPhone: полная экранная клавиатура поверх редактора кода на Mac." width="603" height="1311" loading="lazy"></div><div class="phone-island" aria-hidden="true"></div></div>
+          <h3>Настоящая клавиатура</h3>
+          <p>Клавиши-модификаторы, стрелки, эмодзи и любой язык.</p>
+        </li>
+        <li>
+          <div class="phone"><div class="phone-screen"><img src="/assets/app-shortcuts.webp" alt="Панель сочетаний клавиш Peering с горячими клавишами Visual Studio Code на iPhone." width="603" height="1311" loading="lazy"></div><div class="phone-island" aria-hidden="true"></div></div>
+          <h3>Сочетания клавиш под приложение</h3>
+          <p>Одно касание для комбинации, которую использует приложение перед вами.</p>
+        </li>
+        <li>
+          <div class="phone"><div class="phone-screen"><img src="/assets/app-agents.webp" alt="Экран терминалов Mac в Peering со списком Claude Code, Codex, OpenCode и других агентов для программирования." width="603" height="1311" loading="lazy"></div><div class="phone-island" aria-hidden="true"></div></div>
+          <h3>Запуск агентов одним касанием</h3>
+          <p>Claude Code, Codex и другие, они работают на вашем Mac.</p>
+        </li>
+        <li>
+          <div class="phone"><div class="phone-screen"><img src="/assets/app-lock.webp" alt="Экран блокировки iPhone с уведомлениями Peering: терминал завершил работу и терминалу нужно подтверждение." width="603" height="1311" loading="lazy"></div><div class="phone-island" aria-hidden="true"></div></div>
+          <h3>Ни одного пропущенного подтверждения</h3>
+          <p>Уведомления на экране блокировки, ответить можно не открывая приложение.</p>
+        </li>
+        <li>
+          <div class="phone"><div class="phone-screen"><img src="/assets/app-settings.webp" alt="Экран настроек Peering на iPhone: режим управления, масштаб картинки, клавиатура и качество потока." width="603" height="1311" loading="lazy"></div><div class="phone-island" aria-hidden="true"></div></div>
+          <h3>Настройка под ваше соединение</h3>
+          <p>Масштаб картинки, режим клавиатуры и качество потока.</p>
+        </li>
+      </ul>
+
+      <p class="gallery-more">Интересно, как это устроено внутри? <a href="/ru/blog">Читайте, как Peering соединяет, передаёт картинку и хранит всё в тайне</a>.</p>
+    </div>
+  </section>
+
   <section class="section" id="platforms">
     <div class="wrap">
       <h2>Где это работает</h2>
@@ -674,193 +718,63 @@
         Ваша собственная сеть бесплатна и без счётчика, навсегда. Релей нужен, чтобы достучаться до Mac из другого места: бесплатный тариф даёт 30 минут в день, а у Pro и «Навсегда» ограничений нет.
       </p>
 
-      <p class="plans-scroll-hint" aria-hidden="true">Прокрутите вбок, чтобы увидеть все тарифы &rarr;</p>
-      <div class="plans-wrap">
-        <table class="plans">
-          <caption class="vh">Что включает каждый тариф</caption>
-          <thead>
-            <tr>
-              <td class="corner"><span class="vh">Возможность</span></td>
-            <th scope="col" class="plan-col">
-              <span class="plan-name">Бесплатно</span>
-              <span class="plan-price">$0</span>
-              <span class="plan-note">в вашей собственной сети, сколько угодно</span>
-            </th>
-            <th scope="col" class="plan-col">
-              <span class="plan-name">Pro</span>
-              <span class="plan-price">$2.99<span>/мес.</span></span>
-              <span class="plan-note">Без ограничений вне дома, самая чёткая картинка через релей</span>
-            </th>
-            <th scope="col" class="plan-col col-pro">
-              <span class="plan-badge">Лучшее предложение</span>
-              <span class="plan-name">Навсегда</span>
-              <span class="plan-price">$24.99<span>разово</span></span>
-              <span class="plan-note">Всё из Pro, оплата один раз</span>
-            </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="group-row">
-              <th scope="rowgroup" colspan="3">Чем отличаются тарифы</th>
-              <td class="col-pro"></td>
-            </tr>
-            <tr>
-              <th scope="row">Время релея каждый день</th>
-              <td class="val">30 минут</td>
-              <td class="val">без лимита</td>
-              <td class="val col-pro">без лимита</td>
-            </tr>
-            <tr>
-              <th scope="row">Самая чёткая картинка через релей</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="group-row">
-              <th scope="rowgroup" colspan="3">Входит в каждый тариф</th>
-              <td class="col-pro"></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Mac, с которыми можно связаться</th>
-              <td class="val">каждый ваш Mac</td>
-              <td class="val">каждый ваш Mac</td>
-              <td class="val col-pro">каждый ваш Mac</td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Звук с Mac</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Картинка в картинке</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Файлы, которые идут в обе стороны</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">История буфера обмена</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Оповещение, когда терминалу нужен ответ</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Несколько shell сразу, во вкладках</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Несколько Mac открыты одновременно</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Несколько окон в одной картинке</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Виртуальные дисплеи на телефоне</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Макросы, сниппеты и быстрые команды</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Каждый дисплей, приложение и окно</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Один shell за раз</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">SSH-серверы с сохранёнными ключами</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Проброс портов по SSH</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Файловый браузер с редактированием и запуском</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Буфер обмена в обе стороны</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Клавиатура, указатель, трекпад и колесо прокрутки</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Режим наблюдения</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Режим конфиденциальности</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Снимки экрана, виджеты, Live Activity и Siri</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Wake on LAN, Spaces и история сеансов</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="quiet">
-              <th scope="row">Уведомления, когда Mac ждёт вас</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="plan-cards">
+        <article class="plan-card">
+          <h3 class="plan-name">Бесплатно</h3>
+          <p class="plan-price">$0</p>
+          <p class="plan-note">в вашей собственной сети, сколько угодно</p>
+          <ul class="plan-list">
+            <li class="yes"><span>Время релея каждый день</span> <b>30 минут</b></li>
+            <li class="no"><s>Самая чёткая картинка через релей</s></li>
+          </ul>
+        </article>
+        <article class="plan-card">
+          <h3 class="plan-name">Pro</h3>
+          <p class="plan-price">$2.99<span>/мес.</span></p>
+          <p class="plan-note">Без ограничений вне дома, самая чёткая картинка через релей</p>
+          <ul class="plan-list">
+            <li class="yes"><span>Время релея каждый день</span> <b>без лимита</b></li>
+            <li class="yes">Самая чёткая картинка через релей</li>
+          </ul>
+        </article>
+        <article class="plan-card plan-card-pro">
+          <span class="plan-badge">Лучшее предложение</span>
+          <h3 class="plan-name">Навсегда</h3>
+          <p class="plan-price">$24.99<span>разово</span></p>
+          <p class="plan-note">Всё из Pro, оплата один раз</p>
+          <ul class="plan-list">
+            <li class="yes"><span>Время релея каждый день</span> <b>без лимита</b></li>
+            <li class="yes">Самая чёткая картинка через релей</li>
+          </ul>
+        </article>
       </div>
+
+      <h3 class="plan-shared-title">Входит в каждый тариф</h3>
+      <ul class="plan-shared">
+        <li>Mac, с которыми можно связаться</li>
+        <li>Звук с Mac</li>
+        <li>Картинка в картинке</li>
+        <li>Файлы, которые идут в обе стороны</li>
+        <li>История буфера обмена</li>
+        <li>Оповещение, когда терминалу нужен ответ</li>
+        <li>Несколько shell сразу, во вкладках</li>
+        <li>Несколько Mac открыты одновременно</li>
+        <li>Несколько окон в одной картинке</li>
+        <li>Виртуальные дисплеи на телефоне</li>
+        <li>Макросы, сниппеты и быстрые команды</li>
+        <li>Каждый дисплей, приложение и окно</li>
+        <li>Один shell за раз</li>
+        <li>SSH-серверы с сохранёнными ключами</li>
+        <li>Проброс портов по SSH</li>
+        <li>Файловый браузер с редактированием и запуском</li>
+        <li>Буфер обмена в обе стороны</li>
+        <li>Клавиатура, указатель, трекпад и колесо прокрутки</li>
+        <li>Режим наблюдения</li>
+        <li>Режим конфиденциальности</li>
+        <li>Снимки экрана, виджеты, Live Activity и Siri</li>
+        <li>Wake on LAN, Spaces и история сеансов</li>
+        <li>Уведомления, когда Mac ждёт вас</li>
+      </ul>
 
       <p class="fine">
         Показаны цены для США. App Store задаёт их для каждой страны и показывает в приложении до покупки. Pro продлевается автоматически, пока вы не отмените подписку, и отменить её можно в любой момент в настройках App Store. «Навсегда» оплачивается один раз и не продлевается.
@@ -1000,6 +914,7 @@
       <span aria-hidden="true">Peering</span>
     </div>
     <nav class="foot-links" aria-label="Руководства, правовая информация и поддержка">
+      <a href="/ru/blog">Blog</a>
       <a href="/ru/how-to-pair-iphone-mac">Руководство по связыванию</a>
       <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
       <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>

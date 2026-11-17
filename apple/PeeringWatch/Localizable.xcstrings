@@ -1,18 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Allow" : {
+    "%@: %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Allow"
+            "state" : "new",
+            "value" : "%1$@: %2$@"
           }
-        },
+        }
+      }
+    },
+    "Allow" : {
+      "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Erlauben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow"
           }
         },
         "es" : {
@@ -67,16 +77,16 @@
     },
     "Deny" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deny"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ablehnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deny"
           }
         },
         "es" : {
@@ -131,16 +141,16 @@
     },
     "Needs your approval." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Needs your approval."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Braucht deine Freigabe."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs your approval."
           }
         },
         "es" : {
@@ -195,16 +205,16 @@
     },
     "Nothing waiting" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing waiting"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nichts offen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing waiting"
           }
         },
         "es" : {
@@ -259,16 +269,16 @@
     },
     "Open Peering on your iPhone to answer this one." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open Peering on your iPhone to answer this one."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Öffne Peering auf deinem iPhone, um diese zu beantworten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Peering on your iPhone to answer this one."
           }
         },
         "es" : {
@@ -321,18 +331,21 @@
         }
       }
     },
+    "Opens the answer options" : {
+
+    },
     "Questions from your agents show up here." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questions from your agents show up here."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fragen deiner Agenten erscheinen hier."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questions from your agents show up here."
           }
         },
         "es" : {
@@ -387,16 +400,16 @@
     },
     "Sending…" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sending…"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wird gesendet …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending…"
           }
         },
         "es" : {
@@ -451,16 +464,16 @@
     },
     "The Mac did not take the answer. Try again, or answer on your iPhone." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The Mac did not take the answer. Try again, or answer on your iPhone."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Der Mac hat die Antwort nicht angenommen. Versuche es erneut oder antworte auf dem iPhone."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Mac did not take the answer. Try again, or answer on your iPhone."
           }
         },
         "es" : {
@@ -515,16 +528,16 @@
     },
     "Your iPhone is not reachable. Open Peering on it and try again." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your iPhone is not reachable. Open Peering on it and try again."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dein iPhone ist nicht erreichbar. Öffne Peering darauf und versuche es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your iPhone is not reachable. Open Peering on it and try again."
           }
         },
         "es" : {
@@ -579,16 +592,16 @@
     },
     "Your iPhone is not reachable. Questions that arrive while it is away still show up here." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your iPhone is not reachable. Questions that arrive while it is away still show up here."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dein iPhone ist nicht erreichbar. Fragen, die in der Zwischenzeit eintreffen, erscheinen trotzdem hier."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your iPhone is not reachable. Questions that arrive while it is away still show up here."
           }
         },
         "es" : {

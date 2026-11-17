@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>iPhone 上的一次轻点如何变成 Mac 上的一次点击 · Peering</title>
+<meta name="description" content="归一化坐标、合并的鼠标移动、macOS 键码和 Unicode 文本：一次输入事件从你的手指到 Mac 的路径，以及让它感觉即时的细节。">
+<link rel="canonical" href="https://getpeering.app/zh/blog/remote-input-latency">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/remote-input-latency">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/remote-input-latency">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/remote-input-latency">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/remote-input-latency">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/remote-input-latency">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/remote-input-latency">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/remote-input-latency">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/remote-input-latency">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/remote-input-latency">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/remote-input-latency">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/remote-input-latency">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/blog/remote-input-latency">
+<meta property="og:title" content="iPhone 上的一次轻点如何变成 Mac 上的一次点击 · Peering">
+<meta property="og:description" content="归一化坐标、合并的鼠标移动、macOS 键码和 Unicode 文本：一次输入事件从你的手指到 Mac 的路径，以及让它感觉即时的细节。">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-remote-input-latency.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="iPhone 上的一次轻点如何变成 Mac 上的一次点击 · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="iPhone 上的一次轻点如何变成 Mac 上的一次点击 · Peering">
+<meta name="twitter:description" content="归一化坐标、合并的鼠标移动、macOS 键码和 Unicode 文本：一次输入事件从你的手指到 Mac 的路径，以及让它感觉即时的细节。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-remote-input-latency.png">
+<meta name="twitter:image:alt" content="iPhone 上的一次轻点如何变成 Mac 上的一次点击 · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "iPhone 上的一次轻点如何变成 Mac 上的一次点击",
+  "description": "归一化坐标、合并的鼠标移动、macOS 键码和 Unicode 文本：一次输入事件从你的手指到 Mac 的路径，以及让它感觉即时的细节。",
+  "image": "https://getpeering.app/assets/og/blog-remote-input-latency.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "zh-Hans",
+  "mainEntityOfPage": "https://getpeering.app/zh/blog/remote-input-latency",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/zh/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "博客",
+      "item": "https://getpeering.app/zh/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "一次轻点如何变成 Mac 上的一次点击",
+      "item": "https://getpeering.app/zh/blog/remote-input-latency"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "zh-Hans",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peering 支持表情符号和非英语键盘吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "支持。不属于按键的文本会以字符的形式发送并在 Mac 上输入，所以表情符号和任何语言都可以使用。Mac 快捷键只会在发送键码的模式下发送。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "为什么在较弱的连接上光标仍然平滑？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "鼠标移动会被合并，只保留最新的位置，滚动会被累加。点击和按键则始终按顺序送达。"
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/blog">博客</a>
+      <a href="/zh/download">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/zh/">Peering</a> / <a href="/zh/blog">博客</a></p>
+    <h1>iPhone 上的一次轻点如何变成 Mac 上的一次点击</h1>
+    <p class="post-meta">发布于 <time datetime="2026-11-11">2026年11月11日</time> · 阅读约 6 分钟</p>
+    <p class="lede">发送一次点击很容易。在糟糕的连接上按顺序发送成千上万次，还不让光标滞后，才是远程控制有意思的地方。</p>
+
+<h2>位置是比例，而不是像素</h2>
+<p>
+  当你触摸画面时，手机发送的不是“像素 812, 640”，而是相对于所显示来源、每个轴上介于 0 和 1 之间的一个点。
+  Mac 再把它转换成它正在捕获的显示器或窗口上的真实坐标。这就是为什么无论画面是适配屏幕还是放大、
+  是竖屏还是横屏、是在 Retina 屏幕上还是在形状与手机相同的虚拟显示器上，点击都能落在正确的位置。
+  双方都不需要就分辨率达成一致。
+</p>
+
+<h2>并非每条消息都一样</h2>
+<p>
+  输入以小型 JSON 命令的形式在加密的控制连接上传送，应用对每种类型的处理方式都不同：
+</p>
+<ul>
+  <li><strong>鼠标移动只保留最新的。</strong>如果网络卡顿时排了三次移动，前两次就毫无价值。最新的一次会取代它们，并且移动被限制在每秒约 60 次。</li>
+  <li><strong>滚动会累加。</strong>排在一起的两个滚动事件会合并为一个事件，数值为两者之和，所以不会丢失任何距离。</li>
+  <li><strong>点击和按键绝不丢弃，也不重排序。</strong>鼠标抬起先于鼠标按下到达，会是一个你看得见的错误。</li>
+</ul>
+<p>
+  这条小小的策略，就是光标平滑滑动与卡顿后猛然一跳之间的大部分差别。它也意味着，糟糕的连接只会让指针变得不那么流畅，
+  而绝不会变成一次错误的操作。
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-shortcuts.webp" width="603" height="1311" loading="lazy"
+    alt="iPhone 上 Peering 的快捷键面板，在 Mac 画面上方显示 Visual Studio Code 的快捷键。">
+  <figcaption>快捷键按钮发送的按键事件与键盘相同，修饰键也正确。</figcaption>
+</figure>
+
+<h2>按键就是 macOS 键码</h2>
+<p>
+  一次按键就是一个 macOS 虚拟键码，加上表示 Shift、Control、Option 和 Command 的修饰位。
+  Mac 应用把它转换成真实的键盘事件并发给系统，这就是它需要“辅助功能”权限的原因。
+  快捷键会跟随你所在的应用：上面的面板显示的是当前前台编辑器的命令，而不是固定的列表。
+</p>
+<p>
+  让按键表现得像实体键盘，有一些出人意料的细节。真正的方向键带有两个额外的标志，
+  一个功能键标志和一个数字小键盘标志，而简单合成的事件会漏掉它们。没有它们，即使正确的键码已经送达，
+  Control 加上方向键在 Mac 上也毫无反应，而不是打开 Mission Control。
+  Peering 现在会像真正的键盘一样设置这两个标志。
+</p>
+
+<h2>文本不是按键</h2>
+<p>
+  表情符号、带重音的字母和非拉丁文字无法对应到键码。对于这些，手机会把字符本身作为文本发送，由 Mac 把它们输入进去。
+  这就是键盘能在任何语言下工作的原因，也是在这种模式下少数 Mac 快捷键不起作用的原因。
+  这是一个取舍，应用允许你在“设置”中切换。
+</p>
+
+<h2>保持同步</h2>
+<p>
+  手机每秒向 Mac 发一次 ping，Mac 通过回显这个 ping 来应答，这同时也是一个实时的延迟读数。
+  如果手机转入后台，它会先说明这一点，因为 iOS 可能在不关闭连接的情况下冻结一个应用，
+  此时 Mac 会停止向它发送视频，直到它回来。会话也可以设为仅观看，这时画面继续传送，而 Mac 会忽略输入。
+</p>
+<p>
+  这个回路的另一半是<a href="/zh/blog/mac-screen-streaming">画面如何传到手机</a>。
+  两者合在一起，决定了整体用起来有多灵敏。
+</p>
+
+    <h2>常见问题</h2>
+    <h3>Peering 支持表情符号和非英语键盘吗？</h3>
+    <p>支持。不属于按键的文本会以字符的形式发送并在 Mac 上输入，所以表情符号和任何语言都可以使用。Mac 快捷键只会在发送键码的模式下发送。</p>
+    <h3>为什么在较弱的连接上光标仍然平滑？</h3>
+    <p>鼠标移动会被合并，只保留最新的位置，滚动会被累加。点击和按键则始终按顺序送达。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/zh/download">下载 Mac 版 Peering</a>
+    </div>
+
+    <nav class="post-nav" aria-label="博客更多文章">
+      <h2>更多关于 Peering 工作原理的内容</h2>
+      <ul>
+        <li><a href="/zh/blog/connect-iphone-to-mac-anywhere">iPhone 如何随时随地连上 Mac</a></li>
+        <li><a href="/zh/blog/mac-screen-streaming">Mac 屏幕如何串流到你的 iPhone</a></li>
+        <li><a href="/zh/blog/pairing-without-an-account">无需账户的配对：信任如何建立</a></li>
+        <li><a href="/zh/blog/what-the-relay-can-see">中继能看到什么，不能看到什么</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/blog">博客</a>
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/best-remote-desktop-app-for-ipad">最佳 iPad 应用</a>
+      <a href="/zh/apple-remote-desktop-alternative">ARD 替代方案</a>
+      <a href="/zh/apple-remote-desktop-vs-screen-sharing">ARD 与屏幕共享</a>
+      <a href="/zh/screens-vs-jump-desktop">Screens 与 Jump</a>
+      <a href="/zh/rustdesk-alternative-for-mac">RustDesk 替代方案</a>
+      <a href="/zh/control-mac-from-android">安卓控制 Mac</a>
+      <a href="/zh/claude-code-on-android">安卓上的 Claude Code</a>
+      <a href="/zh/chrome-remote-desktop-alternative">Chrome 远程桌面替代方案</a>
+      <a href="/zh/teamviewer-alternative-for-mac">TeamViewer 替代方案</a>
+      <a href="/zh/control-windows-pc-from-phone">手机控制 Windows</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/remote-input-latency" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/remote-input-latency" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/remote-input-latency" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/remote-input-latency" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/remote-input-latency" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/remote-input-latency" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/remote-input-latency" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/remote-input-latency" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/remote-input-latency" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/remote-input-latency" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

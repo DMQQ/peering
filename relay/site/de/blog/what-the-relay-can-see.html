@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Was das Relay von Peering sehen kann und was nicht · Peering</title>
+<meta name="description" content="Was das Relay von Peering weiß (Adressen, Geräte-IDs, Nutzung) und was nicht (Bildschirm, Tastenanschläge, Zwischenablage), und was das sichert.">
+<link rel="canonical" href="https://getpeering.app/de/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/what-the-relay-can-see">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="de_DE">
+<meta property="og:url" content="https://getpeering.app/de/blog/what-the-relay-can-see">
+<meta property="og:title" content="Was das Relay von Peering sehen kann und was nicht · Peering">
+<meta property="og:description" content="Was das Relay von Peering weiß (Adressen, Geräte-IDs, Nutzung) und was nicht (Bildschirm, Tastenanschläge, Zwischenablage), und was das sichert.">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Was das Relay von Peering sehen kann und was nicht · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Was das Relay von Peering sehen kann und was nicht · Peering">
+<meta name="twitter:description" content="Was das Relay von Peering weiß (Adressen, Geräte-IDs, Nutzung) und was nicht (Bildschirm, Tastenanschläge, Zwischenablage), und was das sichert.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta name="twitter:image:alt" content="Was das Relay von Peering sehen kann und was nicht · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Was das Relay von Peering sehen kann und was nicht",
+  "description": "Was das Relay von Peering weiß (Adressen, Geräte-IDs, Nutzung) und was nicht (Bildschirm, Tastenanschläge, Zwischenablage), und was das sichert.",
+  "image": "https://getpeering.app/assets/og/blog-what-the-relay-can-see.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "de",
+  "mainEntityOfPage": "https://getpeering.app/de/blog/what-the-relay-can-see",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/de/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://getpeering.app/de/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Was das Relay sehen kann und was nicht",
+      "item": "https://getpeering.app/de/blog/what-the-relay-can-see"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "de",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Kann das Relay von Peering meinen Bildschirm sehen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nein. Das Bild wird mit einem Schlüssel versiegelt, den der Mac innerhalb einer verschlüsselten Verbindung an das iPhone sendet, die das Relay nicht öffnen kann. Das Relay kopiert also immer nur Chiffretext."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Was weiß das Relay von Peering über mich?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Geräte-IDs, den Namen deines Macs, den genutzten Tarif, die Relay-Nutzung und die Netzwerkadresse, von der sich jedes Gerät verbindet. Video, Audio, Tastenanschläge und Inhalte der Zwischenablage sieht es nicht."
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/de/" aria-label="Peering, Startseite">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Seiten">
+      <a href="/de/">Start</a>
+      <a href="/de/remote-desktop-for-mac">Remote-Desktop</a>
+      <a href="/de/access-your-mac-from-anywhere">Von überall</a>
+      <a href="/de/blog">Blog</a>
+      <a href="/de/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/de/">Peering</a> / <a href="/de/blog">Blog</a></p>
+    <h1>Was das Relay von Peering sehen kann und was nicht</h1>
+    <p class="post-meta">Veröffentlicht <time datetime="2026-11-11">11. November 2026</time> · 6 Minuten Lesezeit</p>
+    <p class="lede">Ein Relay ist ein Server mitten in deiner Remote-Desktop-Sitzung, die richtige Frage ist also, was ihn am Hinsehen hindert. Die Antwort ist ein Schlüssel, den er nie erhält.</p>
+
+<h2>Was es tut</h2>
+<p>
+  Das Relay hat drei Aufgaben. Es stellt zwei Geräte einander vor, die sich nicht direkt erreichen können, es
+  kopiert Bytes zwischen ihnen, wenn es auch dann nicht geht, und es sendet Push-Mitteilungen im Namen eines
+  Macs, etwa „dein Coding-Agent braucht eine Antwort“. Es ist ein kleines Rust-Programm, und seine Aufgabe klein zu halten
+  ist der Entwurf.
+</p>
+
+<h2>Was es weiß</h2>
+<p>
+  Dabei ehrlich zu sein, gehört zur Sache. Um seine Arbeit zu tun, sieht das Relay:
+</p>
+<ul>
+  <li>Geräte-IDs und den Namen des Macs, damit es ein iPhone einem Mac zuordnen kann.</li>
+  <li>Die Netzwerkadresse, von der sich jedes Gerät verbindet, wie jeder Server, und es gibt jedem Gerät die des anderen, damit sie einen direkten Weg versuchen können.</li>
+  <li>Welcher Tarif genutzt wird und wie viel Relay-Zeit verbraucht wurde, um das kostenlose Kontingent von 30 Minuten pro Tag durchzusetzen.</li>
+  <li>Dass eine Sitzung besteht, wann sie begann und wie lange sie dauerte.</li>
+</ul>
+<p>
+  Die <a href="/de/privacy">Datenschutzerklärung</a> listet diese vollständig auf. Nichts davon ist der Inhalt
+  deiner Sitzung.
+</p>
+
+<h2>Was es nicht sehen kann</h2>
+<p>
+  Bild, Ton, Zwischenablage, Tastenanschläge und Zeiger liegen alle in einem verschlüsselten
+  Kanal, der auf deinen beiden Geräten endet. Das Relay kann sie nicht lesen, nicht verändern und nicht erneut einspielen.
+  Zwei Mechanismen sorgen dafür, und keiner hängt davon ab, dem Relay zu vertrauen.
+</p>
+
+<h3>Der Steuerkanal ist TLS zwischen den Geräten</h3>
+<p>
+  Läuft eine Sitzung über das Relay, führt das iPhone einen TLS-1.3-Handshake mit dem Mac durch das Relay. Das Relay
+  kopiert die verschlüsselten Datensätze, ohne sie zu terminieren, und besitzt deshalb nie einen Sitzungsschlüssel. Beide Seiten
+  authentifizieren sich mit den Schlüsseln, die sie bei der Kopplung gespeichert haben, sodass das Relay sich nicht dazwischenschieben kann,
+  ohne dass das iPhone die Verbindung ablehnt.
+</p>
+
+<h3>Der Videoschlüssel reist nie durch das Relay</h3>
+<p>
+  Video nimmt einen anderen Weg, über UDP, und braucht deshalb einen eigenen Schlüssel. Sobald die Sitzung bereit ist,
+  erzeugt der Mac 32 Zufallsbytes und sendet sie <em>innerhalb des TLS-Streams</em> an das iPhone. Das
+  Relay trägt diesen Stream und kann ihn nicht öffnen. Jede Richtung leitet dann mit
+  HKDF-SHA256 ihren eigenen Schlüssel ab, und jedes Datagramm wird mit ChaCha20-Poly1305 und einem Zähler versiegelt.
+</p>
+<pre>key = HKDF-SHA256(secret, salt = "pl.dmq.peering.video-datagram", info = direction)
+datagram = token | counter | ciphertext | tag</pre>
+<p>
+  Das 16-Byte-Token am Anfang ist das Einzige, was das Relay liest. Es ist ein Routing-Hinweis, der sagt,
+  zu welcher Sitzung das Datagramm gehört, und das Relay entfernt es vor der Weiterleitung. Alles
+  danach ist Chiffretext.
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-lock.webp" width="603" height="1311" loading="lazy"
+    alt="iPhone-Sperrbildschirm mit zwei Peering-Mitteilungen: ein Terminal ist fertig, und ein Terminal braucht eine Freigabe.">
+  <figcaption>Push-Mitteilungen tragen kurzen Text und codierten Status. Dein Bildschirm ist nie Teil davon.</figcaption>
+</figure>
+
+<h2>Push-Mitteilungen und Live Activities</h2>
+<p>
+  Schläft dein iPhone, bittet der Mac das Relay, es per Apple-Push zu wecken. Was in diesem Push steckt,
+  ist bewusst dünn: ein kurzer Titel und eine Nachricht für einen Hinweis, und bei Live-Activity-Updates nur
+  codierter Status wie IDs, Zustände, Zähler und Zeiten. Der Mac sendet dem Relay nie deinen Bildschirm oder die Ausgabe deines Terminals. Zu Agenten-Freigaben siehe <a href="/de/coding-agent-notifications">Mitteilungen für Coding-Agenten</a>.
+</p>
+
+<h2>Nachweise statt Konten</h2>
+<p>
+  Das kostenlose Kontingent muss an etwas hängen. Statt an einem Konto signieren Geräte eine kurze
+  Nachricht mit ihrem eigenen Schlüssel, und das Relay prüft die Signatur innerhalb eines Fünf-Minuten-Fensters. Das bindet das Kontingent an
+  einen Schlüssel statt an eine zurücksetzbare ID, und es erlaubt niemandem, sich als registrierter Mac auszugeben,
+  ohne dessen privaten Schlüssel zu besitzen.
+</p>
+
+<h2>Prüf es selbst</h2>
+<p>
+  Das Drahtformat ist dokumentiert, und das Relay ist um eine Einschränkung herum gebaut: Es stellt Gegenstellen vor und
+  kopiert verschlüsselte Bytes und kann nicht einsehen, verändern oder autorisieren, was es trägt. Wie eine Sitzung
+  überhaupt auf das Relay kommt, steht in <a href="/de/blog/connect-iphone-to-mac-anywhere">So erreicht
+  dein iPhone deinen Mac von überall</a>, und wie die Schlüssel auf beiden Seiten zu vertrauten werden, in
+  <a href="/de/blog/pairing-without-an-account">Kopplung ohne Konto</a>.
+</p>
+
+    <h2>Fragen</h2>
+    <h3>Kann das Relay von Peering meinen Bildschirm sehen?</h3>
+    <p>Nein. Das Bild wird mit einem Schlüssel versiegelt, den der Mac innerhalb einer verschlüsselten Verbindung an das iPhone sendet, die das Relay nicht öffnen kann. Das Relay kopiert also immer nur Chiffretext.</p>
+    <h3>Was weiß das Relay von Peering über mich?</h3>
+    <p>Geräte-IDs, den Namen deines Macs, den genutzten Tarif, die Relay-Nutzung und die Netzwerkadresse, von der sich jedes Gerät verbindet. Video, Audio, Tastenanschläge und Inhalte der Zwischenablage sieht es nicht.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/de/download">Peering für Mac laden</a>
+    </div>
+
+    <nav class="post-nav" aria-label="Mehr aus dem Blog">
+      <h2>Mehr dazu, wie Peering funktioniert</h2>
+      <ul>
+        <li><a href="/de/blog/connect-iphone-to-mac-anywhere">So erreicht dein iPhone deinen Mac von überall</a></li>
+        <li><a href="/de/blog/mac-screen-streaming">So wird der Bildschirm deines Macs auf dein iPhone gestreamt</a></li>
+        <li><a href="/de/blog/pairing-without-an-account">Kopplung ohne Konto: wie Vertrauen funktioniert</a></li>
+        <li><a href="/de/blog/remote-input-latency">So wird aus einem Tippen ein Klick auf deinem Mac</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Anleitungen, Rechtliches und Support">
+      <a href="/de/blog">Blog</a>
+      <a href="/de/how-to-pair-iphone-mac">Kopplungsanleitung</a>
+      <a href="/de/remote-desktop-for-mac">Remote-Desktop</a>
+      <a href="/de/access-your-mac-from-anywhere">Von überall</a>
+      <a href="/de/keep-mac-awake-for-remote-access">Mac zu Hause</a>
+      <a href="/de/coding-agent-notifications">Coding-Agenten</a>
+      <a href="/de/remote-desktop-apps-compared">Apps im Vergleich</a>
+      <a href="/de/screens-alternative">Screens-Alternative</a>
+      <a href="/de/best-remote-desktop-app-for-ipad">Beste App fürs iPad</a>
+      <a href="/de/apple-remote-desktop-alternative">ARD-Alternativen</a>
+      <a href="/de/apple-remote-desktop-vs-screen-sharing">ARD vs. Bildschirmfreigabe</a>
+      <a href="/de/screens-vs-jump-desktop">Screens vs. Jump</a>
+      <a href="/de/rustdesk-alternative-for-mac">RustDesk-Alternative</a>
+      <a href="/de/control-mac-from-android">Mac mit Android steuern</a>
+      <a href="/de/claude-code-on-android">Claude Code auf Android</a>
+      <a href="/de/chrome-remote-desktop-alternative">Chrome-Remote-Desktop-Alternative</a>
+      <a href="/de/teamviewer-alternative-for-mac">TeamViewer-Alternative</a>
+      <a href="/de/control-windows-pc-from-phone">Windows vom Handy</a>
+      <a href="/de/download">Download</a>
+      <a href="/de/privacy">Datenschutz</a>
+      <a href="/de/terms">Nutzungsbedingungen</a>
+      <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/what-the-relay-can-see" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/what-the-relay-can-see" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/what-the-relay-can-see" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/what-the-relay-can-see" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/what-the-relay-can-see" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/what-the-relay-can-see" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/what-the-relay-can-see" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/what-the-relay-can-see" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/what-the-relay-can-see" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/what-the-relay-can-see" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone und Mac sind Marken der Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

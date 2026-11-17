@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peering 如何把 Mac 屏幕串流到你的 iPhone · Peering</title>
+<meta name="description" content="捕获、硬件编码、数据报和丢包恢复：一帧画面从 Mac 显示器到 iPhone 经历了什么，以及远程桌面视频为何与视频通话的构造不同。">
+<link rel="canonical" href="https://getpeering.app/zh/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/mac-screen-streaming">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/mac-screen-streaming">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/blog/mac-screen-streaming">
+<meta property="og:title" content="Peering 如何把 Mac 屏幕串流到你的 iPhone · Peering">
+<meta property="og:description" content="捕获、硬件编码、数据报和丢包恢复：一帧画面从 Mac 显示器到 iPhone 经历了什么，以及远程桌面视频为何与视频通话的构造不同。">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Peering 如何把 Mac 屏幕串流到你的 iPhone · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peering 如何把 Mac 屏幕串流到你的 iPhone · Peering">
+<meta name="twitter:description" content="捕获、硬件编码、数据报和丢包恢复：一帧画面从 Mac 显示器到 iPhone 经历了什么，以及远程桌面视频为何与视频通话的构造不同。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-mac-screen-streaming.png">
+<meta name="twitter:image:alt" content="Peering 如何把 Mac 屏幕串流到你的 iPhone · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Peering 如何把 Mac 屏幕串流到你的 iPhone",
+  "description": "捕获、硬件编码、数据报和丢包恢复：一帧画面从 Mac 显示器到 iPhone 经历了什么，以及远程桌面视频为何与视频通话的构造不同。",
+  "image": "https://getpeering.app/assets/og/blog-mac-screen-streaming.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "zh-Hans",
+  "mainEntityOfPage": "https://getpeering.app/zh/blog/mac-screen-streaming",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/zh/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "博客",
+      "item": "https://getpeering.app/zh/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Mac 屏幕如何串流到你的 iPhone",
+      "item": "https://getpeering.app/zh/blog/mac-screen-streaming"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "zh-Hans",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peering 使用什么视频编解码器？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "H.264 或 HEVC，由 Mac 通过 VideoToolbox 编码，没有 B 帧，并采用低延迟设置。iPhone 会告诉 Mac 它能解码哪一种。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "为什么画面有时会短暂拖影？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "丢失的网络数据包会让一帧受损，画面会在下一个关键帧时恢复，关键帧至少每两秒出现一次。Peering 宁可短暂拖影，也不等待重传。"
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/blog">博客</a>
+      <a href="/zh/download">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/zh/">Peering</a> / <a href="/zh/blog">博客</a></p>
+    <h1>Peering 如何把 Mac 屏幕串流到你的 iPhone</h1>
+    <p class="post-meta">发布于 <time datetime="2026-11-11">2026年11月11日</time> · 阅读约 7 分钟</p>
+    <p class="lede">远程桌面是一路有着特殊要求的视频流：观看的人同时也是操控的人。下面的每个设计选择，都是为了让这个回路尽可能短。</p>
+
+<h2>捕获：向系统索取画面</h2>
+<p>
+  Mac 应用使用 Apple 的 ScreenCaptureKit 来获取帧。来源可以是整个显示器、某个应用的所有窗口，或单个窗口，
+  你可以在它们之间切换而不会断开连接。这也是 macOS 第一次会请求“屏幕录制”权限的原因：
+  没有它，Mac 只能交出一幅黑屏。
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-session.webp" width="603" height="1311" loading="lazy"
+    alt="一台打开了代码编辑器的 Mac 桌面，正实时串流到运行 Peering 的 iPhone。">
+  <figcaption>手机上的画面是一路编码后的视频流，而不是一连串截图。</figcaption>
+</figure>
+
+<h2>编码：低延迟，不重排序</h2>
+<p>
+  帧会交给 Mac 上 Apple 的 VideoToolbox 编码器，编码为 H.264 或 HEVC，取决于手机声明自己能解码哪一种。
+  这些设置与流媒体服务所用的恰好相反：
+</p>
+<ul>
+  <li><strong>没有 B 帧。</strong>B 帧需要一个来自未来的帧，所以使用它们就意味着要扣住画面。没有它们，解码顺序就是显示顺序，没有任何东西需要等待。</li>
+  <li><strong>低延迟码率控制。</strong>编码器边走边花费比特，而不是往前看。</li>
+  <li><strong>至少每两秒一个关键帧</strong>，并且在有新的观看者加入、恢复或切换来源时立即发送，所以丢失的画面能很快恢复。</li>
+  <li><strong>随屏幕缩放的码率。</strong>默认值是像素数乘以帧率再乘以 0.12，限制在 4 到 30 Mbps 之间，默认帧率为每秒 60 帧。</li>
+</ul>
+<p>
+  解码器的设置信息（参数集）只作为一条独立的消息发送一次，不会在每一帧中重复。
+  中途加入的手机会先收到这条消息，然后是一个关键帧。
+</p>
+
+<h2>发送：帧可以丢弃，关键帧受保护</h2>
+<p>
+  每一帧都带有一个 25 字节的小型头部：是否为关键帧、像素尺寸和呈现时间。在经中继或直连的连接上，
+  它会被切成约 1,080 字节的数据报，每个数据报都用 ChaCha20-Poly1305 加密，密钥只有这两台设备知道。
+  每个数据报中的计数器会送入一个 64 项的重放窗口，所以被截获的数据包无法在之后被重放。
+</p>
+<p>
+  拥塞时的规则很直接：视频可以丢弃，关键帧不可以。如果新的一帧已准备好，而旧的一帧还在等待发出，
+  旧帧就会被替换，但尚未送达的关键帧永远不会被普通帧替换。显示屏幕此刻的样子，
+  比显示曾经存在过的每一帧更重要。
+</p>
+<p>
+  在家庭网络中，画面改走它自己的 TCP 连接，那里的网络足够可靠，同样的规则很少需要触发。
+  每个套接字都设置了 <code>TCP_NODELAY</code>。默认把小写入批量合并的行为，每一跳都会增加几十毫秒，
+  这在下载时察觉不到，在你移动光标时却非常明显。
+</p>
+
+<h2>恢复：用画面的损失来换，而不是用延迟来换</h2>
+<p>
+  UDP 不会重传，所以丢失一个数据报就意味着一帧受损。手机不会等它，而是继续解码，
+  损坏会在下一个关键帧时消除，最多相隔两秒。如果你在 Wi-Fi 不好的时候注意到画面有拖影，
+  看到的就是这个。暂停再恢复画面，会立即强制生成一个关键帧。
+</p>
+<p>
+  如果快速路径完全停止传送，串流就会以较低的码率退回到控制连接，
+  正如<a href="/zh/blog/connect-iphone-to-mac-anywhere">连接那篇文章</a>所述，并在快速路径恢复后切回。
+</p>
+
+<h2>显示：适配手机，而不是适配 Mac</h2>
+<p>
+  手机会选择一个质量档位，也可以请求更少的每秒帧数，Mac 会把它限制在合理的范围内。
+  应用可以让整个桌面适配屏幕，也可以填满屏幕，甚至可以请 Mac 提供一个形状与手机相同的虚拟显示器，
+  这样横向的显示器就不会被挤进竖向的屏幕。点击画面的操作则沿相反方向传送，
+  这是<a href="/zh/blog/remote-input-latency">一次轻点如何变成一次点击</a>要讲的内容。
+</p>
+
+    <h2>常见问题</h2>
+    <h3>Peering 使用什么视频编解码器？</h3>
+    <p>H.264 或 HEVC，由 Mac 通过 VideoToolbox 编码，没有 B 帧，并采用低延迟设置。iPhone 会告诉 Mac 它能解码哪一种。</p>
+    <h3>为什么画面有时会短暂拖影？</h3>
+    <p>丢失的网络数据包会让一帧受损，画面会在下一个关键帧时恢复，关键帧至少每两秒出现一次。Peering 宁可短暂拖影，也不等待重传。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/zh/download">下载 Mac 版 Peering</a>
+    </div>
+
+    <nav class="post-nav" aria-label="博客更多文章">
+      <h2>更多关于 Peering 工作原理的内容</h2>
+      <ul>
+        <li><a href="/zh/blog/connect-iphone-to-mac-anywhere">iPhone 如何随时随地连上 Mac</a></li>
+        <li><a href="/zh/blog/pairing-without-an-account">无需账户的配对：信任如何建立</a></li>
+        <li><a href="/zh/blog/remote-input-latency">一次轻点如何变成 Mac 上的一次点击</a></li>
+        <li><a href="/zh/blog/what-the-relay-can-see">中继能看到什么，不能看到什么</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/blog">博客</a>
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/best-remote-desktop-app-for-ipad">最佳 iPad 应用</a>
+      <a href="/zh/apple-remote-desktop-alternative">ARD 替代方案</a>
+      <a href="/zh/apple-remote-desktop-vs-screen-sharing">ARD 与屏幕共享</a>
+      <a href="/zh/screens-vs-jump-desktop">Screens 与 Jump</a>
+      <a href="/zh/rustdesk-alternative-for-mac">RustDesk 替代方案</a>
+      <a href="/zh/control-mac-from-android">安卓控制 Mac</a>
+      <a href="/zh/claude-code-on-android">安卓上的 Claude Code</a>
+      <a href="/zh/chrome-remote-desktop-alternative">Chrome 远程桌面替代方案</a>
+      <a href="/zh/teamviewer-alternative-for-mac">TeamViewer 替代方案</a>
+      <a href="/zh/control-windows-pc-from-phone">手机控制 Windows</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/mac-screen-streaming" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/mac-screen-streaming" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/mac-screen-streaming" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/mac-screen-streaming" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/mac-screen-streaming" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/mac-screen-streaming" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/mac-screen-streaming" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/mac-screen-streaming" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/mac-screen-streaming" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/mac-screen-streaming" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

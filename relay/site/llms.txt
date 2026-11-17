@@ -43,6 +43,12 @@
 - [Chrome Remote Desktop alternative](https://getpeering.app/chrome-remote-desktop-alternative): Peering and Chrome Remote Desktop compared.
 - [TeamViewer alternative for Mac](https://getpeering.app/teamviewer-alternative-for-mac): reaching your own Mac without a support tool.
 - [Control a Windows PC from your phone](https://getpeering.app/control-windows-pc-from-phone): the Windows host beta, what is built and what is not.
+- [Blog: how Peering works](https://getpeering.app/blog): engineering notes on the connection, the picture, the input and the trust model.
+- [How your iPhone reaches your Mac from anywhere](https://getpeering.app/blog/connect-iphone-to-mac-anywhere): Bonjour, the relay, hole punching and the UDP fallback.
+- [How your Mac's screen is streamed to your iPhone](https://getpeering.app/blog/mac-screen-streaming): capture, encoding, datagrams and loss recovery.
+- [Pairing without an account](https://getpeering.app/blog/pairing-without-an-account): device keys, the six digit code and pinning.
+- [How a tap becomes a click on your Mac](https://getpeering.app/blog/remote-input-latency): coalesced input, key codes and text.
+- [What the relay can and cannot see](https://getpeering.app/blog/what-the-relay-can-see): the keys that keep the relay out of your session.
 - [Privacy Policy](https://getpeering.app/privacy): what the app and the relay can and cannot see.
 - [Terms of Use](https://getpeering.app/terms): terms of use.
 

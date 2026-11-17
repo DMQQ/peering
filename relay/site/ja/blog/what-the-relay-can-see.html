@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peeringのリレーに見えるもの、見えないもの · Peering</title>
+<meta name="description" content="Peeringのリレーサーバーが知っていること、知らない作りになっていること、それを守る鍵について説明します。">
+<link rel="canonical" href="https://getpeering.app/ja/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/blog/what-the-relay-can-see">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/blog/what-the-relay-can-see">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://getpeering.app/ja/blog/what-the-relay-can-see">
+<meta property="og:title" content="Peeringのリレーに見えるもの、見えないもの · Peering">
+<meta property="og:description" content="Peeringのリレーサーバーが知っていること、知らない作りになっていること、それを守る鍵について説明します。">
+<meta property="og:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Peeringのリレーに見えるもの、見えないもの · Peering">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peeringのリレーに見えるもの、見えないもの · Peering">
+<meta name="twitter:description" content="Peeringのリレーサーバーが知っていること、知らない作りになっていること、それを守る鍵について説明します。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og/blog-what-the-relay-can-see.png">
+<meta name="twitter:image:alt" content="Peeringのリレーに見えるもの、見えないもの · Peering">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Peeringのリレーに見えるもの、見えないもの",
+  "description": "Peeringのリレーサーバーが知っていること、知らない作りになっていること、それを守る鍵について説明します。",
+  "image": "https://getpeering.app/assets/og/blog-what-the-relay-can-see.png",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "ja",
+  "mainEntityOfPage": "https://getpeering.app/ja/blog/what-the-relay-can-see",
+  "author": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/favicon-192.png"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Peering",
+      "item": "https://getpeering.app/ja/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "ブログ",
+      "item": "https://getpeering.app/ja/blog"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "リレーに見えるもの、見えないもの",
+      "item": "https://getpeering.app/ja/blog/what-the-relay-can-see"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ja",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peeringのリレーは私の画面を見られますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "いいえ。映像は、Macがリレーの開けない暗号化された接続の中でiPhoneに送った鍵で封をされているので、リレーが扱うのは暗号文だけです。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Peeringのリレーは私について何を知っていますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "デバイス識別子、Macの名前、使っているプラン、リレーの使用量、各デバイスの接続元のネットワークアドレスです。映像、音声、キー入力、クリップボードの内容は見えません。"
+      }
+    }
+  ]
+}
+</script>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ja/" aria-label="Peering、ホーム">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="ページ">
+      <a href="/ja/">ホーム</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/blog">ブログ</a>
+      <a href="/ja/download">ダウンロード</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <p class="crumbs"><a href="/ja/">Peering</a> / <a href="/ja/blog">ブログ</a></p>
+    <h1>Peeringのリレーに見えるもの、見えないもの</h1>
+    <p class="post-meta">公開日 <time datetime="2026-11-11">2026年11月11日</time> · 読了目安 6分</p>
+    <p class="lede">リレーは、リモートデスクトップのセッションの途中にあるサーバーです。ですから問うべきは、何がそれにのぞき見をさせないか、ということです。答えは、リレーが決して受け取らない鍵です。</p>
+
+<h2>何をするか</h2>
+<p>
+  リレーの仕事は3つです。直接届かない2台のデバイスを引き合わせること、それでも届かないときに両者の間でバイト列をコピーすること、
+  そして「コーディングエージェントが答えを待っています」のようなプッシュ通知をMacに代わって送ることです。
+  Rustで書かれた小さなプログラムで、仕事を小さく保つことが設計そのものです。
+</p>
+
+<h2>何を知っているか</h2>
+<p>
+  これを正直に伝えることも、目的の一部です。仕事をするために、リレーには次のものが見えます。
+</p>
+<ul>
+  <li>デバイス識別子とMacの名前。iPhoneとMacを対応づけるためです。</li>
+  <li>各デバイスの接続元のネットワークアドレス。どのサーバーにも見えるもので、直接の経路を試せるように、リレーは相手のアドレスをそれぞれに渡します。</li>
+  <li>使っているプラン、使ったリレー時間。1日30分という無料の枠を適用するためです。</li>
+  <li>セッションが存在すること、いつ始まったか、どれだけ続いたか。</li>
+</ul>
+<p>
+  <a href="/ja/privacy">プライバシーポリシー</a>に、これらがすべて載っています。どれも、セッションの中身ではありません。
+</p>
+
+<h2>何が見えないか</h2>
+<p>
+  映像、音声、クリップボード、キー入力、ポインターは、すべて2台のデバイスで終端する暗号化されたチャネルの中にあります。
+  リレーはそれらを読むことも、変更することも、再生することもできません。
+  それを成り立たせているのは2つの仕組みで、どちらもリレーを信用することに頼っていません。
+</p>
+
+<h3>制御チャネルは、デバイス間のTLS</h3>
+<p>
+  リレー経由のとき、iPhoneはリレーを通してMacとTLS 1.3のハンドシェイクを行います。リレーは暗号化されたレコードを終端せずにコピーするので、
+  セッション鍵を持つことはありません。両端はペアリングのときに固定した鍵で認証するため、
+  リレーが自分を割り込ませようとすれば、iPhoneが接続を拒否します。
+</p>
+
+<h3>映像の鍵はリレーを通らない</h3>
+<p>
+  映像はUDPという別の道を通るので、専用の鍵が必要です。セッションの準備ができたあと、Macは32バイトのランダムな値を作り、
+  <em>TLSのストリームの中で</em>iPhoneに送ります。リレーはそのストリームを運びますが、開けられません。
+  そのあと、各方向がHKDF-SHA256でそれぞれの鍵を導き、すべてのデータグラムはChaCha20-Poly1305とカウンターで封をされます。
+</p>
+<pre>key = HKDF-SHA256(secret, salt = "pl.dmq.peering.video-datagram", info = direction)
+datagram = token | counter | ciphertext | tag</pre>
+<p>
+  先頭の16バイトのトークンが、リレーが読む唯一のものです。データグラムがどのセッションのものかを示すルーティング用のヒントで、
+  リレーは転送の前にこれを取り除きます。その後ろは、すべて暗号文です。
+</p>
+<figure class="card doc-figure">
+  <img src="/assets/app-lock.webp" width="603" height="1311" loading="lazy"
+    alt="iPhoneのロック画面に、Peeringの通知が2つ表示されています。ターミナルが終了したことと、ターミナルが承認を待っていることです。">
+  <figcaption>プッシュ通知が運ぶのは、短いテキストと、コード化された状態です。画面そのものが含まれることはありません。</figcaption>
+</figure>
+
+<h2>プッシュ通知とLive Activity</h2>
+<p>
+  iPhoneがスリープしているとき、MacはリレーにAppleのプッシュでiPhoneを起こすよう頼みます。そのプッシュに入るものは、意図的に最小限です。
+  アラートなら短いタイトルとメッセージ、Live Activityの更新ならID、状態、件数、時刻のようなコード化された状態だけです。
+  Macがリレーに、画面やターミナルの出力を送ることはありません。エージェントの承認については、<a href="/ja/coding-agent-notifications">コーディングエージェントの通知</a>をご覧ください。
+</p>
+
+<h2>アカウントの代わりの証明</h2>
+<p>
+  無料の枠は、何かに結びつける必要があります。アカウントの代わりに、デバイスは自分の鍵で短いメッセージに署名し、リレーは5分の枠内でその署名を確認します。
+  これにより、枠はリセットできるIDではなく鍵に結びつき、秘密鍵を持たない誰も、登録済みのMacになりすませません。
+</p>
+
+<h2>自分で確かめる</h2>
+<p>
+  通信形式は文書化されており、リレーはある制約を軸に作られています。相手同士を引き合わせ、暗号化されたバイト列をコピーするだけで、
+  運んでいるものを調べることも、変更することも、許可することもできません。セッションがそもそもどうやってリレーに載るのかは
+  <a href="/ja/blog/connect-iphone-to-mac-anywhere">iPhoneがどこからでもMacに届く仕組み</a>を、
+  両端の鍵がどのように信頼されるようになるのかは<a href="/ja/blog/pairing-without-an-account">アカウントなしのペアリング</a>をお読みください。
+</p>
+
+    <h2>よくある質問</h2>
+    <h3>Peeringのリレーは私の画面を見られますか？</h3>
+    <p>いいえ。映像は、Macがリレーの開けない暗号化された接続の中でiPhoneに送った鍵で封をされているので、リレーが扱うのは暗号文だけです。</p>
+    <h3>Peeringのリレーは私について何を知っていますか？</h3>
+    <p>デバイス識別子、Macの名前、使っているプラン、リレーの使用量、各デバイスの接続元のネットワークアドレスです。映像、音声、キー入力、クリップボードの内容は見えません。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ja/download">Mac版Peeringをダウンロード</a>
+    </div>
+
+    <nav class="post-nav" aria-label="ブログのほかの記事">
+      <h2>Peeringの仕組みをもっと読む</h2>
+      <ul>
+        <li><a href="/ja/blog/connect-iphone-to-mac-anywhere">iPhoneがどこからでもMacに届く仕組み</a></li>
+        <li><a href="/ja/blog/mac-screen-streaming">Macの画面をiPhoneに届ける仕組み</a></li>
+        <li><a href="/ja/blog/pairing-without-an-account">アカウントなしのペアリング：信頼の仕組み</a></li>
+        <li><a href="/ja/blog/remote-input-latency">タップがMacのクリックになる仕組み</a></li>
+      </ul>
+    </nav>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="ガイド、法務、サポート">
+      <a href="/ja/blog">ブログ</a>
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
+      <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリ比較</a>
+      <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/best-remote-desktop-app-for-ipad">iPadに最適</a>
+      <a href="/ja/apple-remote-desktop-alternative">ARDの代替</a>
+      <a href="/ja/apple-remote-desktop-vs-screen-sharing">ARDと画面共有</a>
+      <a href="/ja/screens-vs-jump-desktop">ScreensとJump</a>
+      <a href="/ja/rustdesk-alternative-for-mac">RustDeskの代替</a>
+      <a href="/ja/control-mac-from-android">AndroidからMac</a>
+      <a href="/ja/claude-code-on-android">AndroidでClaude Code</a>
+      <a href="/ja/chrome-remote-desktop-alternative">Chromeリモートデスクトップの代替</a>
+      <a href="/ja/teamviewer-alternative-for-mac">TeamViewerの代替</a>
+      <a href="/ja/control-windows-pc-from-phone">スマホからWindows</a>
+      <a href="/ja/download">ダウンロード</a>
+      <a href="/ja/privacy">プライバシー</a>
+      <a href="/ja/terms">利用規約</a>
+      <a href="mailto:support@getpeering.app">サポート</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/blog/what-the-relay-can-see" hreflang="en" lang="en">English</a>
+      <a href="/de/blog/what-the-relay-can-see" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/blog/what-the-relay-can-see" hreflang="es" lang="es">Español</a>
+      <a href="/fr/blog/what-the-relay-can-see" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/blog/what-the-relay-can-see" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/blog/what-the-relay-can-see" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/blog/what-the-relay-can-see" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/blog/what-the-relay-can-see" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/blog/what-the-relay-can-see" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/blog/what-the-relay-can-see" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple、iPhone、MacはApple Inc.の商標です。</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>
