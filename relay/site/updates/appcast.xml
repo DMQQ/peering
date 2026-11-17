@@ -3,21 +3,6 @@
     <channel>
         <title>Peering</title>
         <item>
-            <title>202611170</title>
-            <pubDate>Tue, 17 Nov 2026 20:52:46 +0100</pubDate>
-            <sparkle:version>202611170</sparkle:version>
-            <sparkle:shortVersionString>202611170</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://getpeering.app/updates/Peering-202611170.dmg" length="14362122" type="application/octet-stream" sparkle:edSignature="1AtWh1AWOcLv7So0fYUaKH+pXnwtqlKLSdbBRWsKwYoO3TH1jPax+/dZXra1NTB4jcwSI7Inijd2Yoge/5jnDg=="/>
-            <sparkle:deltas>
-                <enclosure url="https://getpeering.app/updates/Peering202611170-202610133.delta" sparkle:deltaFrom="202610133" length="2556806" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="yEMFPhtr51YO67bao2E2aSNOq2aiPnskmLVppnSHfKP0Luh3N7Yof7eauyIA3oqJYawUJKnQ2p7olOMorEciDw=="/>
-                <enclosure url="https://getpeering.app/updates/Peering202611170-202610132.delta" sparkle:deltaFrom="202610132" length="2555646" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="IvVB8+G3qUEVnOIs5AOxOsYZBv131t6uYQcJu5NSpp6x2fqh+nmd/ZVhytW6iV+xjCnCseLMmrbrKD/4/bW6Bw=="/>
-                <enclosure url="https://getpeering.app/updates/Peering202611170-202610131.delta" sparkle:deltaFrom="202610131" length="2608034" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="wcI/qZq1bi05j+EmUEIpaohFKF6ut+HPbda1lx2Jc7qdaHA5OeiGqTVe0BwckD4lKTundyiF3rsdFm+rWJjfCw=="/>
-                <enclosure url="https://getpeering.app/updates/Peering202611170-202610130.delta" sparkle:deltaFrom="202610130" length="2705290" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="Ly7ISG0fqwATDhJWEH/LRdDkQn+9l0uUeX798AAE19XtlPfm2RUVMLnrXcOw9yeB2VaQ93VzuEQnFCtV2MS6AA=="/>
-                <enclosure url="https://getpeering.app/updates/Peering202611170-202610081.delta" sparkle:deltaFrom="202610081" length="3874846" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="CvYzetyVXMq+0yrka+YPRL4MRssyeCZ5Uer6I76i5YWJSLR5pwI6nFUTztMzO+sVrZSR19UoWcmbHMOP3g/IBg=="/>
-            </sparkle:deltas>
-        </item>
-        <item>
             <title>202610133</title>
             <pubDate>Tue, 13 Oct 2026 22:15:55 +0200</pubDate>
             <sparkle:version>202610133</sparkle:version>
@@ -45,6 +30,21 @@
                 <enclosure url="https://getpeering.app/updates/Peering202610132-202610081.delta" sparkle:deltaFrom="202610081" length="3115626" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="lBp33WNbHI4y3lafzmP7M7gHP4Wg6B9hulaNEmx7z/83fNzo9PbL6XpF3ouHVgP94dJsyfD/me5wzG7HeTigAg=="/>
                 <enclosure url="https://getpeering.app/updates/Peering202610132-202610072.delta" sparkle:deltaFrom="202610072" length="3350098" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="ZdhL4tYkSFyHQaBJ91zIsgT59RveosFZizjbAL6PbACzizAhxq1zlk1qMu3C3idpqPfyucHTQNZsX9h+hV/NCA=="/>
                 <enclosure url="https://getpeering.app/updates/Peering202610132-202610071.delta" sparkle:deltaFrom="202610071" length="3651906" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="Y1jRQDbxdQ5VFcF0AbJQo9vVvls5VmGI3F2O2dPqy5PRrkCpOSkI/EK52MNfk+9VncmiGEndrZwB36nse0qyBw=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
+            <title>202610131</title>
+            <pubDate>Tue, 13 Oct 2026 21:13:37 +0200</pubDate>
+            <sparkle:version>202610131</sparkle:version>
+            <sparkle:shortVersionString>202610131</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://getpeering.app/updates/Peering-202610131.dmg" length="13729108" type="application/octet-stream" sparkle:edSignature="LebCtWYkFea3N36whHlRFqUQ16/aLp+lnq6cHI8EZbegB359+YNzxi4u0mM4wTV62TGk09hJxrQRz0YS2OLMCw=="/>
+            <sparkle:deltas>
+                <enclosure url="https://getpeering.app/updates/Peering202610131-202610130.delta" sparkle:deltaFrom="202610130" length="1428774" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="jKzOiLyJW6U0B8jq8UhYThji0hRM9fRG7lbmmfHZ9eC3Ye5X6Sm36ZqRTTCfSPxyG6Og+BoWYKHAMxdtVcT+CQ=="/>
+                <enclosure url="https://getpeering.app/updates/Peering202610131-202610081.delta" sparkle:deltaFrom="202610081" length="3086022" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="k00vJ70tjywNvE4h729ufHxzBAHZGnw7Mc0JHG0eTxiG65TvpIlkAOkaAQDRxZNynZpfsowDniNS56zDDvdcBg=="/>
+                <enclosure url="https://getpeering.app/updates/Peering202610131-202610072.delta" sparkle:deltaFrom="202610072" length="3315202" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="kK6Msba4QlCQzIs4KxY22ufk3MW0e8RU1Vwqrb6IhNvTqpDWTwlO6IJGghxeN+doJmB8JrAJktJb+fu1CUWMBw=="/>
+                <enclosure url="https://getpeering.app/updates/Peering202610131-202610071.delta" sparkle:deltaFrom="202610071" length="3623762" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="ACos7+YnQ7S5k9+wX+ctjT//vsDktv4mkbslwEpXIyn9m+KtGzFhc4LbLIMYZgt3BpkhuiYXRd+ZVT/lKM8qCg=="/>
+                <enclosure url="https://getpeering.app/updates/Peering202610131-202610061.delta" sparkle:deltaFrom="202610061" length="3632270" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="974464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="w14CtTUSj6uKv6Ha8weKxeghrGHNZoa7qcncAWTHosLlVPju3hIiC4yNy/W4NdPyY8DNXHDi2dkYQz1Ick3WCQ=="/>
             </sparkle:deltas>
         </item>
     </channel>
