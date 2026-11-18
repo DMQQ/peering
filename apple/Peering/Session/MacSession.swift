@@ -54,6 +54,8 @@ final class MacSession: Identifiable {
 
     /// Kept after the session ends because Settings cannot be opened while one runs. `nil` when there was no datagram lane.
     var datagramCounts: ClientSession.DatagramCounts?
+    /// Share of the Mac's datagrams lost in the last sample; read by auto quality, so not observed by any view.
+    @ObservationIgnored var datagramLoss = 0.0
 
     var latencyMilliseconds: Double?
     var badConnectionWarning = BadConnectionWarning()

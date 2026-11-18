@@ -51,6 +51,12 @@ public struct AutoQualityPolicy: Sendable {
 
     public static let healthySamplesForUpgrade = 12
 
+    /// Parity rebuilds one datagram in ten, so a few percent is absorbed and anything near ten is not.
+    static let severeLoss = 0.08
+    static let noticeableLoss = 0.02
+    /// A climb sends more bytes into a link, so it waits for a clean one.
+    static let healthyLoss = 0.005
+
     public private(set) var tier: Tier
     private let path: Path
     private let ceiling: Tier
@@ -63,19 +69,19 @@ public struct AutoQualityPolicy: Sendable {
     }
 
     /// Returns a new tier only when the host should be told to change bitrate.
-    public mutating func observe(latencyMilliseconds: Double, newDroppedFrames: Int) -> Tier? {
-        if latencyMilliseconds >= 350 || newDroppedFrames >= 3 {
+    public mutating func observe(latencyMilliseconds: Double, newDroppedFrames: Int, datagramLoss: Double = 0) -> Tier? {
+        if latencyMilliseconds >= 350 || newDroppedFrames >= 3 || datagramLoss >= Self.severeLoss {
             healthySamples = 0
             return change(to: .low)
         }
 
-        if latencyMilliseconds >= 160 || newDroppedFrames > 0 {
+        if latencyMilliseconds >= 160 || newDroppedFrames > 0 || datagramLoss >= Self.noticeableLoss {
             healthySamples = 0
             return change(to: tier.lower)
         }
 
         let healthyLatency: Double = path == .relay ? 80 : 65
-        guard latencyMilliseconds <= healthyLatency else {
+        guard latencyMilliseconds <= healthyLatency, datagramLoss < Self.healthyLoss else {
             healthySamples = 0
             return nil
         }

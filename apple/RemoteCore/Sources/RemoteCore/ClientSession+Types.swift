@@ -53,6 +53,8 @@ extension ClientSession {
         case pathLatency(milliseconds: Double, fromPeer: Bool)
         /// What the relay's datagram lane has carried, every couple of seconds while one is open.
         case datagramCounts(DatagramCounts)
+        /// The share of the Mac's datagrams lost over the last couple of seconds, 0...1; absent while nothing is arriving.
+        case datagramLoss(Double)
         case note(String)
         /// A standing condition on the Mac the user should see, or `nil`. Unlike ``note(_:)`` it stays up until the Mac says otherwise.
         case remoteNotice(NoticePayload?)

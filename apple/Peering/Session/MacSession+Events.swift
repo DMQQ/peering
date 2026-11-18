@@ -24,6 +24,8 @@ extension MacSession {
             if let perceived = perceivedLatencyMilliseconds { warnIfConnectionIsVeryBad(perceived) }
         case .datagramCounts(let counts):
             datagramCounts = counts
+        case .datagramLoss(let fraction):
+            datagramLoss = fraction
         case .note(let message):
             append(note: message)
         case .path(let path):

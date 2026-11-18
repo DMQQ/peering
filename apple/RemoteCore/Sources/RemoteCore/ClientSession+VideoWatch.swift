@@ -137,6 +137,8 @@ extension ClientSession {
     func reportDatagramCounts() {
         guard lock.withLock({ videoDatagrams != nil }) else { return }
         emit(.datagramCounts(datagramCounts))
+        let loss = lock.withLock { videoOpener?.sampleLoss() }
+        if let loss { emit(.datagramLoss(loss)) }
     }
 
     /// Says which lane the picture is on, once per change: the ask repeats but the note is read by a person.

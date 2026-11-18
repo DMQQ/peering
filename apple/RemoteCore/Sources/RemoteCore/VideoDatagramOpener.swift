@@ -12,6 +12,7 @@ public struct VideoDatagramOpener {
     private let key: SymmetricKey
     private var window = VideoReplayWindow()
     private var chunks = VideoChunkReassembler()
+    public private(set) var loss = DatagramLossMeter()
 
     public init(key: SymmetricKey) {
         self.key = key
@@ -46,6 +47,7 @@ public struct VideoDatagramOpener {
         }
 
         window.commit(counter)
+        loss.note(counter: counter)
 
         var decoder = FrameDecoder()
         decoder.append(plaintext)
@@ -61,8 +63,11 @@ public struct VideoDatagramOpener {
         }
     }
 
+    public mutating func sampleLoss() -> Double? { loss.sample() }
+
     public mutating func reset() {
         window.reset()
+        loss.reset()
         chunks = VideoChunkReassembler()
     }
 }

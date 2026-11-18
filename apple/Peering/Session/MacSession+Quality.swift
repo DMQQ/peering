@@ -102,9 +102,13 @@ extension MacSession {
             : 0
         lastAutoDroppedFrames = snapshot.framesDropped
 
+        // Taken once: a sample with nothing behind it must not keep holding the rate down.
+        let loss = datagramLoss
+        datagramLoss = 0
         guard let tier = autoQualityPolicy.observe(
             latencyMilliseconds: latencyMilliseconds,
-            newDroppedFrames: newDrops
+            newDroppedFrames: newDrops,
+            datagramLoss: loss
         ) else { return }
         sendStreamQuality(bitrateKbps: tier.bitrateKbps)
         append(note: String(localized: "Auto quality changed to \(tier.bitrateKbps / 1_000) Mbps"))
