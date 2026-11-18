@@ -142,9 +142,11 @@ extension SessionSurface {
         let pointerColumn = ChromeMetrics.quickKeySize + ChromeMetrics.panelGap + joystickRadius * 2
         let reserved = pointerColumn
             + ChromeMetrics.bottomInset
-            + ChromeMetrics.edgeInset * 2
+            + ChromeMetrics.edgeInset * 3
             + ChromeMetrics.panelGap
-        return max(160, availableHeight - reserved)
+        // Two buttons, no more: the old floor of 160 was above what a 393pt-tall phone has left, so it held the rail down over the pointer column however much room was missing.
+        let twoButtons = ChromeMetrics.buttonHeight * 2 + ChromeMetrics.buttonGap + ChromeMetrics.railPadding * 2
+        return max(twoButtons, availableHeight - reserved)
     }
 
     func ceiling(_ available: CGSize, _ isLandscape: Bool) -> CGFloat {

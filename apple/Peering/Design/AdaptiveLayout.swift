@@ -36,8 +36,10 @@ enum DeviceScene {
     static var bottomInset: CGFloat { window?.windows.first?.safeAreaInsets.bottom ?? 0 }
 
     /// Any phone screen that reserves a strip down its right edge (the foldable's), in either orientation, where the clock sits with room under it for a rail.
+    /// The screen's shape is checked as well as the inset: any iPhone on its side reports about 59 points on the right for its sensor housing, and without the shape test every ordinary phone in landscape drew its rail in a strip that is not there.
     static var hasReservedStrip: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone && trailingInset >= 40
+        guard UIDevice.current.userInterfaceIdiom == .phone, trailingInset >= 40, let bounds = window?.screen.bounds else { return false }
+        return ScreenShape.isBookShaped(size: bounds.size)
     }
 
     /// The foldable's outer display held upright: near-square, with a strip reserved down its right edge, where a column of controls fits. Sideways it is nearly the Mac's own shape, and the unfolded inner display reserves no strip, so both keep the ordinary layouts. An iPad is near-square too, but has room for the ordinary layout.
