@@ -29,7 +29,8 @@ extension SessionSurface {
     }
 
     var applicationDockIsOffered: Bool {
-        !applicationDockItems.isEmpty && openPanel == nil
+        // The foldable's rail has an Apps button, and its bottom edge is better left to the picture.
+        !applicationDockItems.isEmpty && openPanel == nil && !DeviceScene.isBookShaped
     }
 
     @ViewBuilder

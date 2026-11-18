@@ -21,8 +21,18 @@ enum ChromeMetrics {
     static let buttonHeight: CGFloat = 62
     static let wheelHeight: CGFloat = 120
     static let quickKeySize: CGFloat = 60
+    /// Where the foldable's reserved right strip has its camera hole and clock, measured on its simulator. A rail in the strip starts below `clearance` and centres on the icons, `centreInset` in from the screen's right edge. The outer display held upright and the unfolded display on its side differ.
+    struct ReservedStrip {
+        let clearance: CGFloat
+        let centreInset: CGFloat
+    }
+
+    static let reservedStripUpright = ReservedStrip(clearance: 168, centreInset: 48)
+    static let reservedStripSideways = ReservedStrip(clearance: 104, centreInset: 48)
 
     static let dockColumns = 5
+    /// The width a dock button gets on a phone, which is what a wider dock adds one more column per.
+    static let dockCellWidth: CGFloat = 60
     static let dockExpandedRows = 3
 
     static let dockToggleWidth: CGFloat = 52

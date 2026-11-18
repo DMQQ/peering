@@ -10,6 +10,8 @@ extension SessionSurface {
 
     func statusBarWidthCap(in available: CGFloat) -> CGFloat {
         let perSide = ChromeMetrics.panelWidth + ChromeMetrics.edgeInset + ChromeMetrics.panelGap
+        // The foldable's one rail lives in the reserved strip beyond this width, so the bar has all of it.
+        if DeviceScene.isBookShaped { return min(ChromeMetrics.statusBarMaxWidth, max(0, available - 2 * ChromeMetrics.edgeInset)) }
         return min(ChromeMetrics.statusBarMaxWidth, max(0, available - 2 * perSide))
     }
 
@@ -55,7 +57,7 @@ extension SessionSurface {
     func sessionChrome(isLandscape: Bool, available: CGSize) -> some View {
         if isImmersive {
             immersiveEscape
-        } else if isLandscape {
+        } else if isLandscape || DeviceScene.isBookShaped {
             ZStack(alignment: .top) {
                 // Pinned to the top rather than centred. The rails grew a button each, and a
                 // centred rail reaches far enough down that the pointer pad, which lives in
@@ -68,24 +70,28 @@ extension SessionSurface {
                 // under the housing, which is a button the user can see and cannot press.
                 VStack(spacing: 0) {
                     HStack(alignment: .top, spacing: ChromeMetrics.panelGap) {
-                        ControlRail(maxHeight: railMaxHeight(in: available.height)) {
-                            keysButton
-                            shortcutsButton
-                            clipboardButton
-                            modeButton
-                            sourcesButton
-                            settingsButton
+                        if !DeviceScene.isBookShaped {
+                            ControlRail(maxHeight: railMaxHeight(in: available.height)) {
+                                keysButton
+                                shortcutsButton
+                                clipboardButton
+                                modeButton
+                                sourcesButton
+                                settingsButton
+                            }
+                            .reportChromeFrame(.leadingRail, into: $chromeFrames)
+                            .tourAnchor(.screenRail)
                         }
-                        .reportChromeFrame(.leadingRail, into: $chromeFrames)
-                        .tourAnchor(.screenRail)
                         Spacer(minLength: 0)
-                        ControlRail(maxHeight: railMaxHeight(in: available.height)) {
-                            landscapeQuickActions
-                            escapeButton
-                            tabButton
-                            navigationButtons
+                        if !DeviceScene.hasReservedStrip {
+                            ControlRail(maxHeight: railMaxHeight(in: available.height)) {
+                                landscapeQuickActions
+                                escapeButton
+                                tabButton
+                                navigationButtons
+                            }
+                            .reportChromeFrame(.trailingRail, into: $chromeFrames)
                         }
-                        .reportChromeFrame(.trailingRail, into: $chromeFrames)
                     }
                     .padding(.horizontal, ChromeMetrics.edgeInset)
                     .padding(.top, ChromeMetrics.edgeInset)
@@ -100,6 +106,8 @@ extension SessionSurface {
                 // ``SessionSurface/statusBarWidthCap(in:)``.
                 statusBar(availableWidth: available.width)
                     .frame(maxWidth: statusBarWidthCap(in: available.width))
+                    .frame(maxWidth: .infinity, alignment: DeviceScene.isBookShaped ? .leading : .center)
+                    .padding(.leading, DeviceScene.isBookShaped ? ChromeMetrics.edgeInset : 0)
                     .tourAnchor(.screenStatus)
                 if hasSeveralMacs, statusBarExpanded {
                     SessionTabs(chromeFrames: $chromeFrames)
@@ -123,7 +131,7 @@ extension SessionSurface {
                             pointerColumn
                                 .reportChromeFrame(.pointer, into: $chromeFrames)
                                 .tourAnchor(.screenPointer)
-                                .offset(x: joystickColumnOffset)
+                                .offset(x: DeviceScene.hasReservedStrip ? 0 : joystickColumnOffset)
                         }
                     }
                     .padding(.horizontal, ChromeMetrics.edgeInset)
@@ -131,6 +139,9 @@ extension SessionSurface {
 
                     floatingPanel(available, isLandscape: true)
                         .padding(.bottom, ChromeMetrics.bottomInset)
+                        .frame(maxWidth: .infinity, alignment: panelAlignmentBesideRail)
+                        .padding(.leading, panelLeadingGapBesideRail)
+                        .padding(.trailing, DeviceScene.isBookShaped ? ChromeMetrics.edgeInset : 0)
 
                     applicationDock
                 }
@@ -141,6 +152,11 @@ extension SessionSurface {
                 // screen with it. The panel ended up at the top and the pointer off the bottom.
                 // An alignment pins the bottom edge whatever the content does.
                 .frame(maxHeight: .infinity, alignment: .bottom)
+                // The foldable's home-indicator inset is empty black under the controls; they run to the edge like the rail does.
+                .ignoresSafeArea(.container, edges: DeviceScene.hasReservedStrip && !model.showKeyboard ? .bottom : [])
+            }
+            .overlay(alignment: .topTrailing) {
+                if DeviceScene.hasReservedStrip { reservedStripRail(available: available) }
             }
             // On the stack itself rather than on the strip, because the strip is not always
             // there and this is the thing that has to notice. A strip that has gone without its

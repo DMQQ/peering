@@ -178,6 +178,17 @@ extension SessionSurface {
 
     static let statusBarHeight: CGFloat = 44
 
+    /// A panel opens beside the rail it came from where there is room for the two side by side: against the foldable's right rail, and the iPad's left one. An iPhone on its side keeps the centred panel.
+    var panelAlignmentBesideRail: Alignment {
+        if DeviceScene.isBookShaped { return .trailing }
+        return UIDevice.current.userInterfaceIdiom == .pad ? .leading : .center
+    }
+
+    var panelLeadingGapBesideRail: CGFloat {
+        guard !DeviceScene.isBookShaped, UIDevice.current.userInterfaceIdiom == .pad else { return 0 }
+        return ChromeMetrics.edgeInset + ChromeMetrics.panelWidth + ChromeMetrics.panelGap
+    }
+
     var settingsButton: some View {
         RailButton(icon: "gearshape", label: String(localized: "Settings"), selected: openPanel == .settings) {
             withAnimation(Motion.settle) { openPanel = openPanel == .settings ? nil : .settings }

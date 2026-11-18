@@ -49,6 +49,8 @@ struct SessionSurface: View {
     @State var collapsedBarWidth: CGFloat = 0
     @State var dockExpanded = false
     @State var applicationDockIsUp = false
+    /// How far the system keyboard reaches up from the bottom of the screen, 0 when none is showing (a hardware keyboard shows none).
+    @State var keyboardOverlap: CGFloat = 0
     @State var isImmersive = false
     @State var dockPreviews = ThumbnailImages()
     @State var dockPage: String?
@@ -166,6 +168,14 @@ struct SessionSurface: View {
         // The keyboard must not resize the picture: a shrinking view moves every control the user
         // is aiming at.
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
+            guard let end = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue,
+                  let screen = DeviceScene.window?.screen
+            else { return }
+            // With a hardware keyboard the system still reports a frame, only as tall as the input bar (about 150 points), and that bar stops short of the strip. A software keyboard is about 300.
+            let overlap = max(0, screen.bounds.height - end.minY)
+            keyboardOverlap = overlap > 220 ? overlap : 0
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if showsKeyboardBar {
                 keyboardInputBar

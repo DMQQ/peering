@@ -1,3 +1,4 @@
+import PeeringKit
 import RemoteCore
 import SwiftUI
 import UIKit
@@ -23,15 +24,25 @@ extension View {
 
 extension SessionSurface {
     var dockHeight: CGFloat {
-        dockCardHeight + ChromeMetrics.dockDotsGap + ChromeMetrics.dockPageDotsHeight
+        dockCardHeight + (dockShowsPageDots ? ChromeMetrics.dockDotsGap + ChromeMetrics.dockPageDotsHeight : 0)
     }
 
+    /// Expanding adds rows, and a sheet that already fits in one row has none to add: the chevron is only offered when a sheet of controls would spill over.
+    var dockCanExpand: Bool {
+        DockControl.portrait.count > dockColumnCount || (activeApplicationProfile?.actions.count ?? 0) > dockColumnCount
+    }
+
+    var dockShowsExpanded: Bool { dockExpanded && dockCanExpand }
+
+    /// Dots only mean something with a second page to swipe to, and the band they sit in goes with them.
+    var dockShowsPageDots: Bool { dockSheets.count > 1 }
+
     var dockCardHeight: CGFloat {
-        dockExpanded ? ChromeMetrics.dockExpandedHeight : ChromeMetrics.dockCollapsedHeight
+        dockShowsExpanded ? ChromeMetrics.dockExpandedHeight : ChromeMetrics.dockCollapsedHeight
     }
 
     var dockGridHeight: CGFloat {
-        dockExpanded ? ChromeMetrics.dockExpandedGridHeight : ChromeMetrics.buttonHeight
+        dockShowsExpanded ? ChromeMetrics.dockExpandedGridHeight : ChromeMetrics.buttonHeight
     }
 
     /// The dock and, when one is open, the panel above it, as one glass surface: the panel is the dock's upper half rather than a second card resting on it.
@@ -61,13 +72,13 @@ extension SessionSurface {
             .clipShape(shape)
             .background { TrayGlass(drag: panelDragState, topRadius: topRadius, bottomRadius: dockCornerRadius) }
 
-            dockPageDots
+            if dockShowsPageDots { dockPageDots }
         }
         .frame(width: width))
     }
 
     var dockCornerRadius: CGFloat {
-        dockExpanded ? ChromeMetrics.dockExpandedRadius : ChromeMetrics.dockCollapsedRadius
+        dockShowsExpanded ? ChromeMetrics.dockExpandedRadius : ChromeMetrics.dockCollapsedRadius
     }
 
     private func dockCard(width: CGFloat) -> some View {
@@ -79,7 +90,7 @@ extension SessionSurface {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 0) {
                         ForEach(dockSheets) { sheet in
-                            dockSheetView(sheet, expanded: dockExpanded)
+                            dockSheetView(sheet, expanded: dockShowsExpanded)
                                 .containerRelativeFrame(.horizontal)
                                 .id(sheet.id)
                         }
@@ -89,8 +100,10 @@ extension SessionSurface {
                 .scrollTargetBehavior(.paging)
                 .scrollPosition(id: $dockPage)
 
-                dockToggle
-                    .frame(width: ChromeMetrics.dockToggleWidth)
+                if dockCanExpand {
+                    dockToggle
+                        .frame(width: ChromeMetrics.dockToggleWidth)
+                }
             }
             .frame(height: dockGridHeight)
             .padding(.vertical, ChromeMetrics.railPadding)
@@ -111,7 +124,7 @@ extension SessionSurface {
         expanded: Bool,
         @ViewBuilder item: @escaping (Item) -> Content
     ) -> some View {
-        let columns = ChromeMetrics.dockColumns
+        let columns = dockColumnCount
         let rows = expanded ? ChromeMetrics.dockExpandedRows : 1
         VStack(spacing: ChromeMetrics.buttonGap) {
             ForEach(0..<rows, id: \.self) { row in
@@ -129,8 +142,16 @@ extension SessionSurface {
         }
     }
 
+    /// One column per cell width the dock has, never fewer than an ordinary phone shows, so a phone is unchanged and a tablet or an unfolded foldable fills its width.
+    var dockColumnCount: Int {
+        let grid = canvasSize.width * ChromeMetrics.dockWidthFraction - ChromeMetrics.dockToggleWidth - 2 * ChromeMetrics.railSidePadding
+        let fit = ChromeCapacity.columns(gridWidth: grid, cellWidth: ChromeMetrics.dockCellWidth, atLeast: ChromeMetrics.dockColumns)
+        // No wider than the controls there are, or they would huddle at one end of a wide dock.
+        return max(ChromeMetrics.dockColumns, min(fit, DockControl.portrait.count))
+    }
+
     var dockSheets: [DockSheet] {
-        let capacity = ChromeMetrics.dockColumns * (dockExpanded ? ChromeMetrics.dockExpandedRows : 1)
+        let capacity = dockColumnCount * (dockShowsExpanded ? ChromeMetrics.dockExpandedRows : 1)
         let controls = DockControl.portrait.chunked(into: capacity).enumerated().map { index, chunk in
             DockSheet(id: "controls-\(index)", controls: chunk, edits: [])
         }
@@ -192,7 +213,10 @@ extension SessionSurface {
     }
 
     var dockPageDots: some View {
-        let sheets = dockSheets
+        dockPageDotRow(dockSheets)
+    }
+
+    private func dockPageDotRow(_ sheets: [DockSheet]) -> some View {
         let current = dockPage ?? sheets.first?.id
         return HStack(spacing: 0) {
             ForEach(Array(sheets.enumerated()), id: \.element.id) { index, sheet in

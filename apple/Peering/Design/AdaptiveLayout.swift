@@ -1,3 +1,4 @@
+import PeeringKit
 import SwiftUI
 import UIKit
 
@@ -27,6 +28,22 @@ enum DeviceScene {
     /// Asked of the orientation the scene is moving to, the only signal a rotation gives mid-rotation. Layout geometry answers landscape for an upright phone with its keyboard up.
     static var isLandscape: Bool {
         window?.effectiveGeometry.interfaceOrientation.isLandscape ?? false
+    }
+
+    /// The width the foldable's outer display reserves down its right edge for the camera hole and the clock. The inner display reserves none.
+    static var trailingInset: CGFloat { window?.windows.first?.safeAreaInsets.right ?? 0 }
+
+    static var bottomInset: CGFloat { window?.windows.first?.safeAreaInsets.bottom ?? 0 }
+
+    /// Any phone screen that reserves a strip down its right edge (the foldable's), in either orientation, where the clock sits with room under it for a rail.
+    static var hasReservedStrip: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone && trailingInset >= 40
+    }
+
+    /// The foldable's outer display held upright: near-square, with a strip reserved down its right edge, where a column of controls fits. Sideways it is nearly the Mac's own shape, and the unfolded inner display reserves no strip, so both keep the ordinary layouts. An iPad is near-square too, but has room for the ordinary layout.
+    static var isBookShaped: Bool {
+        guard UIDevice.current.userInterfaceIdiom == .phone, !isLandscape, trailingInset >= 40, let bounds = window?.screen.bounds else { return false }
+        return ScreenShape.isBookShaped(size: bounds.size)
     }
 }
 
