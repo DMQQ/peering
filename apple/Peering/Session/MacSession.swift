@@ -56,6 +56,7 @@ final class MacSession: Identifiable {
     var datagramCounts: ClientSession.DatagramCounts?
     /// Share of the Mac's datagrams lost in the last sample; read by auto quality, so not observed by any view.
     @ObservationIgnored var datagramLoss = 0.0
+    @ObservationIgnored var parityGroupAsked = VideoChunk.parityGroupSize
 
     var latencyMilliseconds: Double?
     var badConnectionWarning = BadConnectionWarning()

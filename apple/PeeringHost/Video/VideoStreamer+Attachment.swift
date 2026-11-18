@@ -84,6 +84,10 @@ extension VideoStreamer {
     }
 
 /// Installs the relay's datagram lane, or takes it away.
+    func setParityGroup(_ group: Int) {
+        lock.withLock { datagrams }?.setParityGroup(group)
+    }
+
     @discardableResult
     func useDatagrams(_ lane: VideoDatagramLane?) -> Bool {
         let previous = lock.withLock { () -> VideoDatagramLane? in

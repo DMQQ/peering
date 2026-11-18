@@ -8,6 +8,10 @@ import os
 
 extension VideoCoordinator {
 /// A viewer dropped frames and is waiting for a recovery point; the next encoded frame is a keyframe.
+    func setParityGroup(_ group: Int) {
+        streamer.setParityGroup(group)
+    }
+
     func requestKeyframe() {
         pipeline.requestKeyframe()
     }

@@ -26,6 +26,7 @@ extension MacSession {
             datagramCounts = counts
         case .datagramLoss(let fraction):
             datagramLoss = fraction
+            adaptParity(toLoss: fraction)
         case .note(let message):
             append(note: message)
         case .path(let path):

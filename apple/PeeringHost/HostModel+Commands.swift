@@ -21,6 +21,8 @@ extension HostModel {
             coordinator.refreshSpacePreviews()
         case .requestKeyframe:
             coordinator.requestKeyframe()
+        case .setParityGroup(let group):
+            coordinator.setParityGroup(group)
         case .refreshSourceThumbnails:
             coordinator.refreshSourceThumbnails()
         case .watchSourceThumbnails(let watching):

@@ -85,6 +85,14 @@ extension MacSession {
         }
     }
 
+    /// Tells the Mac how much parity to send, only when the right amount has changed.
+    func adaptParity(toLoss loss: Double) {
+        let group = ParityPolicy.group(forLoss: loss)
+        guard group != parityGroupAsked else { return }
+        parityGroupAsked = group
+        send(.setParityGroup(group))
+    }
+
     func updateAutoQuality(from snapshot: VideoRenderer.Snapshot) {
         guard model.streamQuality == .auto, let latencyMilliseconds = perceivedLatencyMilliseconds else {
             lastAutoDroppedFrames = snapshot.framesDropped

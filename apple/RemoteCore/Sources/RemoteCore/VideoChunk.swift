@@ -27,8 +27,9 @@ public enum VideoChunk {
     /// Data chunks covered by one parity chunk on the datagram lane: one lost chunk in ten is rebuilt, for ten percent more bytes.
     public static let parityGroupSize = 10
 
-    /// Bytes at the front of a parity body that carry the whole payload's length, which the last chunk's length cannot be read from.
+    /// Bytes at the front of a parity body: the whole payload's length, which the last chunk's length cannot be read from, then one byte saying how many data chunks the parity covers, so the receiver needs no agreement made beforehand.
     static let parityLengthSize = 4
+    static let parityPrefixSize = parityLengthSize + 1
 
     /// Far above any real picture; what it stops is a peer claiming 65535 chunks and having them
     /// buffered.
@@ -88,7 +89,7 @@ extension VideoChunkEncoder {
     ) -> [Frame] {
         var frames = encode(kind: kind, payload: payload, frameID: frameID, chunkSize: chunkSize)
         let size = max(1, chunkSize)
-        let group = max(1, group)
+        let group = min(max(1, group), Int(UInt8.max))
         guard payload.count > size, !frames.isEmpty else { return frames }
         let count = frames.count
         let groups = (count + group - 1) / group
@@ -101,12 +102,13 @@ extension VideoChunkEncoder {
                 let start = index * size
                 for offset in 0..<min(size, bytes.count - start) { xor[offset] ^= bytes[start + offset] }
             }
-            var body = Data(capacity: VideoChunk.headerSize + VideoChunk.parityLengthSize + size)
+            var body = Data(capacity: VideoChunk.headerSize + VideoChunk.parityPrefixSize + size)
             body.append(kind.rawValue)
             body.appendBigEndian(frameID)
             body.appendBigEndian(UInt16(count + g))
             body.appendBigEndian(UInt16(count))
             body.appendBigEndian(UInt32(bytes.count))
+            body.append(UInt8(group))
             body.append(contentsOf: xor)
             frames.append(Frame(kind: .videoChunk, payload: body))
         }

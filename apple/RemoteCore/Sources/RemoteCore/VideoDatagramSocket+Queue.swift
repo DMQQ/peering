@@ -118,8 +118,33 @@ extension VideoDatagramSocket {
                 }
                 return
             }
-            self.write(payloads, to: destination, completion: completion)
+            self.paced(payloads, to: destination, completion: completion)
         }
+    }
+
+    /// Written at once when it fits one burst and nothing is waiting ahead of it; otherwise queued behind whatever is, so order holds.
+    func paced(_ datagrams: [Data], to destination: Destination, completion: (@Sendable (Error?) -> Void)?) {
+        if !pacerRunning, datagrams.count <= Self.pacingBurst {
+            write(datagrams, to: destination, completion: completion)
+            return
+        }
+        backlog.append(datagrams, entry: PacedSend(destination: destination, completion: completion))
+        guard !pacerRunning else { return }
+        pacerRunning = true
+        pumpBacklog()
+    }
+
+    private func pumpBacklog() {
+        guard !stopped, let burst = backlog.nextBurst(limit: Self.pacingBurst) else {
+            pacerRunning = false
+            return
+        }
+        write(burst.datagrams, to: burst.entry.destination, completion: burst.finishesEntry ? burst.entry.completion : nil)
+        guard !backlog.isEmpty else {
+            pacerRunning = false
+            return
+        }
+        queue.asyncAfter(deadline: .now() + Self.pacingInterval) { [weak self] in self?.pumpBacklog() }
     }
 
     /// Always to the relay, even once a direct path is carrying the picture: a direct path is built
@@ -160,6 +185,8 @@ extension VideoDatagramSocket {
             close(fd)
         }
         for entry in waiting { entry.completion?(nil) }
+        for entry in backlog.removeAll() { entry.completion?(nil) }
+        pacerRunning = false
     }
 
     func flushHeld() {

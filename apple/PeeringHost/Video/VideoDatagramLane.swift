@@ -335,6 +335,10 @@ final class VideoDatagramLane: @unchecked Sendable {
 
     var sentDatagrams: Int { socket.sentDatagrams }
 
+    func setParityGroup(_ group: Int) {
+        lock.withLock { sealer.parityGroup = ParityPolicy.clamped(group) }
+    }
+
     func seal(kind: MessageKind, payload: Data) -> [Data] {
         lock.withLock { sealer.seal(kind: kind, payload: payload) }
     }

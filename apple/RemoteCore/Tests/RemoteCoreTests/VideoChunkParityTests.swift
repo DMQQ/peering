@@ -23,8 +23,8 @@ struct VideoChunkParityTests {
         let frames = VideoChunkEncoder.encodeWithParity(kind: .videoFrame, payload: payload, frameID: 7, chunkSize: 4, group: 2)
         let kind = MessageKind.videoFrame.rawValue
         #expect(frames.count == 5)
-        #expect(Array(frames[3].payload) == [kind, 0, 0, 0, 7, 0, 3, 0, 3, 0, 0, 0, 10, 4, 4, 4, 4])
-        #expect(Array(frames[4].payload) == [kind, 0, 0, 0, 7, 0, 4, 0, 3, 0, 0, 0, 10, 8, 9, 0, 0])
+        #expect(Array(frames[3].payload) == [kind, 0, 0, 0, 7, 0, 3, 0, 3, 0, 0, 0, 10, 2, 4, 4, 4, 4])
+        #expect(Array(frames[4].payload) == [kind, 0, 0, 0, 7, 0, 4, 0, 3, 0, 0, 0, 10, 2, 8, 9, 0, 0])
     }
 
     @Test func anySingleLostChunkIsRebuiltFromItsGroupsParity() throws {
@@ -34,6 +34,31 @@ struct VideoChunkParityTests {
             let kept = frames.enumerated().filter { $0.offset != lost }.map(\.element)
             #expect(try feed(kept)?.payload == payload, "lost chunk \(lost)")
         }
+    }
+
+    @Test func aDenserGroupIsLearnedFromTheParityItself() throws {
+        let payload = Data((0..<44).map { UInt8($0) })
+        let frames = VideoChunkEncoder.encodeWithParity(kind: .videoFrame, payload: payload, frameID: 9, chunkSize: 4, group: 4)
+        #expect(frames.count == 11 + 3)
+        for lost in 0..<11 {
+            let kept = frames.enumerated().filter { $0.offset != lost }.map(\.element)
+            #expect(try feed(kept)?.payload == payload, "lost chunk \(lost)")
+        }
+    }
+
+    @Test func aSparserGroupStillRebuildsItsOneLoss() throws {
+        let payload = Data((0..<90).map { UInt8($0) })
+        let frames = VideoChunkEncoder.encodeWithParity(kind: .videoFrame, payload: payload, frameID: 9, chunkSize: 3, group: 20)
+        let kept = frames.enumerated().filter { $0.offset != 17 }.map(\.element)
+        #expect(try feed(kept)?.payload == payload)
+    }
+
+    @Test func parityPolicyGivesMoreProtectionToMoreLoss() {
+        #expect(ParityPolicy.group(forLoss: 0) > ParityPolicy.group(forLoss: 0.01))
+        #expect(ParityPolicy.group(forLoss: 0.01) > ParityPolicy.group(forLoss: 0.03))
+        #expect(ParityPolicy.group(forLoss: 0.03) > ParityPolicy.group(forLoss: 0.2))
+        #expect(ParityPolicy.clamped(1) == 3)
+        #expect(ParityPolicy.clamped(500) == 32)
     }
 
     @Test func parityArrivingFirstStillRebuilds() throws {
@@ -84,7 +109,7 @@ struct VideoChunkParityTests {
 
     @Test func anIndexBeyondTheDataAndItsParityIsRefused() {
         var reassembler = VideoChunkReassembler()
-        var body = Data([MessageKind.videoFrame.rawValue, 0, 0, 0, 1, 0, 6, 0, 5])
+        var body = Data([MessageKind.videoFrame.rawValue, 0, 0, 0, 1, 0, 7, 0, 5])
         body.append(0)
         #expect(throws: VideoChunkError.self) { try reassembler.ingest(Frame(kind: .videoChunk, payload: body)) }
     }

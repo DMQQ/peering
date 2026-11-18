@@ -10,6 +10,8 @@ public struct VideoChunkReassembler {
     /// Parity bodies by group, and the payload length they carry.
     private var parities: [Int: [UInt8]] = [:]
     private var totalLength: Int?
+    /// Learned from the first parity chunk of a frame; until one arrives nothing can be rebuilt, so the default only decides which group a data chunk is filed under.
+    private var groupSize = VideoChunk.parityGroupSize
     private var bytes = 0
     private var parityBytes = 0
     /// The frame last handed out. Its trailing parity chunks are still on the wire and would each open an empty assembly.
@@ -43,7 +45,7 @@ public struct VideoChunkReassembler {
             group = header.index - header.count
             keepParity(group: group, body: header.body)
         } else {
-            group = header.index / VideoChunk.parityGroupSize
+            group = header.index / groupSize
             if parts[header.index] == nil {
                 parts[header.index] = header.body
                 bytes += header.body.count
@@ -68,10 +70,13 @@ public struct VideoChunkReassembler {
     }
 
     private mutating func keepParity(group: Int, body: Data) {
-        guard body.count > VideoChunk.parityLengthSize else { return }
+        guard body.count > VideoChunk.parityPrefixSize else { return }
         let base = body.startIndex
         totalLength = Int(body.readBigEndianUInt32(at: base))
-        let xor = [UInt8](body[(base + VideoChunk.parityLengthSize)...])
+        let declared = Int(body[base + VideoChunk.parityLengthSize])
+        guard ParityPolicy.allowedGroups.contains(declared) else { return }
+        groupSize = declared
+        let xor = [UInt8](body[(base + VideoChunk.parityPrefixSize)...])
         parityBytes += xor.count - (parities[group]?.count ?? 0)
         parities[group] = xor
     }
@@ -79,8 +84,8 @@ public struct VideoChunkReassembler {
     /// Rebuilds the one missing chunk of `group` once its parity has arrived, which is the only group the chunk just ingested can have changed. Two missing in a group cannot be told apart, so that group is left, and the picture is lost as it was before parity existed.
     private mutating func recover(group: Int) {
         guard let total = totalLength, let xor = parities[group] else { return }
-        let first = group * VideoChunk.parityGroupSize
-        let members = first..<min(first + VideoChunk.parityGroupSize, expected)
+        let first = group * groupSize
+        let members = first..<min(first + groupSize, expected)
         var lost: Int?
         for index in members where parts[index] == nil {
             if lost != nil { return }
@@ -108,6 +113,7 @@ public struct VideoChunkReassembler {
         parts.removeAll(keepingCapacity: true)
         parities.removeAll(keepingCapacity: true)
         totalLength = nil
+        groupSize = VideoChunk.parityGroupSize
         bytes = 0
         parityBytes = 0
     }
@@ -132,8 +138,8 @@ private struct ChunkHeader {
         }
         let count = Int(payload.readBigEndianUInt16(at: base + 7))
         let index = Int(payload.readBigEndianUInt16(at: base + 5))
-        let parityGroups = (count + VideoChunk.parityGroupSize - 1) / VideoChunk.parityGroupSize
-        guard count > 0, index < count + parityGroups else {
+        let densestParityGroups = (count + ParityPolicy.allowedGroups.lowerBound - 1) / ParityPolicy.allowedGroups.lowerBound
+        guard count > 0, index < count + densestParityGroups else {
             throw VideoChunkError.chunkOutOfRange(index: index, count: count)
         }
         let body = Data(payload[(base + VideoChunk.headerSize)...])

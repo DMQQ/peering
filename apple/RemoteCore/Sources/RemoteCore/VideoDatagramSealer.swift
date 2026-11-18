@@ -13,6 +13,8 @@ public struct VideoDatagramSealer: Sendable {
     private let token: Data
     private var counter: UInt64 = 0
     private var frameID: UInt32 = 0
+    /// Data chunks per parity chunk, set from the viewer's loss report.
+    public var parityGroup = VideoChunk.parityGroupSize
 
     public init(key: SymmetricKey, token: Data) throws {
         guard token.count == VideoDatagram.tokenSize else {
@@ -28,7 +30,8 @@ public struct VideoDatagramSealer: Sendable {
             kind: kind,
             payload: payload,
             frameID: frameID,
-            chunkSize: VideoChunk.maxDatagramPayload
+            chunkSize: VideoChunk.maxDatagramPayload,
+            group: parityGroup
         )
 
         var datagrams: [Data] = []

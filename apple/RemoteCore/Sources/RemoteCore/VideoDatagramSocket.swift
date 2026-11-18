@@ -53,6 +53,16 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     var bound = false
     var stopped = false
 
+    /// A picture goes out in bursts this size, a millisecond apart, once it is larger than one burst. A keyframe is megabytes, and sent at once it overruns the first queue on the path, which drops from the middle of it. 24 datagrams a millisecond is about 200 Mbit/s, above any rate this stream is asked for, so ordinary frames never wait.
+    static let pacingBurst = 24
+    static let pacingInterval: DispatchTimeInterval = .milliseconds(1)
+    struct PacedSend {
+        let destination: Destination
+        let completion: (@Sendable (Error?) -> Void)?
+    }
+    var backlog = PacingBacklog<PacedSend>()
+    var pacerRunning = false
+
     public var onDatagram: (@Sendable (Data, Source) -> Void)?
     public var onFailure: (@Sendable (Error) -> Void)?
 
