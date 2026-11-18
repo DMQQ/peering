@@ -51,6 +51,7 @@ extension TerminalScreen {
                     onRevealPath: { reveal($0, in: terminal) },
                     onReload: {
                         guard terminal.isRunning else { return }
+                        model.clearTransferFailures(sessionID: terminal.id)
                         model.listDirectory(browsingPath, sessionID: terminal.id)
                     },
                     // Absent while the shell has ended: there is nothing to send a file down.

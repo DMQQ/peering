@@ -124,6 +124,8 @@ extension SessionModel {
 
     func uploadFailure(sessionID id: UUID) -> String? { activeSession?.uploadFailure(sessionID: id) }
 
+    func clearTransferFailures(sessionID id: UUID) { activeSession?.clearTransferFailures(sessionID: id) }
+
     func uploadItems(_ urls: [URL], toFolder folder: String, sessionID id: UUID) {
         activeSession?.uploadItems(urls, toFolder: folder, sessionID: id)
     }

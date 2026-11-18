@@ -172,6 +172,12 @@ extension MacSession {
 
     func uploadFailure(sessionID id: UUID) -> String? { uploadFailures[id] }
 
+    /// A failed transfer fills the folder's whole slot and only the next transfer used to clear it, so a file the system could not open left the browser on that message with a "Try again" that listed the folder and changed nothing.
+    func clearTransferFailures(sessionID id: UUID) {
+        downloadFailures.removeValue(forKey: id)
+        uploadFailures.removeValue(forKey: id)
+    }
+
     func clearPendingBrowsing(for id: UUID) {
         pendingDirectories = pendingDirectories.filter { $0.terminalID != id }
     }

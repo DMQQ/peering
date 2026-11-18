@@ -43,6 +43,7 @@ struct MacFilesScreen: View {
             guard let id = model.browserID else { return }
             // The scope first: the Mac keeps one only for the connection that made it, and the listing that follows travels after it on the same connection.
             model.openFileScope()
+            model.clearTransferFailures(sessionID: id)
             if let path {
                 model.setBrowserPath(path)
                 model.listDirectory(path, sessionID: id)
@@ -98,7 +99,10 @@ struct MacFilesScreen: View {
                 onNavigate: { navigate(to: $0, in: id) },
                 floor: floor,
                 onRevealPath: nil,
-                onReload: { model.listDirectory(shownPath, sessionID: id) },
+                onReload: {
+                    model.clearTransferFailures(sessionID: id)
+                    model.listDirectory(shownPath, sessionID: id)
+                },
                 onUpload: { model.uploadFile($0, sessionID: id) },
                 onUploadItems: { model.uploadItems($0, sessionID: id) },
                 onDownload: { entry in
