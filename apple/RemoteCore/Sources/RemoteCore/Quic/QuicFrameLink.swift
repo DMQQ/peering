@@ -30,9 +30,21 @@ public final class QuicFrameLink: @unchecked Sendable {
     /// Frames sent before the first packet created the session; sent the moment it exists.
     private var early: [(frame: Frame, completion: QuicSession.Completion?)] = []
 
+    /// Frames that arrived before anything listened, handed over the moment ``onFrame`` is set: on a LAN the phone's first frames ride the packets that finish the handshake, ahead of the Mac attaching its session.
+    private var undelivered: [Frame] = []
+
     public var onFrame: (@Sendable (Frame) -> Void)? {
         get { lock.withLock { _onFrame } }
-        set { lock.withLock { _onFrame = newValue } }
+        set {
+            let held = lock.withLock { () -> [Frame] in
+                _onFrame = newValue
+                guard newValue != nil else { return [] }
+                defer { undelivered = [] }
+                return undelivered
+            }
+            guard let newValue, !held.isEmpty else { return }
+            carrier.queue.async { for frame in held { newValue(frame) } }
+        }
     }
 
     /// The reason, when the peer or quiche gave one. Called once.
@@ -153,7 +165,10 @@ public final class QuicFrameLink: @unchecked Sendable {
         established?()
         do {
             let frames = try session.takeFrames()
-            let handler = onFrame
+            let handler = lock.withLock { () -> (@Sendable (Frame) -> Void)? in
+                if _onFrame == nil { undelivered.append(contentsOf: frames) }
+                return _onFrame
+            }
             for frame in frames { handler?(frame) }
         } catch {
             linkLog.error("a stream carried bytes that are not frames: \(String(describing: error), privacy: .public)")

@@ -137,6 +137,26 @@ extension ClientPairingTests {
                 for phone in phones { phone.0.cancel() }
             }
         }
+
+        @Test("frames that arrive before the Mac attaches its handler are handed over, not lost")
+        func framesBeforeTheHandlerAreKept() async throws {
+            try await withTestEnds { client, mac in
+                let listener = try QuicListener(port: 0, configuration: QuicConfiguration(identity: mac), label: "test.listener")
+                defer { listener.cancel() }
+                let links = Box<QuicFrameLink>()
+                listener.onLink = { links.value = $0 }
+                let connection = ClientConnection(label: "test.phone")
+                try await connection.connectQuic(to: QuicAddress(host: "127.0.0.1", port: listener.localPort)!, relay: nil, identity: client, pinnedServerKey: nil, timeout: 5)
+                let hello = Frame(kind: .clientHello, payload: Data("first".utf8))
+                connection.send(hello)
+                try? await Task.sleep(for: .milliseconds(200))
+                let received = Received()
+                let link = try #require(links.value)
+                link.onFrame = { received.add($0) }
+                #expect(await received.wait { $0 == [hello] })
+                connection.cancel()
+            }
+        }
     }
 }
 
@@ -154,5 +174,14 @@ final class Received: @unchecked Sendable {
             try? await Task.sleep(for: .milliseconds(10))
         }
         return lock.withLock { condition(frames) }
+    }
+}
+
+final class Box<Value: AnyObject>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Value?
+    var value: Value? {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
     }
 }
