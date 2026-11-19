@@ -116,6 +116,7 @@ public final class QuicConnection: @unchecked Sendable {
 
     public var isEstablished: Bool { lock.withLock { quiche_conn_is_established(connection) } }
     public var isClosed: Bool { lock.withLock { quiche_conn_is_closed(connection) } }
+    public var isServer: Bool { lock.withLock { quiche_conn_is_server(connection) } }
 
     /// The peer's certificate, DER, once the handshake has got that far. The caller checks it against the pin.
     public var peerCertificate: Data? {

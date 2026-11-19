@@ -32,6 +32,10 @@ public final class QuicEndpoint: @unchecked Sendable {
     /// Called on `queue` after every batch of packets or a timeout, so the owner can read streams and datagrams and queue replies.
     public var onActivity: (@Sendable (QuicConnection) -> Void)?
 
+    /// Called once on `queue` when the connection has closed, by either end or by its idle timeout.
+    public var onClosed: (@Sendable (QuicConnection) -> Void)?
+    private var reportedClosed = false
+
     public enum Failure: Error {
         case socket(Int32)
     }
@@ -145,6 +149,13 @@ public final class QuicEndpoint: @unchecked Sendable {
         guard received, let connection else { return }
         onActivity?(connection)
         flush()
+        reportIfClosed()
+    }
+
+    private func reportIfClosed() {
+        guard let connection, connection.isClosed, !reportedClosed else { return }
+        reportedClosed = true
+        onClosed?(connection)
     }
 
     private func rearmTimer() {
@@ -160,6 +171,7 @@ public final class QuicEndpoint: @unchecked Sendable {
             connection.onTimeout()
             self.onActivity?(connection)
             self.flush()
+            self.reportIfClosed()
         }
         self.timer = timer
         timer.resume()

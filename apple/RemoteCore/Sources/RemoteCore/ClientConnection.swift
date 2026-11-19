@@ -12,7 +12,7 @@ let transportLog = Logger(subsystem: "pl.dmq.peering", category: "client")
 public final class ClientConnection: @unchecked Sendable {
 
     private let queue: DispatchQueue
-    private let lock = NSLock()
+    let lock = NSLock()
 
     private var _connection: NWConnection?
 
@@ -22,15 +22,21 @@ public final class ClientConnection: @unchecked Sendable {
         set { lock.withLock { _connection = newValue } }
     }
     private var decoder = FrameDecoder()
-    private var readyContinuation: CheckedContinuation<Void, any Error>?
+    private var _quic: QuicFrameLink?
+    /// Set when this connection runs over QUIC instead of TLS over TCP; see ``ClientConnection+Quic``.
+    var quic: QuicFrameLink? {
+        get { lock.withLock { _quic } }
+        set { lock.withLock { _quic = newValue } }
+    }
+    var readyContinuation: CheckedContinuation<Void, any Error>?
     private var closedReason: Failure?
-    private var timeoutTask: Task<Void, Never>?
+    var timeoutTask: Task<Void, Never>?
     private var observed: TLSConfig.ObservedKey?
-    private var _observedServerKey: Data?
-    private var _tlsVersion = "None"
+    var _observedServerKey: Data?
+    var _tlsVersion = "None"
     private var _errorDetail: TransportErrorDetail?
 
-    private var _onFrame: (@Sendable (Frame) -> Void)?
+    var _onFrame: (@Sendable (Frame) -> Void)?
     private var _onClose: (@Sendable (Failure) -> Void)?
 
     /// Every whole frame the host sends. Invoked on the connection's own queue, never on the
@@ -192,9 +198,13 @@ public final class ClientConnection: @unchecked Sendable {
     public func cancel() {
         cancelTimeout()
         connection?.cancel()
+        if let quic {
+            quic.close(reason: "cancelled")
+            finish(.cancelled)
+        }
     }
 
-    private func cancelTimeout() {
+    func cancelTimeout() {
         let handle = lock.withLock { () -> Task<Void, Never>? in
             let task = timeoutTask
             timeoutTask = nil
@@ -254,7 +264,7 @@ public final class ClientConnection: @unchecked Sendable {
 
     /// Ends the connection with `failure`, once. The first reason wins: the host's explanation
     /// arrives before its close, and "connection reset" would throw away the only useful message.
-    private func finish(_ failure: Failure) {
+    func finish(_ failure: Failure) {
         lock.lock()
         guard closedReason == nil else { lock.unlock(); return }
         closedReason = failure
@@ -266,22 +276,26 @@ public final class ClientConnection: @unchecked Sendable {
         _onFrame = nil
         _onClose = nil
         _connection = nil
+        let quic = _quic
+        _quic = nil
         lock.unlock()
+        quic?.close(reason: "finished")
 
         pending?.resume(throwing: failure)
         handler?(failure)
     }
 
-    private func finishIfOpen(_ failure: Failure) {
+    func finishIfOpen(_ failure: Failure) {
         lock.lock()
         let alreadyClosed = closedReason != nil
         lock.unlock()
         guard !alreadyClosed else { return }
         connection?.cancel()
+        quic?.close(reason: "timed out")
         finish(failure)
     }
 
-    private func resumeReady(_ result: Result<Void, any Error>) {
+    func resumeReady(_ result: Result<Void, any Error>) {
         lock.lock()
         let continuation = readyContinuation
         readyContinuation = nil

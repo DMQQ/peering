@@ -4,9 +4,11 @@ import Network
 import RemoteCore
 import Security
 
-/// One framed connection to a peer.
+/// One framed connection to a peer: TLS over TCP, or a whole session over QUIC.
 final class PeerConnection: @unchecked Sendable {
-    let connection: NWConnection
+    let connection: NWConnection?
+    /// Set instead of `connection` for a session that arrived over QUIC.
+    let quic: QuicFrameLink?
 
     var onFrame: (@Sendable (Frame) -> Void)?
     var onClose: (@Sendable (Error?) -> Void)?
@@ -21,10 +23,30 @@ final class PeerConnection: @unchecked Sendable {
 
     init(connection: NWConnection, queue: DispatchQueue) {
         self.connection = connection
+        quic = nil
+        self.queue = queue
+    }
+
+    /// For an established QUIC link. Its frames are handed on through `queue`, where a TCP connection's arrive too.
+    init(quic: QuicFrameLink, queue: DispatchQueue) {
+        connection = nil
+        self.quic = quic
         self.queue = queue
     }
 
     func start() {
+        if let quic {
+            quic.onFrame = { [weak self] frame in
+                guard let self else { return }
+                queue.async { self.onFrame?(frame) }
+            }
+            quic.onClose = { [weak self] _ in
+                guard let self else { return }
+                queue.async { self.finish(nil) }
+            }
+            return
+        }
+        guard let connection else { return }
         connection.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
             switch state {
@@ -59,6 +81,12 @@ final class PeerConnection: @unchecked Sendable {
 
     /// The completion runs when the network stack has taken the bytes, which is what the count of bytes in flight is built on.
     func send(_ data: Data, completion: @escaping @Sendable (Error?) -> Void) {
+        if let quic {
+            // quiche takes the bytes into its own buffers; its flow and congestion control pace what follows.
+            quic.send(bytes: data)
+            return completion(nil)
+        }
+        guard let connection else { return completion(nil) }
         let size = data.count
         notify(lock.withLock { pressure.queued(size) })
         connection.send(content: data, completion: .contentProcessed { [weak self] error in
@@ -75,7 +103,8 @@ final class PeerConnection: @unchecked Sendable {
     }
 
     func cancel() {
-        connection.cancel()
+        connection?.cancel()
+        quic?.close(reason: "cancelled")
     }
 
     /// Runs `work` on the queue this connection's callbacks arrive on.
@@ -89,7 +118,7 @@ final class PeerConnection: @unchecked Sendable {
     }
 
     private func receiveNext() {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 128 * 1024) {
+        connection?.receive(minimumIncompleteLength: 1, maximumLength: 128 * 1024) {
             [weak self] data, _, isComplete, error in
             guard let self else { return }
 
@@ -102,7 +131,7 @@ final class PeerConnection: @unchecked Sendable {
                     // A framing error leaves the byte stream unusable: the next frame boundary
                     // is unknown, so there is no way to resynchronise.
                     finish(error)
-                    connection.cancel()
+                    connection?.cancel()
                     return
                 }
                 for frame in frames { onFrame?(frame) }
@@ -110,7 +139,7 @@ final class PeerConnection: @unchecked Sendable {
 
             if let error {
                 finish(error)
-                connection.cancel()
+                connection?.cancel()
                 return
             }
             if isComplete {
@@ -118,7 +147,7 @@ final class PeerConnection: @unchecked Sendable {
                 // resource: cancel explicitly, or Network.framework retains the send half and
                 // its protocol stack after observers have been told it is closed.
                 finish(nil)
-                connection.cancel()
+                connection?.cancel()
                 return
             }
             receiveNext()
@@ -144,7 +173,8 @@ final class PeerConnection: @unchecked Sendable {
     }
 
     var peerPublicKey: Data? {
-        guard let metadata = connection.metadata(definition: NWProtocolTLS.definition)
+        if let quic { return quic.peerPublicKey }
+        guard let metadata = connection?.metadata(definition: NWProtocolTLS.definition)
                 as? NWProtocolTLS.Metadata
         else { return nil }
 
@@ -158,7 +188,8 @@ final class PeerConnection: @unchecked Sendable {
     /// Negotiated TLS version, for the diagnostics panel. "TLS 1.3" is the expected value;
     /// anything else means version pinning did not take effect.
     var negotiatedTLSVersion: String {
-        guard let metadata = connection.metadata(definition: NWProtocolTLS.definition)
+        if quic != nil { return "QUIC (TLS 1.3)" }
+        guard let metadata = connection?.metadata(definition: NWProtocolTLS.definition)
                 as? NWProtocolTLS.Metadata
         else { return "None" }
 

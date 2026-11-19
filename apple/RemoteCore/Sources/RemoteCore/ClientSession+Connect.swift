@@ -6,7 +6,7 @@ import Security
 import os
 
 extension ClientSession {
-    /// Opens the relay's tunnel to a Mac and connects through it. Both relay targets share this; only the pin differs.
+    /// Asks the relay for a session with a Mac and connects through it over QUIC. Both relay targets share this; only the pin differs.
     func openRelayTunnel(
         to connection: ClientConnection,
         generation: UInt64,
@@ -27,36 +27,22 @@ extension ClientSession {
         )
         try requireCurrentAttempt(connection, generation: generation)
 
-        let proxy = RelayControlProxy(session: allocation)
-        let endpoint: NWEndpoint
-        do {
-            endpoint = try await proxy.start()
-        } catch {
-            proxy.cancel()
-            throw error
-        }
-
         let installed = lock.withLock { () -> Bool in
             guard connectGeneration == generation, control === connection else { return false }
-            relayProxy = proxy
             usesRelayedSingleStream = true
-            // Kept because the relay told this end where the Mac's video datagrams
-            // will come from and what to bind with, and there is no second chance to
-            // ask: the signalling socket is closed the moment the session is returned.
+            // Kept because the relay told this end its UDP port and this end's token, and there is no second chance to ask: the signalling socket is closed the moment the session is returned.
             relaySession = allocation
             connectStage = .connecting
             return true
         }
-        guard installed else {
-            proxy.cancel()
-            throw ConnectAttemptEnded()
-        }
+        guard installed else { throw ConnectAttemptEnded() }
 
         if let remaining = allocation.remainingSeconds {
             emit(.relayRemaining(seconds: remaining))
         }
-        try await connection.connect(
-            to: endpoint,
+        // One QUIC connection through the relay's UDP port carries the whole session: streams for control, datagrams for the picture and sound.
+        try await connection.connectQuic(
+            relay: allocation,
             identity: identity,
             pinnedServerKey: pinnedServerKey,
             timeout: timeout
@@ -209,7 +195,8 @@ extension ClientSession {
         // 2. Say who we are. `wantsPairing` is advisory: the Mac decides, because only the
         //    Mac knows its own pin store.
         let hostID = target.hostID
-        let relayed = target.usesRelayLane
+        // QUIC carries independent streams itself, so the hand-built ones are not asked for.
+        let relayed = target.usesRelayLane && !connection.isQuic
         lock.withLock { streamsAdvertised = relayed }
         let knowsHost = hostID.map { pins.pin(for: $0) != nil } ?? false
         connection.send(.clientHello, ClientHello(

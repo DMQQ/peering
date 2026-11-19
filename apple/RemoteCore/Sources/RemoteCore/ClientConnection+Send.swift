@@ -6,13 +6,16 @@ extension ClientConnection {
 
     /// A payload over ``ProtocolInfo/maxControlPayload`` is dropped here: the Mac treats it as malformed and ends the session, and the resume then replays it.
     public func send(_ frame: Frame) {
-        guard let connection else { return }
         guard frame.payload.count <= ProtocolInfo.maxControlPayload else {
             transportLog.error("dropped a \(String(describing: frame.kind), privacy: .public) frame of \(frame.payload.count) bytes, over the control limit")
             return
         }
         if let router, router(frame, nil) { return }
-        connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { _ in })
+        if let quic {
+            quic.send(frame)
+            return
+        }
+        connection?.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { _ in })
     }
 
     /// Reports once the network stack has taken the frame, or why it could not: the signal a long transfer paces itself on.
@@ -21,10 +24,15 @@ extension ClientConnection {
         _ value: T,
         completion: @escaping @Sendable (Error?) -> Void
     ) {
-        guard let connection else { return completion(Failure.cancelled) }
         do {
             let frame = Frame(kind: kind, payload: try MessageCodec.encode(value))
             if let router, router(frame, completion) { return }
+            if let quic {
+                // Taken by quiche's buffers at once; QUIC's own flow control is what paces a transfer now.
+                quic.send(frame)
+                return completion(nil)
+            }
+            guard let connection else { return completion(Failure.cancelled) }
             connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { completion($0) })
         } catch {
             completion(error)

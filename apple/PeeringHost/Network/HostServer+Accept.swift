@@ -28,6 +28,11 @@ extension HostServer {
             return
         }
         let peer = PeerConnection(connection: connection, queue: queue)
+        start(peer, address: address, tunnel: tunnel, relayed: tunnel != nil)
+    }
+
+    /// Everything after admission, shared by a TCP connection and a QUIC one.
+    func start(_ peer: PeerConnection, address: String, tunnel: HostConnections.RelayTunnel?, relayed: Bool) {
         let session = HostSession(
             connection: peer,
             identity: identity,
@@ -35,7 +40,7 @@ extension HostServer {
             pins: pins,
             // A relayed connection reaches this same `accept` through the loopback bridge, so
             // the pending allocation is the only thing that knows where it came from.
-            arrivedThroughRelay: tunnel != nil,
+            arrivedThroughRelay: relayed,
             address: address,
             emit: { [weak self] event in self?.emit(event) }
         )
@@ -47,7 +52,7 @@ extension HostServer {
         }
         session.streamLink = tunnel?.bridge.streamLink
         installVideoHandlers(on: session, peer: peer, tunnel: tunnel)
-        installLifecycleHandlers(on: session, relayBridge: tunnel?.bridge)
+        installLifecycleHandlers(on: session, relayed: relayed, relayBridge: tunnel?.bridge)
         connections.add(session)
         session.start()
     }
@@ -111,17 +116,17 @@ extension HostServer {
         }
     }
 
-    private func installLifecycleHandlers(on session: HostSession, relayBridge: RelayControlBridge?) {
+    private func installLifecycleHandlers(on session: HostSession, relayed: Bool, relayBridge: RelayControlBridge?) {
         // Set for every session, not only relayed ones: this is both the moment the advertisement
         // is withdrawn and the moment a relayed video connection is handed over.
         session.onAuthorized = bind(to: session) { server, session, controlPeer in
             server.evictRivals(of: session)
             server.presence.connected(clientID: session.clientID, session: session.sessionID)
-            server.activityPublisher.sessionBegan(clientID: session.clientID, viaRelay: relayBridge != nil)
+            server.activityPublisher.sessionBegan(clientID: session.clientID, viaRelay: relayed)
             server.updateAdvertisement()
             // The remote transport multiplexes encoded video onto this same TLS stream; it is the
             // same authenticated connection as control, and the relay still cannot read it.
-            if relayBridge != nil { server.callbacks.onVideoConnection?(controlPeer) }
+            if relayed { server.callbacks.onVideoConnection?(controlPeer) }
         }
         // Strong in `session`: a session removed from the table while it closes must still be around to report its end.
         session.onEnded = { [weak self] in

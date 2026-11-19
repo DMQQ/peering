@@ -46,6 +46,8 @@ extension ClientSession {
 
     /// Opens the relay's video datagram lane and asks the Mac for the key. The bind goes first: the relay forwards nothing to an address it has not been told about, and it learns it from a datagram of this end's token alone.
     func startVideoDatagrams() {
+        // QUIC already carries the picture as datagrams on its one connection.
+        guard connection()?.isQuic != true else { return }
         lock.lock()
         guard wantsVideoDatagrams, videoDatagrams == nil, let relay = relaySession else {
             lock.unlock()

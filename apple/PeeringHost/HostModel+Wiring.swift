@@ -205,7 +205,7 @@ extension HostModel {
         let registration = RelayHostRegistration(
             device: device,
             identity: identity,
-            onSession: { [weak server] session in server?.connectThroughRelay(session) },
+            onSession: { [weak server] session in server?.listenOverQuic(session) },
             onStatus: { [weak self] message in
                 Task { @MainActor [weak self] in self?.record(message) }
             }

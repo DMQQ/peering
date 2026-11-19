@@ -94,7 +94,8 @@ extension ClientSession {
             handleClipboardChunk(frame)
 
         case .videoConfig, .videoFrame, .videoChunk, .audioConfig, .audioFrame:
-            handleVideoFrame(frame, from: .control)
+            // Over QUIC the picture's own datagrams are the main path, not the control-channel fallback.
+            handleVideoFrame(frame, from: connection()?.isQuic == true ? .primary : .control)
 
         case .videoKey:
             handleVideoKey(frame)
