@@ -7,8 +7,15 @@ public enum QuicLANAddress {
         if case .hostPort(let host, let port) = endpoint {
             return QuicAddress.resolve(host: text(of: host), port: port.rawValue)
         }
-        // A UDP "connection" sends nothing until written to, but resolving it fills in the remote endpoint the service points at, on the interface it was found on.
-        let connection = NWConnection(to: endpoint, using: .udp)
+        // A UDP "connection" sends nothing until written to, but resolving it fills in the remote endpoint the service points at. IPv4 is asked for first: Bonjour otherwise often answers with the IPv6 link-local address, which is only usable with its interface attached.
+        if let v4 = await remoteEndpoint(of: endpoint, version: .v4, timeout: timeout) { return v4 }
+        return await remoteEndpoint(of: endpoint, version: .any, timeout: timeout)
+    }
+
+    private static func remoteEndpoint(of endpoint: NWEndpoint, version: NWProtocolIP.Options.Version, timeout: TimeInterval) async -> QuicAddress? {
+        let parameters = NWParameters.udp
+        (parameters.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options)?.version = version
+        let connection = NWConnection(to: endpoint, using: parameters)
         let resolved = await withCheckedContinuation { (continuation: CheckedContinuation<NWEndpoint?, Never>) in
             let once = ResumeOnce(continuation)
             connection.stateUpdateHandler = { state in
@@ -29,8 +36,8 @@ public enum QuicLANAddress {
     private static func text(of host: NWEndpoint.Host) -> String {
         switch host {
         case .ipv4(let address): return "\(address)"
-        // A link-local address carries its interface after a `%`, which the numeric parser does not take.
-        case .ipv6(let address): return "\(address)".split(separator: "%").first.map(String.init) ?? "\(address)"
+        // Kept with its `%interface`: a link-local address means nothing without it.
+        case .ipv6(let address): return "\(address)"
         case .name(let name, _): return name
         @unknown default: return "\(host)"
         }

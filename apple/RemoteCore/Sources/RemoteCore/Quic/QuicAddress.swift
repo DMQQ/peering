@@ -19,10 +19,15 @@ public struct QuicAddress: Sendable, Equatable, CustomStringConvertible {
         v6.sin6_family = sa_family_t(AF_INET6)
         v6.sin6_port = port.bigEndian
         var v4 = in_addr()
-        if inet_pton(AF_INET, host, &v4) == 1 {
-            let mapped = "::ffff:" + host
+        // A link-local IPv6 address names its interface after a `%`, which becomes the scope id.
+        let parts = host.split(separator: "%", maxSplits: 1).map(String.init)
+        let bare = parts.first ?? host
+        if inet_pton(AF_INET, bare, &v4) == 1 {
+            let mapped = "::ffff:" + bare
             guard inet_pton(AF_INET6, mapped, &v6.sin6_addr) == 1 else { return nil }
-        } else if inet_pton(AF_INET6, host, &v6.sin6_addr) != 1 {
+        } else if inet_pton(AF_INET6, bare, &v6.sin6_addr) == 1 {
+            if parts.count == 2 { v6.sin6_scope_id = if_nametoindex(parts[1]) }
+        } else {
             return nil
         }
         withUnsafeMutableBytes(of: &storage) { raw in
