@@ -29,7 +29,7 @@ public final class ClientConnection: @unchecked Sendable {
         set { lock.withLock { _quic = newValue } }
     }
     var readyContinuation: CheckedContinuation<Void, any Error>?
-    private var closedReason: Failure?
+    var closedReason: Failure?
     var timeoutTask: Task<Void, Never>?
     private var observed: TLSConfig.ObservedKey?
     var _observedServerKey: Data?

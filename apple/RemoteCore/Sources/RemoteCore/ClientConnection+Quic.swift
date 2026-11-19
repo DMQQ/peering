@@ -47,7 +47,16 @@ extension ClientConnection {
         lock.withLock { timeoutTask = handle }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            lock.withLock { readyContinuation = continuation }
+            // The link may already have closed (or timed out) before this wait began; then nothing would ever resume it.
+            let closedFirst = lock.withLock { () -> Failure? in
+                if let closedReason { return closedReason }
+                readyContinuation = continuation
+                return nil
+            }
+            if let closedFirst {
+                continuation.resume(throwing: closedFirst)
+                return
+            }
             link.onEstablished = { [weak self, weak link] in
                 guard let self, let link else { return }
                 self.cancelTimeout()

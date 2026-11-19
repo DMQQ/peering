@@ -4,7 +4,8 @@ import RemoteCore
 
 extension SessionModel {
     private var hasSessionOffTheLAN: Bool {
-        sessions.contains { $0.phase == .ready && $0.connectionPath != .lan }
+        // A session that moved its own connection onto the LAN is there already; a new LAN session would only interrupt it.
+        sessions.contains { $0.phase == .ready && $0.connectionPath != .lan && !$0.movedToLAN }
     }
 
     /// Called when the Mac list or the network path changes. Looks again every few seconds for as long as a session is
@@ -55,7 +56,7 @@ extension SessionModel {
 
     /// Asked of the LAN first, off to the side: the session in use is only replaced once the Mac has answered there, so a LAN that cannot be reached never interrupts the relay.
     private func upgradeSessionsToLAN() {
-        for session in sessions where session.phase == .ready {
+        for session in sessions where session.phase == .ready && !session.movedToLAN {
             guard let hostID = session.hostID, let host = hosts.first(where: { $0.id == hostID }),
                   mayTryLANUpgrade(hostID: hostID, path: session.connectionPath),
                   lanProbesInFlight.insert(hostID).inserted

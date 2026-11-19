@@ -269,12 +269,19 @@ extension SessionModel {
             activateSession(open.id)
             return
         }
-        if let host = hosts.first(where: { $0.id == hostID }) {
-            connect(to: .discovered(host))
+        let relay = allowsRelay && pins.hostIDs.contains(hostID)
+            ? relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? String(localized: "A Mac"))
+            : nil
+        // A Bonjour entry or remembered address outlives the network it was found on: off that network a LAN-only dial could only fail, and the Mac stayed unreachable until a relaunch.
+        let lanReachable = LANUpgradePolicy.canReachLAN(interface: networkContext.interface)
+        if let relay, !lanReachable {
+            connect(to: relay)
+        } else if let host = hosts.first(where: { $0.id == hostID }) {
+            connect(to: .discovered(host), replacing: nil, racingRelay: relay)
         } else if let remembered = rememberedLANHost(hostID) {
-            connect(to: .discovered(remembered), replacing: nil, timeout: Self.rememberedPathTimeout)
-        } else {
-            connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? String(localized: "A Mac")))
+            connect(to: .discovered(remembered), replacing: nil, timeout: Self.rememberedPathTimeout, racingRelay: relay)
+        } else if let relay {
+            connect(to: relay)
         }
     }
 
