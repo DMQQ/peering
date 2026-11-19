@@ -1,0 +1,71 @@
+import Foundation
+import Testing
+
+@testable import RemoteCore
+
+struct QuicDirectPathPolicyTests {
+    private let relay = QuicAddress(host: "65.21.127.107", port: 3479)!
+    private let peer = QuicAddress(host: "203.0.113.7", port: 50_000)!
+    private let start = ContinuousClock.Instant.now
+
+    @Test("the phone probes the address the relay named, and moves onto it once it validates")
+    func theDialerProbesThenMoves() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        #expect(policy.tick(now: start, silence: nil) == [.askRelay])
+        #expect(policy.peerAddressAnswered(peer) == [.report(.probing(peer: "203.0.113.7:50000"))])
+        #expect(policy.tick(now: start, silence: nil) == [.knock(peer), .probe(peer)])
+        let moved = policy.handle(.validated(local: relay, peer: peer))
+        #expect(moved == [.migrate(to: peer), .report(.open(peer: "203.0.113.7:50000")), .onDirect(true)])
+        #expect(policy.direct == peer)
+    }
+
+    @Test("the relay's own path validating is not a direct path")
+    func theRelayPathIsNotDirect() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        #expect(policy.handle(.validated(local: relay, peer: relay)).isEmpty)
+        #expect(policy.direct == nil)
+    }
+
+    @Test("a direct path that goes silent falls back to the relay")
+    func silenceFallsBack() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        _ = policy.handle(.validated(local: relay, peer: peer))
+        #expect(policy.tick(now: start, silence: .milliseconds(500)).isEmpty)
+        let actions = policy.tick(now: start, silence: .seconds(3))
+        #expect(actions.starts(with: [.migrate(to: relay), .onDirect(false)]))
+        #expect(policy.direct == nil)
+    }
+
+    @Test("a network change moves back to the relay at once and forgets the old address")
+    func aNetworkChangeFallsBack() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        _ = policy.peerAddressAnswered(peer)
+        _ = policy.handle(.validated(local: relay, peer: peer))
+        #expect(policy.networkChanged(now: start) == [.migrate(to: relay), .onDirect(false), .report(.notTried)])
+        #expect(policy.tick(now: start, silence: nil) == [.askRelay])
+    }
+
+    @Test("the Mac only knocks, and follows the phone onto the direct path and back")
+    func theListenerFollows() {
+        var policy = QuicDirectPathPolicy(role: .listener, relay: relay, now: start)
+        _ = policy.peerAddressAnswered(peer)
+        #expect(policy.tick(now: start, silence: nil) == [.askRelay, .knock(peer)])
+        #expect(policy.handle(.peerMigrated(local: relay, peer: peer)) == [.report(.open(peer: "203.0.113.7:50000")), .onDirect(true)])
+        #expect(policy.handle(.peerMigrated(local: relay, peer: relay)) == [.onDirect(false)])
+    }
+
+    @Test("the relay route is refreshed while the session runs direct, so there is somewhere to fall back to")
+    func theRelayRouteStaysWarm() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        _ = policy.handle(.validated(local: relay, peer: peer))
+        #expect(policy.tick(now: start + .seconds(11), silence: .zero) == [.refreshRelayBinding])
+    }
+
+    @Test("an attempt that never opens is called once its time is up")
+    func theVerdictComesOnce() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        let late = start + .seconds(9)
+        #expect(policy.tick(now: late, silence: nil).contains(.verdictDue))
+        #expect(!policy.tick(now: late, silence: nil).contains(.verdictDue))
+    }
+}

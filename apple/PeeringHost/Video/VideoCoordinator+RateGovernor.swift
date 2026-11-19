@@ -21,7 +21,7 @@ extension VideoCoordinator {
     private func governRate() {
         guard let link = streamer.quicLink, link.isEstablished, let sample = link.pathSample else {
             let wasGoverning = lock.withLock { () -> Bool in
-                defer { rateGovernor = nil; linkCapKbps = nil }
+                defer { rateGovernor = nil; governedLink = nil; linkCapKbps = nil }
                 return linkCapKbps != nil
             }
             if wasGoverning { applyStreamShape() }
@@ -31,19 +31,27 @@ extension VideoCoordinator {
             ceilingKbps: askedBitrateKbps,
             backlogBytes: link.datagramBacklogBytes,
             deliveryRateBytesPerSecond: sample.deliveryRateBytesPerSecond,
-            bandwidthBytesPerSecond: sample.bandwidthBytesPerSecond
+            bandwidthBytesPerSecond: sample.bandwidthBytesPerSecond,
+            roundTrip: sample.roundTrip,
+            minimumRoundTrip: sample.minimumRoundTrip
         )
         let changed = lock.withLock { () -> Int? in
-            var governor = rateGovernor ?? QuicRateGovernor(startingKbps: Self.startingKbps)
-            defer { rateGovernor = governor }
-            let first = rateGovernor == nil
+            // Per link: a governor left from the previous session skipped the new one's warm-up, and the relay's first keyframe sent it to the floor.
+            let linkID = ObjectIdentifier(link)
+            let first = rateGovernor == nil || governedLink != linkID
+            var governor = (first ? nil : rateGovernor) ?? QuicRateGovernor(startingKbps: Self.startingKbps)
+            defer { rateGovernor = governor; governedLink = linkID }
             let decided = governor.decide(reading)
             guard decided != nil || first else { return nil }
             linkCapKbps = governor.targetKbps
             return governor.targetKbps
         }
         guard let changed else { return }
-        rateLog.notice("link carries the picture at \(changed, privacy: .public) kbps · backlog \(reading.backlogBytes, privacy: .public) B · delivered \(sample.deliveryRateBytesPerSecond * 8 / 1000, privacy: .public) kbps · rtt \(sample.roundTrip.components.attoseconds / 1_000_000_000_000_000, privacy: .public) ms")
+        rateLog.notice("link carries the picture at \(changed, privacy: .public) kbps · backlog \(reading.backlogBytes, privacy: .public) B · delivered \(sample.deliveryRateBytesPerSecond * 8 / 1000, privacy: .public) kbps · rtt \(Self.milliseconds(sample.roundTrip), privacy: .public) ms (min \(Self.milliseconds(sample.minimumRoundTrip), privacy: .public))")
         applyStreamShape()
+    }
+
+    private static func milliseconds(_ duration: Duration) -> Int64 {
+        duration.components.seconds * 1000 + duration.components.attoseconds / 1_000_000_000_000_000
     }
 }

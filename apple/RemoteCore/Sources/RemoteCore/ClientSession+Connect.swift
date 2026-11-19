@@ -48,6 +48,7 @@ extension ClientSession {
             timeout: timeout
         )
         try requireCurrentAttempt(connection, generation: generation)
+        startQuicDirectPath(on: connection, relay: allocation)
     }
 
     /// Claims the session for one connect attempt. Returns `false` if it is already in use,

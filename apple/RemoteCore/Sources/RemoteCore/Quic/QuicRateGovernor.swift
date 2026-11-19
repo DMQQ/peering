@@ -13,6 +13,8 @@ public struct QuicRateGovernor: Sendable, Equatable {
     static let estimateShare = 0.6
     /// Decisions at the start during which a backlog is ignored: the first keyframe always queues, and read as congestion it sent the bitrate to the floor.
     static let warmUpDecisions = 3
+    /// Round trip above the path's minimum by more than this means a buffer somewhere on the path is filling: the Mac's own queue stays empty while a phone network's grows.
+    static let networkQueueTolerance: Duration = .milliseconds(50)
     private var decisions = 0
 
     public private(set) var targetKbps: Int
@@ -26,13 +28,19 @@ public struct QuicRateGovernor: Sendable, Equatable {
         public var backlogBytes: Int
         public var deliveryRateBytesPerSecond: UInt64
         public var bandwidthBytesPerSecond: UInt64
+        public var roundTrip: Duration
+        public var minimumRoundTrip: Duration
 
-        public init(ceilingKbps: Int, backlogBytes: Int, deliveryRateBytesPerSecond: UInt64, bandwidthBytesPerSecond: UInt64) {
+        public init(ceilingKbps: Int, backlogBytes: Int, deliveryRateBytesPerSecond: UInt64, bandwidthBytesPerSecond: UInt64, roundTrip: Duration = .zero, minimumRoundTrip: Duration = .zero) {
             self.ceilingKbps = ceilingKbps
             self.backlogBytes = backlogBytes
             self.deliveryRateBytesPerSecond = deliveryRateBytesPerSecond
             self.bandwidthBytesPerSecond = bandwidthBytesPerSecond
+            self.roundTrip = roundTrip
+            self.minimumRoundTrip = minimumRoundTrip
         }
+
+        var networkQueueDelay: Duration { max(.zero, roundTrip - minimumRoundTrip) }
     }
 
     /// One decision. Returns the new target when it changed enough to be worth telling the encoder.
@@ -41,7 +49,9 @@ public struct QuicRateGovernor: Sendable, Equatable {
         let pathBytesPerSecond = max(reading.bandwidthBytesPerSecond, reading.deliveryRateBytesPerSecond)
         let tolerated = Double(pathBytesPerSecond) * Self.queueTolerance.seconds
         decisions += 1
-        let queued = decisions > Self.warmUpDecisions && reading.backlogBytes > max(16_384, Int(tolerated))
+        let backlogged = reading.backlogBytes > max(16_384, Int(tolerated))
+        let networkQueued = reading.minimumRoundTrip > .zero && reading.networkQueueDelay > max(Self.networkQueueTolerance, reading.minimumRoundTrip / 2)
+        let queued = decisions > Self.warmUpDecisions && (backlogged || networkQueued)
 
         let next: Int
         if queued {

@@ -48,7 +48,10 @@ final class VideoStreamer: @unchecked Sendable {
 
     var datagrams: VideoDatagramLane?
 
-    var isDirectOpen: Bool { lock.withLock { datagrams }?.isDirectOpen ?? false }
+    var isDirectOpen: Bool {
+        if let directPath = lock.withLock({ peer?.directPath }) { return directPath.isDirect }
+        return lock.withLock { datagrams }?.isDirectOpen ?? false
+    }
 
 /// The description of the stream being sent, held so it can be re-sent.
     var currentConfig: VideoStreamConfig?

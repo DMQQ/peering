@@ -38,6 +38,7 @@ public final class QuicEndpoint: @unchecked Sendable {
     /// Called once on `queue` when the connection has closed, by either end or by its idle timeout.
     public var onClosed: (@Sendable (QuicConnection) -> Void)?
     private var reportedClosed = false
+    private var lastHeard: ContinuousClock.Instant?
     private lazy var pacer = QuicPacer(queue: queue) { [unowned self] packet in send(packet) }
 
     public enum Failure: Error {
@@ -101,6 +102,24 @@ public final class QuicEndpoint: @unchecked Sendable {
     }
 
     public var localPort: UInt16 { local.port }
+    var localAddress: QuicAddress { local }
+
+    /// Time since the last packet arrived, from anywhere. Call on `queue`.
+    var silence: Duration? { lastHeard.map { .now - $0 } }
+
+    /// One byte to `address`: no QUIC stack reads it, but it opens this end's NAT to that address, so the peer's packets are let in. Call on `queue`.
+    func knock(_ address: QuicAddress) {
+        guard !closed else { return }
+        write(Data([0]), to: address)
+    }
+
+    /// Repeats the bare-token bind, so the relay keeps this end's route while the session runs elsewhere and has it to fall back to. Call on `queue`.
+    func refreshRelayBinding() {
+        guard !closed else { return }
+        bindRelay()
+    }
+
+    var relayAddress: QuicAddress? { relay?.address }
 
     /// The connection once there is one. Not for use on `queue`.
     public var currentConnection: QuicConnection? { queue.sync { connection } }
@@ -143,6 +162,7 @@ public final class QuicEndpoint: @unchecked Sendable {
             }
             guard read > 0 else { break }
             let from = QuicAddress(storage: storage, length: length)
+            lastHeard = .now
             if connection == nil {
                 do {
                     connection = try QuicConnection.accept(local: local, peer: from, configuration: configuration)

@@ -59,6 +59,13 @@ public final class QuicFrameLink: @unchecked Sendable {
         set { lock.withLock { _onEstablished = newValue } }
     }
 
+    /// Path changes quiche reported, on the carrier's queue.
+    public var onPathEvent: (@Sendable (QuicConnection.PathEvent) -> Void)? {
+        get { lock.withLock { _onPathEvent } }
+        set { lock.withLock { _onPathEvent = newValue } }
+    }
+    private var _onPathEvent: (@Sendable (QuicConnection.PathEvent) -> Void)?
+
     /// What a waiting send is told when the connection ends before quiche took its bytes.
     public struct Closed: Error {}
 
@@ -127,6 +134,9 @@ public final class QuicFrameLink: @unchecked Sendable {
 
     public var peerPublicKey: Data? { lock.withLock { session }?.peerPublicKey }
 
+    /// The port of this link's own socket; nil for one sharing a listener's.
+    public var localPort: UInt16? { endpoint?.localPort }
+
     public var isEstablished: Bool { lock.withLock { session }?.connection.isEstablished ?? false }
 
     public func close(reason: String = "closed") {
@@ -140,6 +150,31 @@ public final class QuicFrameLink: @unchecked Sendable {
     /// What quiche measures about the path, and the datagrams it has not sent yet: what the picture's bitrate is set from.
     public var pathSample: QuicConnection.PathSample? { lock.withLock { session }?.connection.pathSample }
     public var datagramBacklogBytes: Int { lock.withLock { session }?.connection.datagramBacklogBytes ?? 0 }
+
+    // MARK: - Paths
+
+    /// What path work sees on the carrier's queue, for a link with a socket of its own.
+    public struct PathContext {
+        public let connection: QuicConnection
+        public let local: QuicAddress
+        public let relay: QuicAddress?
+        /// Since any packet last arrived.
+        public let silence: Duration?
+        let endpoint: QuicEndpoint
+
+        public func knock(_ address: QuicAddress) { endpoint.knock(address) }
+        public func refreshRelayBinding() { endpoint.refreshRelayBinding() }
+    }
+
+    /// Runs `work` on the carrier's queue, then sends what it queued. `work` gets nil for a link sharing a listener's socket, or before the connection exists.
+    public func onPath(_ work: @escaping @Sendable (PathContext?) -> Void) {
+        guard let endpoint else { return work(nil) }
+        endpoint.queue.async { [weak self] in
+            guard let self, let connection = lock.withLock({ session })?.connection else { return work(nil) }
+            work(PathContext(connection: connection, local: endpoint.localAddress, relay: endpoint.relayAddress, silence: endpoint.silence, endpoint: endpoint))
+            endpoint.flush()
+        }
+    }
 
     // MARK: - On the carrier's queue
 
@@ -175,6 +210,16 @@ public final class QuicFrameLink: @unchecked Sendable {
             session.connection.close(reason: "unreadable stream")
         }
         session.writeUnsent()
+        reportPathEvents(on: session.connection)
+    }
+
+    private func reportPathEvents(on connection: QuicConnection) {
+        let events = connection.pathEvents()
+        guard !events.isEmpty else { return }
+        // Each move retires a connection id; without fresh ones the next probe is refused.
+        connection.issueSpareConnectionIDs()
+        let handler = lock.withLock { _onPathEvent }
+        for event in events { handler?(event) }
     }
 
     func closed() {

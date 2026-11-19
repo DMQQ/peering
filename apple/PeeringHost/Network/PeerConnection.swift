@@ -16,6 +16,13 @@ final class PeerConnection: @unchecked Sendable {
     var onBackPressure: (@Sendable (OutboundBackPressure.Change) -> Void)?
 
     let queue: DispatchQueue
+    /// For a relayed QUIC session: moves it onto a path straight to the phone when one opens. Runs from ``start()`` until the connection ends.
+    var directPath: QuicDirectPath? {
+        get { lock.withLock { _directPath } }
+        set { lock.withLock { _directPath = newValue } }
+    }
+    private var _directPath: QuicDirectPath?
+    private var directPathTask: Task<Void, Never>?  // guarded by lock
     private let lock = NSLock()
     private var decoder = FrameDecoder()
     private var closed = false
@@ -43,6 +50,10 @@ final class PeerConnection: @unchecked Sendable {
             quic.onClose = { [weak self] _ in
                 guard let self else { return }
                 queue.async { self.finish(nil) }
+            }
+            if let directPath {
+                let task = Task { await directPath.run() }
+                lock.withLock { directPathTask = task }
             }
             return
         }
@@ -173,8 +184,11 @@ final class PeerConnection: @unchecked Sendable {
         lock.lock()
         let alreadyClosed = closed
         closed = true
+        let pathTask = directPathTask
+        directPathTask = nil
         lock.unlock()
         guard !alreadyClosed else { return }
+        pathTask?.cancel()
         onClose?(error)
     }
 

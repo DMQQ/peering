@@ -215,6 +215,7 @@ final class VideoCoordinator: @unchecked Sendable {
     /// Over QUIC, the bitrate the link is measured to carry (see ``QuicRateGovernor``); nil otherwise.
     var linkCapKbps: Int?
     var rateGovernor: QuicRateGovernor?
+    var governedLink: ObjectIdentifier?
     var rateTimer: DispatchSourceTimer?
 
     var statistics: CapturePipeline.Statistics { pipeline.statistics }

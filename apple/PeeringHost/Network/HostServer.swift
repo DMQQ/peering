@@ -143,7 +143,7 @@ final class HostServer: @unchecked Sendable {
     private func startQuicListener() {
         do {
             let quic = try QuicListener(port: port, configuration: QuicConfiguration(identity: identity), label: "pl.dmq.peering.host.quic.lan")
-            quic.onLink = { [weak self] link in self?.awaitHandshake(of: link, relayed: false) }
+            quic.onLink = { [weak self] link in self?.awaitHandshake(of: link, relay: nil) }
             quicListener = quic
         } catch {
             Analytics.failed(error, in: .network, context: ["operation": "start the QUIC listener"])

@@ -74,4 +74,24 @@ struct QuicRateGovernorTests {
         #expect(governor.decide(reading(ceiling: 8_000)) == nil)
         #expect(governor.targetKbps == 8_000)
     }
+
+    @Test("a round trip swelling far past the path's minimum backs off though the Mac's own queue is empty")
+    func aFillingNetworkBufferBacksOff() {
+        var governor = warmedUp(8_000)
+        let changed = governor.decide(.init(
+            ceilingKbps: 30_000, backlogBytes: 0, deliveryRateBytesPerSecond: 1_000_000, bandwidthBytesPerSecond: 4_000_000,
+            roundTrip: .milliseconds(400), minimumRoundTrip: .milliseconds(135)
+        ))
+        #expect(changed == 5_600)
+    }
+
+    @Test("an ordinary wobble in the round trip keeps climbing")
+    func aSmallWobbleIsNotAQueue() {
+        var governor = warmedUp(8_000)
+        _ = governor.decide(.init(
+            ceilingKbps: 30_000, backlogBytes: 0, deliveryRateBytesPerSecond: 1_000_000, bandwidthBytesPerSecond: 0,
+            roundTrip: .milliseconds(180), minimumRoundTrip: .milliseconds(135)
+        ))
+        #expect(governor.targetKbps > 8_000)
+    }
 }

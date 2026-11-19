@@ -24,7 +24,7 @@ extension HostServer {
                     configuration: configuration,
                     label: "pl.dmq.peering.host.quic"
                 )
-                awaitHandshake(of: link, relayed: true)
+                awaitHandshake(of: link, relay: (relaySession, relayAddress))
                 queue.asyncAfter(deadline: .now() + Self.quicArrivalWindow) { [link] in
                     guard !link.isEstablished else { return }
                     link.onEstablished = nil
@@ -38,14 +38,16 @@ extension HostServer {
     }
 
     /// Held by its own callback until the handshake finishes or the link closes; nothing else owns a link that has no session yet.
-    func awaitHandshake(of link: QuicFrameLink, relayed: Bool) {
+    /// `relay` is nil for a phone on the LAN.
+    func awaitHandshake(of link: QuicFrameLink, relay: (session: RelaySession, address: QuicAddress)?) {
         link.onEstablished = { [weak self, link] in
             link.onEstablished = nil
-            self?.queue.async { self?.acceptQuic(link, relayed: relayed) }
+            self?.queue.async { self?.acceptQuic(link, relay: relay) }
         }
     }
 
-    private func acceptQuic(_ link: QuicFrameLink, relayed: Bool) {
+    private func acceptQuic(_ link: QuicFrameLink, relay: (session: RelaySession, address: QuicAddress)?) {
+        let relayed = relay != nil
         let address = relayed ? "relay-quic-\(UUID().uuidString.prefix(8))" : (link.peerAddress?.hostText ?? "lan-quic")
         guard admitBeforeAuthentication(address: address) else {
             link.close(reason: "refused")
@@ -53,6 +55,14 @@ extension HostServer {
         }
         quicLog.notice("a phone arrived over QUIC \(relayed ? "through the relay" : "on the LAN", privacy: .public)")
         let peer = PeerConnection(quic: link, queue: queue)
+        if let relay {
+            // The Mac knocks so its NAT lets the phone's probes in, and follows the phone onto a direct path once one validates.
+            peer.directPath = QuicDirectPath(link: link, relay: relay.address, role: .listener, videoToken: relay.session.videoToken) { change in
+                if case .onDirect(let direct) = change {
+                    quicLog.notice("the session moved \(direct ? "straight to the phone" : "back to the relay", privacy: .public)")
+                }
+            }
+        }
         start(peer, address: address, tunnel: nil, relayed: relayed)
     }
 }
