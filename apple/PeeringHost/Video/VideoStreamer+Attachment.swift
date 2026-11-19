@@ -1,4 +1,5 @@
 import Foundation
+import PeeringKit
 import RemoteCore
 import os
 
@@ -14,9 +15,8 @@ extension VideoStreamer {
             if abandoned != nil { datagrams = nil }
             self.peer = peer
             pending = latestKeyframe.latest(matching: config)
-            pendingAudio = nil
+            pendingAudio.reset()
             audioConfigOwed = audioConfig != nil
-            sentAudioLast = true
             awaitingKeyframe = true
 // Held true until the config lands, so a frame submitted in the meantime queues behind it rather
 // than racing ahead of it: a decoder that receives a frame before its parameter sets cannot start.
@@ -55,7 +55,7 @@ extension VideoStreamer {
             sending = true
             // A still screen never answers the keyframe request below, so without the held one the move delivers nothing.
             pending = latestKeyframe.latest(matching: config)
-            pendingAudio = nil
+            pendingAudio.removeAll()
             audioConfigOwed = audioConfig != nil
             return (nil, (config, controlPeer))
         }
@@ -133,8 +133,9 @@ extension VideoStreamer {
             datagrams = nil
             peer = nil
             pending = nil
-            pendingAudio = nil
+            pendingAudio.removeAll()
             audioConfigOwed = false
+            audioEnabled = true
             sending = false
             transport = .primary
             controlPeer = nil

@@ -209,7 +209,8 @@ struct SessionSurface: View {
         // A task restarts every time the screen reappears, so coming back from the terminals stack opened the pill again: it is remembered that this ready session already did.
         .task(id: model.phase) {
             guard model.phase == .ready else {
-                openedStatusBarForReadySession = false
+                // Only a connection that has never been ready re-arms it: a drop and its redial (a network change, a move to the LAN) is the same session, and opening the pill each time reads as the app announcing every switch.
+                if model.activeSession?.hasBeenReady != true { openedStatusBarForReadySession = false }
                 return
             }
             guard !openedStatusBarForReadySession else { return }

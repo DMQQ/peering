@@ -123,6 +123,8 @@ public final class RelayControlProxy: @unchecked Sendable {
 /// listener, which preserves the server role even though its internet socket is outbound.
 public final class RelayControlBridge: @unchecked Sendable {
     private let splice: ControlPipeSplice
+    /// Shared with the lane built for this connection. See ``StreamLaneLink``.
+    public let streamLink = StreamLaneLink()
 
     public init(
         session: RelaySession,

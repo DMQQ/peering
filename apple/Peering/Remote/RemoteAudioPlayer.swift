@@ -28,7 +28,8 @@ final class RemoteAudioPlayer: @unchecked Sendable {
 
         engine.attach(playerNode)
         engine.connect(playerNode, to: engine.mainMixerNode, format: fmt)
-        engine.mainMixerNode.outputVolume = 1.0
+        // Silent until told otherwise: a player built at full volume let a note out in the moment before the mute was applied.
+        engine.mainMixerNode.outputVolume = 0
 
         do {
             // Same category, mode and options as ``SessionAudio``, and not set again when they already hold: a second, different configuration is a route change to every other app playing, and YouTube Music paused for it.
@@ -57,6 +58,7 @@ final class RemoteAudioPlayer: @unchecked Sendable {
         do {
             try AVAudioSession.sharedInstance().setActive(true)
             try engine.start()
+            engine.mainMixerNode.outputVolume = isMuted ? 0 : 1
             playerNode.play()
         } catch {
             Analytics.failed(error, in: .audio)
@@ -75,11 +77,13 @@ final class RemoteAudioPlayer: @unchecked Sendable {
     /// injected ⌘[ is a real key press and gets the real alert, and then the phone plays it back
     /// at the person who pressed it. There is no way to ask macOS not to, so the way out is to
     /// stop playing what it says.
-    var isMuted = false {
+    var isMuted = true {
         didSet { engine.mainMixerNode.outputVolume = isMuted ? 0 : 1 }
     }
 
     func enqueue(_ frame: EncodedAudioFrame) {
+        // Nothing is scheduled while muted, so nothing stale can play when the engine restarts or the mute lifts.
+        guard !isMuted else { return }
         let (sampleValues, sampleOverflow) = frame.sampleCount.multipliedReportingOverflow(by: channelCount)
         let (expectedBytes, byteOverflow) = sampleValues.multipliedReportingOverflow(by: MemoryLayout<Float>.size)
         guard frame.channelCount == channelCount,

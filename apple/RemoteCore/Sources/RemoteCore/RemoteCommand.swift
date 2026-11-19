@@ -103,6 +103,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     case requestKeyframe
     /// How many data chunks one parity chunk covers on the datagram lane, from the viewer's measured loss. Clamped by the host. See ``ParityPolicy``.
     case setParityGroup(Int)
+    /// Whether the viewer wants the Mac's sound at all: `false` while it is muted or not being watched, so the Mac stops sending what would be dropped.
+    case setAudioEnabled(Bool)
     /// Same shape as ``refreshSpacePreviews``, for the Apps panel grid.
     case refreshSourceThumbnails
     /// The picker's grid opening (`true`) or closing (`false`). While it is open the host keeps
@@ -141,7 +143,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return .accumulate
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
-             .setVideoEnabled, .refreshSpacePreviews, .requestKeyframe, .setParityGroup, .refreshSourceThumbnails,
+             .setVideoEnabled, .refreshSpacePreviews, .requestKeyframe, .setParityGroup, .setAudioEnabled, .refreshSourceThumbnails,
              .watchSourceThumbnails, .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard,
              .pushClipboardImage, .addVirtualDisplay, .removeVirtualDisplay,
              .renameVirtualDisplay, .performWindowAction, .openNewWindow:
@@ -169,7 +171,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .switchSpace, .switchToSpace, .joystickMove:
             return true
         case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
-             .refreshSpacePreviews, .requestKeyframe, .setParityGroup, .refreshSourceThumbnails, .watchSourceThumbnails,
+             .refreshSpacePreviews, .requestKeyframe, .setParityGroup, .setAudioEnabled, .refreshSourceThumbnails, .watchSourceThumbnails,
              .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
              .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,
              .performWindowAction, .openNewWindow:
@@ -184,7 +186,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .joystickMove:
             return true
         case .switchSpace, .switchToSpace, .setCaptureSource, .launchApplication,
-             .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews, .requestKeyframe, .setParityGroup,
+             .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews, .requestKeyframe, .setParityGroup, .setAudioEnabled,
              .refreshSourceThumbnails, .watchSourceThumbnails, .setPrivacyMode, .lockScreen,
              .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
              .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,

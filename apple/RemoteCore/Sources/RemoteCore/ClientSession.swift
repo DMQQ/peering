@@ -60,6 +60,10 @@ public final class ClientSession: @unchecked Sendable {
     var clientNotice = ClientStateNotice()
     var clientBackgrounded: Bool { clientNotice.sent }
     var relayProxy: RelayControlProxy?
+    /// The independent streams, once both ends agreed to them at `ready`. See ``StreamID``.
+    var streams: StreamTransport?
+    /// Whether the hello said this client can use streams: only a relayed connection, where the lane exists to carry them.
+    var streamsAdvertised = false
     /// Changes whenever a control attempt begins or ends. Work resumed from an `await` must
     /// still carry this value before it is allowed to install a relay proxy or send a hello.
     var connectGeneration: UInt64 = 0
@@ -206,6 +210,7 @@ public final class ClientSession: @unchecked Sendable {
         videoDatagrams?.cancel()
         control?.cancel()
         relayProxy?.cancel()
+        streams?.stop()
         coalescer.stop()
     }
 

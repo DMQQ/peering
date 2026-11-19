@@ -81,6 +81,7 @@ extension VideoDatagramSocket {
     func enqueue(
         _ datagrams: [Data],
         direct: Bool,
+        urgent: Bool = false,
         completion: @escaping @Sendable (Error?) -> Void
     ) {
         guard !datagrams.isEmpty else {
@@ -118,7 +119,12 @@ extension VideoDatagramSocket {
                 }
                 return
             }
-            self.paced(payloads, to: destination, completion: completion)
+            if urgent {
+                // Between the bursts of a picture being paced out, not behind them: order across kinds means nothing to datagrams, and a sound waiting its turn behind a keyframe is a sound that arrives late.
+                self.write(payloads, to: destination, completion: completion)
+            } else {
+                self.paced(payloads, to: destination, completion: completion)
+            }
         }
     }
 

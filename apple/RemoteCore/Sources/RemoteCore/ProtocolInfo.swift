@@ -23,7 +23,7 @@ public enum ProtocolInfo {
     /// 19: `performWindowAction` and `openNewWindow`, the title-bar buttons and ⌘N from the phone.
     /// 20: `watchSourceThumbnails`, the picker telling the host it is open so the host pushes
     /// changed thumbnails instead of the phone asking.
-    /// 21: file transfers carry an MD5 (`fileRange.md5`, `beginWrite.md5`) that the receiving end verifies.
+    /// 21: file transfers carry an MD5 (`fileRange.md5`, `beginWrite.md5`) that the receiving end verifies. Also `setParityGroup` and `setAudioEnabled`, both added before this version shipped.
     public static let version: UInt16 = 21
 
     /// Enforced on the receiving side only: nothing refuses to produce an oversized command, which is why the video fallback cuts payloads up.

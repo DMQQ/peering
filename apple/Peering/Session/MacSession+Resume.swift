@@ -49,11 +49,20 @@ extension MacSession {
             return
         }
 
-        if let host = model.hosts.first(where: { $0.id == hostID }) {
+        let lanIsOutOfReach = !LANUpgradePolicy.canReachLAN(interface: model.networkContext.interface)
+        if lanIsOutOfReach, model.allowsRelay, model.pins.hostIDs.contains(hostID) {
+            // On cellular a LAN dial can only fail, and racing it costs the relay its head start.
+            logEvent("Redialling over the relay: the LAN is out of reach from here")
+            stopReconnecting()
+            model.isResuming = true
+            model.reconnect(self, to: model.relayTarget(hostID: hostID, name: hostName ?? String(localized: "A Mac")))
+        } else if let host = model.hosts.first(where: { $0.id == hostID }) {
+            logEvent("Redialling the Mac on the LAN")
             stopReconnecting()
             model.isResuming = true
             model.reconnect(self, to: .discovered(host))
         } else if let remembered = model.rememberedLANHost(hostID) {
+            logEvent("Redialling the last LAN address, racing the relay")
             // Every rung tries the LAN, racing the relay: Bonjour not listing the Mac is the expected state of a resume (the Mac withdraws while a phone is connected), so the last good address is dialled first and the relay joins a moment later. See ``DialRace``.
             stopReconnecting()
             model.isResuming = true

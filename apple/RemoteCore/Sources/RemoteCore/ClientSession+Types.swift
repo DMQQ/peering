@@ -162,6 +162,14 @@ extension ClientSession {
             }
         }
 
+        /// Whether a datagram lane exists for this target, which is where the streams earn their keep.
+        var usesRelayLane: Bool {
+            switch self {
+            case .relay, .relayPairing: return true
+            case .discovered, .address: return false
+            }
+        }
+
         var isFirstPairing: Bool {
             if case .relayPairing = self { return true }
             return false

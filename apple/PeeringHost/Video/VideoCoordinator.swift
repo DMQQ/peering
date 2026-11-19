@@ -101,7 +101,8 @@ final class VideoCoordinator: @unchecked Sendable {
 // Audio is normalized to one wire format here: ScreenCaptureKit may supply either interleaved or
 // planar PCM, and the protocol always carries interleaved Float32.
         pipeline.onAudio = { [weak self] sampleBuffer in
-            guard let self else { return }
+            // Before any conversion: a buffer nobody will hear costs nothing past this line. The capture itself keeps running, since changing a live stream's audio means reconfiguring it.
+            guard let self, self.streamer.isAudioEnabled else { return }
             let first = self.audioProgress.withLock { progress -> Bool in
                 progress.received += 1
                 return progress.received == 1

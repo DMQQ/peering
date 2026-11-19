@@ -1,4 +1,5 @@
 import Foundation
+import PeeringKit
 import RemoteCore
 import os
 
@@ -26,17 +27,21 @@ final class VideoStreamer: @unchecked Sendable {
     let lock = NSLock()
     var peer: PeerConnection?
     var pending: EncodedVideoFrame?
-    var pendingAudio: EncodedAudioFrame?
+    var pendingAudio = AudioSendQueue<EncodedAudioFrame>()
+    /// What the viewer last asked for. Not reset when the picture pauses and resumes, or a muted phone would hear the Mac again until it asked twice; reset when the client goes.
+    var audioEnabled = true
     var audioConfig: AudioStreamConfig?
     var audioConfigOwed = false
     var loggedAudioWithoutPeer = false
-    var sentAudioLast = true
     var sending = false
     var _stats = Stats()
     var sendWindow = SendWindow()
 
     var transport: VideoTransport = .primary
     var controlPeer: PeerConnection?
+    /// A LAN client's control connection, paired with the video connection it belongs to: used only while that video connection is the one attached.
+    weak var audioRouteVideo: PeerConnection?
+    weak var audioRouteControl: PeerConnection?
 
     var datagrams: VideoDatagramLane?
 

@@ -24,6 +24,9 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Whether this host reads pointer movement from a direct datagram. `nil` reads as no.
     public var supportsDirectInput: Bool?
 
+    /// Whether this host answers a client that asked for streams with streams. `nil` reads as no: a host that has not heard of them sends plain frames.
+    public var supportsStreams: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -34,7 +37,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         pushesTerminalAlertsWhileConnected: Bool? = nil,
         agentChatAgents: [String]? = nil,
         hostPlatform: String? = nil,
-        supportsDirectInput: Bool? = nil
+        supportsDirectInput: Bool? = nil,
+        supportsStreams: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -46,5 +50,6 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.agentChatAgents = agentChatAgents
         self.hostPlatform = hostPlatform
         self.supportsDirectInput = supportsDirectInput
+        self.supportsStreams = supportsStreams
     }
 }

@@ -11,7 +11,7 @@ import Security
 public struct VideoDatagramOpener {
     private let key: SymmetricKey
     private var window = VideoReplayWindow()
-    private var chunks = VideoChunkReassembler()
+    private var chunks = ChunkReassemblers()
     public private(set) var loss = DatagramLossMeter()
 
     public init(key: SymmetricKey) {
@@ -68,6 +68,6 @@ public struct VideoDatagramOpener {
     public mutating func reset() {
         window.reset()
         loss.reset()
-        chunks = VideoChunkReassembler()
+        chunks = ChunkReassemblers()
     }
 }

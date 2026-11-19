@@ -11,6 +11,7 @@ final class HostServerCallbacks: @unchecked Sendable {
     private var event: (@Sendable (HostEvent) -> Void)?
     private var command: (@Sendable (RemoteCommand) -> Void)?
     private var videoConnection: (@Sendable (PeerConnection) -> Void)?
+    private var audioRoute: (@Sendable (PeerConnection, PeerConnection) -> Void)?
     private var videoTransport: (@Sendable (Data?, VideoTransportRequest, PeerConnection) -> Void)?
     private var videoKeyRequest: (@Sendable (Data?, RelaySession, Bool, RelayControlBridge?) -> Data?)?
     private var videoEnabled: (@Sendable (Data?, Bool) -> Void)?
@@ -55,6 +56,12 @@ final class HostServerCallbacks: @unchecked Sendable {
     var onVideoConnection: (@Sendable (PeerConnection) -> Void)? {
         get { lock.withLock { videoConnection } }
         set { lock.withLock { videoConnection = newValue } }
+    }
+
+    /// Called with a LAN client's video connection and its control connection, which carries the sound so it never queues behind a picture.
+    var onAudioRoute: (@Sendable (PeerConnection, PeerConnection) -> Void)? {
+        get { lock.withLock { audioRoute } }
+        set { lock.withLock { audioRoute = newValue } }
     }
 
     /// Called when a client asks for video to move between transports, with the key that

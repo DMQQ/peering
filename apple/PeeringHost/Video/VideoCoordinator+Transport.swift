@@ -12,6 +12,10 @@ extension VideoCoordinator {
         streamer.setParityGroup(group)
     }
 
+    func setAudioEnabled(_ enabled: Bool) {
+        streamer.setAudioEnabled(enabled)
+    }
+
     func requestKeyframe() {
         pipeline.requestKeyframe()
     }

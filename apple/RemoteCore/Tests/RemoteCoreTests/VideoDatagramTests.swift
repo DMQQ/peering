@@ -324,10 +324,10 @@ struct VideoReplayWindowTests {
     @Test("a counter older than the window is refused, and one at its edge is not")
     func theWindowHasAnEdge() {
         var window = VideoReplayWindow()
-        window.commit(1000)
+        window.commit(100_000)
 
-        #expect(window.accepts(1000 - UInt64(VideoReplayWindow.size) + 1))
-        #expect(!window.accepts(1000 - UInt64(VideoReplayWindow.size)))
+        #expect(window.accepts(100_000 - UInt64(VideoReplayWindow.size) + 1))
+        #expect(!window.accepts(100_000 - UInt64(VideoReplayWindow.size)))
         #expect(!window.accepts(1))
     }
 
@@ -340,6 +340,18 @@ struct VideoReplayWindowTests {
         #expect(!window.accepts(1))
         #expect(window.accepts(1_000_000) == false)
         #expect(window.accepts(999_999))
+    }
+
+    @Test("a keyframe's datagrams overtaken by a later sound are still accepted")
+    func aSoundOvertakingAKeyframeDoesNotVoidIt() {
+        var window = VideoReplayWindow()
+        window.commit(1)
+        window.commit(3000)
+        for counter in UInt64(2)..<3000 {
+            #expect(window.accepts(counter))
+            window.commit(counter)
+        }
+        #expect(!window.accepts(1500))
     }
 
     @Test("forgetting starts the window over")

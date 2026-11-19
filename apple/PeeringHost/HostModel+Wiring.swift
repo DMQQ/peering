@@ -110,6 +110,9 @@ extension HostModel {
         server.callbacks.onVideoConnection = { [weak coordinator] peer in
             coordinator?.handleVideoConnection(peer)
         }
+        server.callbacks.onAudioRoute = { [weak coordinator] video, control in
+            coordinator?.streamer.routeAudio(of: video, through: control)
+        }
         // Straight through, off the main actor: it concerns sockets and an encoder, and must reach the pipeline with the connection it arrived on.
         server.callbacks.onVideoTransport = { [weak coordinator] clientKey, request, controlPeer in
             coordinator?.setVideoTransport(request, clientKey: clientKey, controlPeer: controlPeer)

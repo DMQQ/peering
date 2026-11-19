@@ -212,6 +212,30 @@ struct VideoDatagramSocketTests {
         #expect(second == [0xde, 0xad], "and the frame the caller asked for follows it")
     }
 
+    @Test("an urgent datagram goes out between a picture's bursts, not after all of them")
+    func urgentDatagramDoesNotWaitForThePacer() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let picture = (0..<240).map { _ in Data(repeating: 0x01, count: 40) }
+        socket.send(picture) { _ in }
+        socket.sendUrgent([Data([0xff])]) { _ in }
+
+        var order: [UInt8] = []
+        while order.count < picture.count + 1 {
+            let received = relay.receive()
+            guard !received.isEmpty else { break }
+            order.append(received[0])
+        }
+        let position = try #require(order.firstIndex(of: 0xff))
+        #expect(order.count == picture.count + 1)
+        #expect(position < picture.count / 2, "the sound left after \(position) of \(picture.count) picture datagrams")
+    }
+
     @Test("a datagram from the relay is reported as relay traffic")
     func relayTrafficIsLabelled() async throws {
         let relay = try LoopbackSocket()

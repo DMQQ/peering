@@ -85,4 +85,9 @@ extension ClientSession {
             self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsiveAfterCheck, cause: .hostUnresponsive)
         }
     }
+
+    /// For a session whose network has gone: there is nothing to ask, so waiting out a ping would only delay the redial.
+    public func abandonBecauseNetworkLeft() {
+        fail("The network this connection used is gone.", reason: .unresponsiveAfterCheck, cause: .hostUnresponsive)
+    }
 }

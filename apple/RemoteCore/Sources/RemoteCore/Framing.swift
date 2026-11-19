@@ -85,6 +85,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// A frame of the control connection's byte stream, or an acknowledgement of one, sealed on the datagram lane. Raw ``ControlPipeFrame`` bytes. Sent only while the direct path is live; the relay's TCP connection carries the same frames otherwise.
     case controlPipe = 0x27
+
+    /// A frame of one independent stream, or an acknowledgement of one: a stream id byte, then a ``ControlPipeFrame``. Carried sealed on the datagram lane while it is live, and inside the control connection otherwise. Sent only when both ends said ``ClientHello/supportsStreams`` and ``ServerHello/supportsStreams``.
+    case stream = 0x28
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

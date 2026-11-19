@@ -213,6 +213,11 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         }
     }
 
+    /// For a small message that must not wait behind a picture being paced out: written at once, never queued on the pacer.
+    public func sendUrgent(_ datagrams: [Data], completion: @escaping @Sendable (Error?) -> Void) {
+        enqueue(datagrams, direct: false, urgent: true, completion: completion)
+    }
+
     public func send(_ datagrams: [Data], completion: @escaping @Sendable (Error?) -> Void) {
         enqueue(datagrams, direct: false, completion: completion)
     }

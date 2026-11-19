@@ -1,4 +1,5 @@
 import Foundation
+import PeeringKit
 import RemoteCore
 import os
 
@@ -57,17 +58,10 @@ extension VideoStreamer {
             if audioConfigOwed, let audioConfig {
                 audioConfigOwed = false
                 item = .audioConfig(audioConfig)
-            } else if let video = pending, pendingAudio != nil, sentAudioLast {
-                pending = nil
-                sentAudioLast = false
-                item = .video(video)
-            } else if let audio = pendingAudio {
-                pendingAudio = nil
-                sentAudioLast = true
+            } else if let audio = pendingAudio.popForTurn(pictureWaiting: pending != nil) {
                 item = .audio(audio)
             } else if let video = pending {
                 pending = nil
-                sentAudioLast = false
                 item = .video(video)
             } else {
                 return nil

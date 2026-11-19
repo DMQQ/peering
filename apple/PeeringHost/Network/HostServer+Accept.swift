@@ -45,6 +45,7 @@ extension HostServer {
             guard let self, let session else { return false }
             return admitDevice(clientID: clientID, takesOver: takesOver, joining: session)
         }
+        session.streamLink = tunnel?.bridge.streamLink
         installVideoHandlers(on: session, peer: peer, tunnel: tunnel)
         installLifecycleHandlers(on: session, relayBridge: tunnel?.bridge)
         connections.add(session)
@@ -149,6 +150,9 @@ extension HostServer {
             connections.remove(video: videoPeer)
         }
         callbacks.onVideoConnection?(videoPeer)
+        if let control = connections.controlConnection(key: key) {
+            callbacks.onAudioRoute?(videoPeer, control)
+        }
     }
 
     private func sessionEnded(_ session: HostSession, relayBridge: RelayControlBridge?) {

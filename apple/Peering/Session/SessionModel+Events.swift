@@ -39,12 +39,15 @@ extension SessionModel {
             }
             // On a lost cold-launch race with Bonjour, switch relay to LAN once the Mac appears, but only while the relay has nothing on screen: once a picture is carrying, an interruption costs more than the relay.
             // "Nothing on screen yet", not "still dialling": a suspended browser finds the Mac after the dial, and the Mac was left on a relay in another country. See `hasHadPicture`.
+            // Bound by the same cooldown and attempt cap as the poll: a Mac list that changes on every Bonjour tick, or a Mac that withdraws while a phone is connected, otherwise redials the LAN each time and the session bounces back to the relay.
             // Replaced rather than dialled beside it: the upgraded session has no `hostID` yet, so as a new Mac it hit the plan gate and offered a second-Mac paywall mid-connect.
             if let session = activeSession,
                session.connectionPath == .relay,
                session.phase != .ready || !session.hasHadPicture,
                let hostID = UserDefaults.standard.string(forKey: Self.lastHostIDKey),
-               let host = hosts.first(where: { $0.id == hostID }) {
+               let host = hosts.first(where: { $0.id == hostID }),
+               LANUpgradePolicy.canReachLAN(interface: networkContext.interface),
+               claimLANUpgradeAttempt(hostID: hostID, path: session.connectionPath) {
                 // Marked as the app's own attempt: without the flag the handover is a Mac being opened and the connecting card covers a session that is only changing path. See `isComingBack`.
                 isResuming = true
                 reconnect(session, to: .discovered(host))

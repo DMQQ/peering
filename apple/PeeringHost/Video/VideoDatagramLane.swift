@@ -75,14 +75,25 @@ final class VideoDatagramLane: @unchecked Sendable {
             self?.accept(datagram, from: source)
         }
         socket.start()
-        controlBridge?.attachDirect(
-            send: { [weak self] frame in
-                guard let self else { return }
-                let sealed = self.seal(kind: .controlPipe, payload: frame)
-                if !sealed.isEmpty { self.socket.sendDirect(sealed) { _ in } }
-            },
-            isLive: { [weak self] in self?.socket.pathIsLive == true }
-        )
+        let send: @Sendable (Data) -> Void = { [weak self] payload in
+            guard let self else { return }
+            let sealed = self.seal(kind: .stream, payload: payload)
+            if !sealed.isEmpty { self.socket.sendDirect(sealed) { _ in } }
+        }
+        let isLive: @Sendable () -> Bool = { [weak self] in self?.socket.pathIsLive == true }
+        if let link = controlBridge?.streamLink, link.isInUse {
+            // The control connection stays on the relay's TCP: nothing ordered rides the lane, and what needs its latency travels on streams that stall one at a time.
+            link.attachLane(send: send, isLive: isLive)
+        } else {
+            controlBridge?.attachDirect(
+                send: { [weak self] frame in
+                    guard let self else { return }
+                    let sealed = self.seal(kind: .controlPipe, payload: frame)
+                    if !sealed.isEmpty { self.socket.sendDirect(sealed) { _ in } }
+                },
+                isLive: isLive
+            )
+        }
         beginDirectPath()
         beginPortMapping()
         let observer = NetworkChangeObserver { [weak self] in self?.networkChanged() }
@@ -265,6 +276,11 @@ final class VideoDatagramLane: @unchecked Sendable {
             return
         }
 
+        if frame.kind == .stream {
+            controlBridge?.streamLink.receivedOnLane(frame.payload)
+            return
+        }
+
         if frame.kind == .directCommand {
             receiveDirectCommand(frame, from: source)
             return
@@ -345,5 +361,9 @@ final class VideoDatagramLane: @unchecked Sendable {
 
     func send(_ datagrams: [Data], completion: @escaping @Sendable (Error?) -> Void) {
         socket.send(datagrams, completion: completion)
+    }
+
+    func sendUrgent(_ datagrams: [Data]) {
+        socket.sendUrgent(datagrams) { _ in }
     }
 }

@@ -38,21 +38,34 @@ extension FileBrowserPanel {
     @ViewBuilder
     var contentBody: some View {
         if let failure {
-            state(
-                symbol: "exclamationmark.triangle",
-                message: failure,
-                actionTitle: String(localized: "Try again"),
-                action: onReload
-            )
+            leavable {
+                state(
+                    symbol: "exclamationmark.triangle",
+                    message: failure,
+                    actionTitle: String(localized: "Try again"),
+                    action: onReload
+                )
+            }
         } else if let directory, hasVisibleEntries(directory) {
             list(directory)
         } else if isFiltering, let directory, !directory.entries.isEmpty {
             // Asked before the loading branch: a filter that matched nothing is an answer about the folder, not a wait.
-            state(symbol: "magnifyingglass", message: emptyMessage(directory), detail: hiddenHint(directory))
+            leavable { state(symbol: "magnifyingglass", message: emptyMessage(directory), detail: hiddenHint(directory)) }
         } else if isLoading || directory == nil {
             readingState
         } else if let directory {
-            state(symbol: "folder", message: emptyMessage(directory))
+            leavable { state(symbol: "folder", message: emptyMessage(directory)) }
+        }
+    }
+
+    /// The `..` row above a state that replaces the list, so an empty or unreadable folder is not a dead end.
+    func leavable<State: View>(@ViewBuilder _ state: () -> State) -> some View {
+        VStack(spacing: 0) {
+            if let parent {
+                upRow(parent)
+                Controls.divider
+            }
+            state()
         }
     }
 

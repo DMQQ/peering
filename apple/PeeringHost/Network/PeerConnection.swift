@@ -13,7 +13,7 @@ final class PeerConnection: @unchecked Sendable {
     /// Fires when the bytes handed to this connection and not yet sent pass 4 MB, and again when they fall below 1 MB.
     var onBackPressure: (@Sendable (OutboundBackPressure.Change) -> Void)?
 
-    private let queue: DispatchQueue
+    let queue: DispatchQueue
     private let lock = NSLock()
     private var decoder = FrameDecoder()
     private var closed = false
@@ -41,7 +41,15 @@ final class PeerConnection: @unchecked Sendable {
         connection.start(queue: queue)
     }
 
+    /// Offered every frame before it is written. True when the streams took it.
+    var router: (@Sendable (Frame) -> Bool)? {
+        get { lock.withLock { _router } }
+        set { lock.withLock { _router = newValue } }
+    }
+    private var _router: (@Sendable (Frame) -> Bool)?
+
     func send(_ frame: Frame) {
+        if let router, router(frame) { return }
         send(FrameEncoder.encode(frame))
     }
 

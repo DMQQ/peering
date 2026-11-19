@@ -1,10 +1,13 @@
 import Foundation
 import PeeringKit
 import RemoteCore
+import os
 
 extension MacSession {
     /// A diagnostic line for the session log, stamped with the time it happened: where the connection went, why it dropped, what the phone was doing meanwhile. Kept before the session is ready too, so a failed attempt explains itself.
-    func logEvent(_ line: String) {
+    func logEvent(_ line: String, toSystemLog: Bool = true) {
+        // Also to the system log, which stamps milliseconds: the lines here have only seconds, too coarse to time a path switch.
+        if toSystemLog { sessionLog.notice("\(line, privacy: .public)") }
         let stamped = Self.stamp(line)
         if activeSessionHistoryID != nil {
             activeSessionLogs.append(stamped)
@@ -45,7 +48,8 @@ extension MacSession {
 
     func logHello(_ hello: ServerHello) {
         let platform = hello.hostPlatform ?? "unknown platform"
-        logEvent("Host \(hello.hostName), protocol \(hello.protocolVersion), \(platform)")
+        // Not to the system log: it carries the Mac's name.
+        logEvent("Host \(hello.hostName), protocol \(hello.protocolVersion), \(platform)", toSystemLog: false)
     }
 }
 

@@ -16,6 +16,16 @@ extension MacSession {
     /// Called when a config arrives and when the active Mac changes: a player built for the Mac on screen keeps playing after the user looks away unless told.
     func refreshAudioMuteState() {
         audioPlayer?.isMuted = !shouldPlayAudio
+        syncHostAudio()
+    }
+
+    /// Tells the Mac to stop sending sound nobody will hear.
+    func syncHostAudio() {
+        guard phase == .ready else { return }
+        let wanted = shouldPlayAudio
+        guard wanted != hostAudioAsked else { return }
+        hostAudioAsked = wanted
+        send(.setAudioEnabled(wanted))
     }
 
     var sourceToResume: CaptureSource? {

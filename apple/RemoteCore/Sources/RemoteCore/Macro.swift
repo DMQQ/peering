@@ -88,7 +88,7 @@ public enum MacroLimits {
         case .textInput(let text):
             text.count <= maxTextCharacters
         case .joystickMove, .setCaptureSource, .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews,
-             .requestKeyframe, .setParityGroup, .refreshSourceThumbnails, .watchSourceThumbnails, .setPrivacyMode, .lockScreen,
+             .requestKeyframe, .setParityGroup, .setAudioEnabled, .refreshSourceThumbnails, .watchSourceThumbnails, .setPrivacyMode, .lockScreen,
              .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation, .addVirtualDisplay,
              .removeVirtualDisplay, .renameVirtualDisplay, .performWindowAction:
             false

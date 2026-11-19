@@ -11,6 +11,7 @@ extension ClientConnection {
             transportLog.error("dropped a \(String(describing: frame.kind), privacy: .public) frame of \(frame.payload.count) bytes, over the control limit")
             return
         }
+        if let router, router(frame, nil) { return }
         connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { _ in })
     }
 
@@ -23,6 +24,7 @@ extension ClientConnection {
         guard let connection else { return completion(Failure.cancelled) }
         do {
             let frame = Frame(kind: kind, payload: try MessageCodec.encode(value))
+            if let router, router(frame, completion) { return }
             connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { completion($0) })
         } catch {
             completion(error)

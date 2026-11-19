@@ -198,6 +198,9 @@ final class MacSession: Identifiable {
     /// Not the same as the picture being stopped: a sleeping screen, a failed stream and a pause this end requested look alike, and only the third may be undone here.
     var picturePaused = false
 
+    /// What the Mac was last asked about its sound, so the same answer is not sent twice. `nil` until this connection has said: a new connection finds the Mac sending.
+    var hostAudioAsked: Bool?
+
     /// The request goes out here and frames come back to the renderer, so this is the only place both ends of the interval are visible. Reported into notes and Diagnostics.
     var pictureResumedAt: MonotonicStamp?
     var pictureResumeBaselineFrames: Int?

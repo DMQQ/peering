@@ -127,6 +127,10 @@ final class HostSession: @unchecked Sendable {
     var peerPublicKey: Data?
     /// Whether the client probes addresses announced on the datagram lane. Read when it asks for that lane.
     var clientSupportsDirectCandidates = false
+    var clientSupportsStreams = false
+    /// Set for a relayed connection: where this session's streams meet the lane built for it.
+    var streamLink: StreamLaneLink?
+    var streams: StreamTransport?
     /// Whether `.clientConnected` has been emitted, so a disconnect is only ever reported
     /// for a connection the UI was told about in the first place.
     var announced = false
@@ -220,6 +224,7 @@ final class HostSession: @unchecked Sendable {
                 emit(.clientDisconnected(clientID: clientID, clientName: clientName))
             }
 
+            stopStreams()
             onEnded?()
         }
         connection.onBackPressure = { [weak self] change in
@@ -230,6 +235,7 @@ final class HostSession: @unchecked Sendable {
 
     func cancel() {
         closedByHost = true
+        stopStreams()
         connection.cancel()
     }
 

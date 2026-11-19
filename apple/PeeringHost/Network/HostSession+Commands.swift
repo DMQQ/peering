@@ -37,6 +37,9 @@ extension HostSession {
         case .videoChunk:
             try handleChunkedPayload(frame)
 
+        case .stream:
+            streams?.receive(frame.payload)
+
         case .ping:
             connection.send(Frame(kind: .pong, payload: frame.payload))
 

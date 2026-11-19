@@ -209,6 +209,8 @@ extension ClientSession {
         // 2. Say who we are. `wantsPairing` is advisory: the Mac decides, because only the
         //    Mac knows its own pin store.
         let hostID = target.hostID
+        let relayed = target.usesRelayLane
+        lock.withLock { streamsAdvertised = relayed }
         let knowsHost = hostID.map { pins.pin(for: $0) != nil } ?? false
         connection.send(.clientHello, ClientHello(
             clientID: clientID,
@@ -220,7 +222,8 @@ extension ClientSession {
             lostPairing: hostID != nil && !knowsHost ? true : nil,
             takesOver: knowsHost && takesOver ? true : nil,
             sessionRef: sessionRef,
-            supportsDirectCandidates: true
+            supportsDirectCandidates: true,
+            supportsStreams: relayed ? true : nil
         ))
 
         lock.withLock {

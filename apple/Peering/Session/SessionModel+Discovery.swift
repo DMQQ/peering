@@ -32,6 +32,8 @@ extension SessionModel {
         }
         watcher.onUsableChange = { [weak self] in self?.networkChanged() }
         watcher.onPathChange = { [weak self] in
+            if let self { sessionLog.notice("network path changed, now \(self.networkContext.interface, privacy: .public)") }
+            self?.dropLANSessionsWhoseNetworkLeft()
             self?.verifyLiveSessions()
             self?.restartDirectPaths()
             self?.networkPathChangedForLANUpgrade()
@@ -54,9 +56,19 @@ extension SessionModel {
         }
     }
 
+    /// A LAN session cannot outlive the Wi-Fi or cable it runs on, and its socket gives no sign that it died, so it is ended here rather than after a ping times out.
+    func dropLANSessionsWhoseNetworkLeft() {
+        guard !LANUpgradePolicy.canReachLAN(interface: networkContext.interface) else { return }
+        for session in sessions where session.phase == .ready && session.connectionPath == .lan {
+            session.logEvent("The Wi-Fi or cable is gone, ending the LAN session")
+            session.wire?.abandonBecauseNetworkLeft()
+        }
+    }
+
     /// Asks every connected Mac to answer now, so a connection that died with the old network or suspension is redialled at once rather than after the silence watchdog.
     func verifyLiveSessions() {
         for session in sessions where session.phase == .ready {
+            session.logEvent("Network changed, checking the Mac still answers")
             session.wire?.verifyStillAnswering()
             if !session.isVideoStreaming {
                 session.wire?.retryVideoAfterNetworkChange()

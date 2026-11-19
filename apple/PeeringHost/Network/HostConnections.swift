@@ -45,6 +45,10 @@ struct HostConnections {
         sessions.contains { $0.isAuthorized && $0.peerPublicKey == key }
     }
 
+    func controlConnection(key: Data) -> PeerConnection? {
+        sessions.first { $0.isAuthorized && $0.peerPublicKey == key }?.connection
+    }
+
     func authorizedCount(clientID: String) -> Int {
         sessions.filter { $0.isAuthorized && $0.clientID == clientID }.count
     }

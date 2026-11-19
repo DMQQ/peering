@@ -25,6 +25,9 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// Whether this client probes addresses the host announces on the datagram lane. `nil` reads as no.
     public var supportsDirectCandidates: Bool?
 
+    /// Whether this client sends the frame protocol over independent streams (see ``StreamID``). Said only on a relayed connection, where the datagram lane can carry them. `nil` reads as no.
+    public var supportsStreams: Bool?
+
     /// A random tag for this connection attempt, kept across automatic resumes, so analytics on the phone and the Mac can be joined. Optional and additive: `nil` is a client from before this field, and a host that does not know it ignores the key.
     public var sessionRef: String?
 
@@ -44,9 +47,11 @@ public struct ClientHello: Codable, Sendable, Equatable {
         clientPlatform: String? = nil,
         videoCodecs: [String]? = nil,
         sessionRef: String? = nil,
-        supportsDirectCandidates: Bool? = nil
+        supportsDirectCandidates: Bool? = nil,
+        supportsStreams: Bool? = nil
     ) {
         self.supportsDirectCandidates = supportsDirectCandidates
+        self.supportsStreams = supportsStreams
         self.sessionRef = sessionRef
         self.lostPairing = lostPairing
         self.takesOver = takesOver

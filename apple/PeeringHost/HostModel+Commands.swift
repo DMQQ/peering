@@ -23,6 +23,8 @@ extension HostModel {
             coordinator.requestKeyframe()
         case .setParityGroup(let group):
             coordinator.setParityGroup(group)
+        case .setAudioEnabled(let enabled):
+            coordinator.setAudioEnabled(enabled)
         case .refreshSourceThumbnails:
             coordinator.refreshSourceThumbnails()
         case .watchSourceThumbnails(let watching):

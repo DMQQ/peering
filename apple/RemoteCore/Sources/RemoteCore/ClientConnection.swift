@@ -40,6 +40,13 @@ public final class ClientConnection: @unchecked Sendable {
         set { lock.withLock { _onFrame = newValue } }
     }
 
+    /// Offered every frame before it is written. Returns true when something else took it (the streams), with the completion, if any, now theirs to run.
+    public var router: (@Sendable (Frame, (@Sendable (Error?) -> Void)?) -> Bool)? {
+        get { lock.withLock { _router } }
+        set { lock.withLock { _router = newValue } }
+    }
+    private var _router: (@Sendable (Frame, (@Sendable (Error?) -> Void)?) -> Bool)?
+
     public var onClose: (@Sendable (Failure) -> Void)? {
         get { lock.withLock { _onClose } }
         set { lock.withLock { _onClose = newValue } }

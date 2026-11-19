@@ -24,6 +24,7 @@ extension ClientSession {
         } else {
             openVideoIfNeeded()
         }
+        startStreamsIfAgreed()
         startPinging()
         startVideoWatch()
         sendPendingClientState()
@@ -97,6 +98,9 @@ extension ClientSession {
 
         case .videoKey:
             handleVideoKey(frame)
+
+        case .stream:
+            lock.withLock { streams }?.receive(frame.payload)
 
         default:
             clientSessionLog.notice("ignoring unexpected \(String(describing: frame.kind), privacy: .public) on a ready session")

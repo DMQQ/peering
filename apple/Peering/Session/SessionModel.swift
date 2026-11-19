@@ -274,6 +274,8 @@ final class SessionModel {
     var lastLANUpgradeAt: [String: Date] = [:]
     /// Per Mac, since the network last changed. See ``LANUpgradePolicy/maxAttemptsPerNetwork``.
     var lanUpgradeAttempts: [String: Int] = [:]
+    /// Macs being asked on the LAN right now, so a slow answer is not asked twice.
+    var lanProbesInFlight: Set<String> = []
 
     /// Coming back to the foreground races the teardown of the session that just ended: its cancelled socket is not finished with, so the connect aborts before it starts. It clears within a second and nobody asked for this attempt, so nobody is told.
     var isResuming = false

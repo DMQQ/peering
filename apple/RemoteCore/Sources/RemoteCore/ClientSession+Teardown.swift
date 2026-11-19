@@ -29,6 +29,7 @@ extension ClientSession {
     }
 
     func fail(_ message: String, reason: FailureReason, cause: FailureCause? = nil) {
+        stopStreams()
         lock.lock()
         // The first failure is the one that counts: a connection that fails is reported twice (the transport's close handler and the `catch` in `connect`), and this guard keeps the property and event stream from holding two sentences.
         guard state != .failed else {
@@ -82,6 +83,7 @@ extension ClientSession {
     // MARK: - Teardown
 
     public func disconnect() {
+        stopStreams()
         lock.lock()
         connectGeneration &+= 1
         let control = self.control

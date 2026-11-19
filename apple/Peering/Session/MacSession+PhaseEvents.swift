@@ -9,6 +9,7 @@ extension MacSession {
         if case .failed = phase, model.isResuming {
             switch settleFailedResume() {
             case .retried:
+                logPhase(phase)
                 return
             case .showFailure:
                 shouldScheduleReconnect = false
@@ -105,6 +106,8 @@ extension MacSession {
         model.sendPushToken()
         // Every arrival at `.ready`, a reconnect included: the Mac on the other end has no memory of the one before. See ``pendingSourceReassertion``.
         pendingSourceReassertion = true
+        hostAudioAsked = nil
+        syncHostAudio()
     }
 
     private func recordReady(previous: ClientSession.Phase) {

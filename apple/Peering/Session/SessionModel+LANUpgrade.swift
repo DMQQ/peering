@@ -34,21 +34,46 @@ extension SessionModel {
         considerLANUpgrade()
     }
 
+    /// The cooldown and cap, read without spending anything: a probe is free, a move is not.
+    func mayTryLANUpgrade(hostID: String, path: ConnectionPath?) -> Bool {
+        let sinceLast = lastLANUpgradeAt[hostID].map { Date().timeIntervalSince($0) }
+        return LANUpgradePolicy.shouldUpgrade(
+            path: path,
+            macVisibleOnLAN: true,
+            secondsSinceLastAttempt: sinceLast,
+            attemptsOnThisNetwork: lanUpgradeAttempts[hostID] ?? 0
+        )
+    }
+
+    /// One place that spends an attempt, so every route to the LAN counts against the same cooldown and cap.
+    func claimLANUpgradeAttempt(hostID: String, path: ConnectionPath?) -> Bool {
+        guard mayTryLANUpgrade(hostID: hostID, path: path) else { return false }
+        lastLANUpgradeAt[hostID] = Date()
+        lanUpgradeAttempts[hostID, default: 0] += 1
+        return true
+    }
+
+    /// Asked of the LAN first, off to the side: the session in use is only replaced once the Mac has answered there, so a LAN that cannot be reached never interrupts the relay.
     private func upgradeSessionsToLAN() {
         for session in sessions where session.phase == .ready {
-            guard let hostID = session.hostID, let host = hosts.first(where: { $0.id == hostID }) else { continue }
-            let sinceLast = lastLANUpgradeAt[hostID].map { Date().timeIntervalSince($0) }
-            guard LANUpgradePolicy.shouldUpgrade(
-                path: session.connectionPath,
-                macVisibleOnLAN: true,
-                secondsSinceLastAttempt: sinceLast,
-                attemptsOnThisNetwork: lanUpgradeAttempts[hostID] ?? 0
-            ) else { continue }
-            lastLANUpgradeAt[hostID] = Date()
-            lanUpgradeAttempts[hostID, default: 0] += 1
-            session.logEvent("The Mac is on this network, moving to the LAN")
-            isResuming = true
-            reconnect(session, to: .discovered(host))
+            guard let hostID = session.hostID, let host = hosts.first(where: { $0.id == hostID }),
+                  mayTryLANUpgrade(hostID: hostID, path: session.connectionPath),
+                  lanProbesInFlight.insert(hostID).inserted
+            else { continue }
+            Task { [weak self, weak session] in
+                let began = ContinuousClock.now
+                let reachable = await LANProbe.isReachable(host.endpoint)
+                guard let self else { return }
+                lanProbesInFlight.remove(hostID)
+                let elapsed = (ContinuousClock.now - began).formatted(.units(allowed: [.milliseconds], width: .narrow))
+                session?.logEvent(reachable ? "LAN probe answered in \(elapsed)" : "LAN probe got no answer in \(elapsed), staying put")
+                guard reachable, let session, session.phase == .ready, session.connectionPath != .lan,
+                      claimLANUpgradeAttempt(hostID: hostID, path: session.connectionPath)
+                else { return }
+                session.logEvent("The Mac answered on this network, moving to the LAN")
+                isResuming = true
+                reconnect(session, to: .discovered(host))
+            }
         }
     }
 }

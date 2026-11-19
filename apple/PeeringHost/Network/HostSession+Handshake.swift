@@ -94,6 +94,8 @@ extension HostSession {
         announce(hello, presentedKey: presentedKey)
 
         let alreadyPaired = ClientHello.hostTreatsAsPaired(clientKeyIsPinned: existingPin != nil, lostPairing: hello.lostPairing)
+        // Before the hello goes out: the phone's first frame after it may already be on a stream.
+        startStreamsIfAsked()
         send(.serverHello, serverHello(alreadyPaired: alreadyPaired))
         if alreadyPaired, let source = hello.resumeSource {
             onCommand?(.setCaptureSource(source))
@@ -129,6 +131,7 @@ extension HostSession {
     private func adoptCapabilities(of hello: ClientHello) {
         onVideoCodecsDeclared?(hello.videoCodecs)
         clientSupportsDirectCandidates = hello.supportsDirectCandidates == true
+        clientSupportsStreams = hello.supportsStreams == true
     }
 
     /// What this Mac says about itself, and which optional features it will answer.
@@ -147,7 +150,8 @@ extension HostSession {
             // Which agents, since the set grows and a phone cannot guess it from the version.
             agentChatAgents: AgentSessionManager.chatAgents.keys.sorted(),
             hostPlatform: "macos",
-            supportsDirectInput: true
+            supportsDirectInput: true,
+            supportsStreams: streams != nil ? true : nil
         )
     }
 }
