@@ -110,6 +110,11 @@ public final class ClientSession: @unchecked Sendable {
     var directPathTask: Task<Void, Never>?
     /// The QUIC session's path mover, for the Mac's address announcements; ended with ``directPathTask``.
     var quicDirectPath: QuicDirectPath?
+    /// Where the Mac said it can be reached on its own network, kept for a mover started later (a session carried onto the relay).
+    var announcedCandidates: DirectCandidates?
+    /// Set while a LAN session is being carried onto the relay, so a second network change does not start another.
+    var carryingOver = false
+    var _relayAccess: RelayAccess?
     /// Bumped by ``restartDirectPath()``; the probe loop restarts its schedule when it sees a new value.
     var directPathRestarts = 0
     /// The last path reported to the owner. Seeded with `.relay` since every session starts there.

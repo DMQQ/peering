@@ -8,6 +8,7 @@ public final class QuicDirectPath: @unchecked Sendable {
         case report(ClientSession.DirectPath)
         case verdictDue
         case onPath(ClientSession.DatagramPath)
+        case renewRelay
     }
 
     private let link: QuicFrameLink
@@ -23,6 +24,7 @@ public final class QuicDirectPath: @unchecked Sendable {
         relay: QuicAddress,
         role: QuicDirectPathPolicy.Role,
         videoToken: Data,
+        startsOnRelay: Bool = true,
         restarts: @escaping @Sendable () -> Int = { 0 },
         onChange: @escaping @Sendable (Change) -> Void
     ) {
@@ -30,7 +32,7 @@ public final class QuicDirectPath: @unchecked Sendable {
         self.videoToken = videoToken
         self.restarts = restarts
         self.onChange = onChange
-        policy = QuicDirectPathPolicy(role: role, relay: relay)
+        policy = QuicDirectPathPolicy(role: role, relay: relay, startsOnRelay: startsOnRelay)
     }
 
     public var isDirect: Bool { lock.withLock { policy.direct != nil } }
@@ -109,6 +111,7 @@ public final class QuicDirectPath: @unchecked Sendable {
             case .report(let outcome): onChange(.report(outcome))
             case .verdictDue: onChange(.verdictDue)
             case .onPath(let path): onChange(.onPath(path))
+            case .renewRelay: onChange(.renewRelay)
             }
         }
         return asksRelay

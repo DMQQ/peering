@@ -99,11 +99,13 @@ extension ClientSession {
 
     /// The phone's network changed: the path that was proven belongs to the old one. The picture goes by the relay until a probe proves a path on the new network, the relay is told the new address, and the knocking starts over at its fast pace.
     public func restartDirectPath() {
-        let socket = lock.withLock { () -> VideoDatagramSocket? in
+        let (socket, hasMover) = lock.withLock { () -> (VideoDatagramSocket?, Bool) in
             directPathRestarts += 1
-            return videoDatagrams
+            return (videoDatagrams, quicDirectPath != nil)
         }
         socket?.pathChanged()
+        // A QUIC session with a mover handles the change itself; one that began on the LAN has none yet and is carried onto the relay.
+        if !hasMover, lock.withLock({ state == .ready }) { carryOverToRelay() }
     }
 
     /// Measures the lane the picture is on, once a second. The control lane's figure is the relay's even when the picture is direct. Seals through ``sealOnVideoLane(kind:payload:)``: a second sealer would repeat nonces.

@@ -16,7 +16,7 @@ public final class QuicEndpoint: @unchecked Sendable {
     private var timer: DispatchSourceTimer?
     private var connection: QuicConnection?
     private var closed = false
-    private let relay: RelayRoute?
+    private var relay: RelayRoute?
 
     /// The relay's UDP port and this end's token: the relay forwards a datagram by the token in front of it and strips it, so the token goes on every packet sent there and never arrives on one.
     public struct RelayRoute: Sendable {
@@ -122,6 +122,14 @@ public final class QuicEndpoint: @unchecked Sendable {
     }
 
     var relayAddress: QuicAddress? { relay?.address }
+
+    /// Adopts a relay route mid-session and binds it at once.
+    func useRelay(_ route: RelayRoute) {
+        queue.async { [self] in
+            relay = route
+            bindRelay()
+        }
+    }
 
     /// The connection once there is one. Not for use on `queue`.
     public var currentConnection: QuicConnection? { queue.sync { connection } }

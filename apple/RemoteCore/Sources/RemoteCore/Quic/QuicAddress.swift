@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 /// A socket address in the form quiche and the BSD socket calls both take.
-public struct QuicAddress: Sendable, Equatable, CustomStringConvertible {
+public struct QuicAddress: Sendable, Hashable, CustomStringConvertible {
     var storage: sockaddr_storage
     var length: socklen_t
 
@@ -80,6 +80,10 @@ public struct QuicAddress: Sendable, Equatable, CustomStringConvertible {
     }
 
     public var description: String { "[\(hostText)]:\(port)" }
+
+    public func hash(into hasher: inout Hasher) {
+        withUnsafeBytes(of: storage) { hasher.combine(bytes: UnsafeRawBufferPointer(rebasing: $0.prefix(Int(length)))) }
+    }
 
     public static func == (lhs: QuicAddress, rhs: QuicAddress) -> Bool {
         guard lhs.length == rhs.length else { return false }

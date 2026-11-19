@@ -33,6 +33,8 @@ extension MacSession {
             // Recorded and deliberately not shown: the session already logs a note when it changes. Not folded into ``connectionPath``: the relay meters by splice time whether or not video went around it, so moving the path off `.relay` would make ``SessionModel/relaySecondsUsedThisPeriod`` under-report sessions the relay still charges for.
             usedDirectPath = path != .relay
             movedToLAN = path == .lan
+            // A session that began on the LAN and was carried onto the relay is a relayed session from here, for the chip and for the relay time it spends.
+            if path == .relay, connectionPath == .lan { connectionPath = .relay }
         case .directPath(let outcome):
             // The other half: `path` says where the picture is arriving when it works; this says what the attempt came to when it does not. Shown rather than logged because a failure has no note in the session log to find it in.
             directPathStatus = outcome

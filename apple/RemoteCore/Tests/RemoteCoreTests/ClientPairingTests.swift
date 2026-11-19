@@ -161,7 +161,7 @@ final class ScriptedMac: @unchecked Sendable {
 
     init(identity: SelfSignedIdentity) throws {
         listener = try QuicListener(port: 0, configuration: QuicConfiguration(identity: identity), label: "test.scripted-mac")
-        listener.onLink = { [weak self] quic in
+        listener.onLink = { [weak self] quic, _ in
             guard let self else { return quic.close() }
             // Taken from here rather than when the test asks, so a frame the client sends before the test looks is still collected.
             let link = MacLink(quic)

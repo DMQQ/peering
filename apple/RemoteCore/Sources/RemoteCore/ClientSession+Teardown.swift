@@ -58,6 +58,7 @@ extension ClientSession {
         directPathTask?.cancel()
         directPathTask = nil
         quicDirectPath = nil
+        announcedCandidates = nil
         reportedPath = .relay
         pingTask?.cancel()
         pingTask = nil
@@ -103,6 +104,7 @@ extension ClientSession {
         directPathTask?.cancel()
         directPathTask = nil
         quicDirectPath = nil
+        announcedCandidates = nil
         reportedPath = .relay
         usesRelayedSingleStream = false
         pingTask?.cancel()

@@ -51,10 +51,7 @@ final class PeerConnection: @unchecked Sendable {
                 guard let self else { return }
                 queue.async { self.finish(nil) }
             }
-            if let directPath {
-                let task = Task { await directPath.run() }
-                lock.withLock { directPathTask = task }
-            }
+            if let directPath { run(directPath) }
             return
         }
         guard let connection else { return }
@@ -122,6 +119,18 @@ final class PeerConnection: @unchecked Sendable {
     func cancel() {
         connection?.cancel()
         quic?.close(reason: "cancelled")
+    }
+
+    /// Starts moving this session between paths, replacing any mover already running.
+    func run(_ mover: QuicDirectPath) {
+        let task = Task { await mover.run() }
+        let previous = lock.withLock { () -> Task<Void, Never>? in
+            guard !closed else { return task }
+            _directPath = mover
+            defer { directPathTask = task }
+            return directPathTask
+        }
+        previous?.cancel()
     }
 
     /// Runs `work` on the queue this connection's callbacks arrive on.

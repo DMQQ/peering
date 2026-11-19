@@ -35,6 +35,8 @@ extension ClientSession {
         connection()?.send(Frame(kind: .ping, payload: payload))
     }
 
+    static let quicMoveGrace: TimeInterval = 5
+
     static func answerGrace(roundTripMilliseconds: Double?) -> TimeInterval {
         guard let roundTripMilliseconds else { return 1.0 }
         return min(1.5, max(0.4, roundTripMilliseconds * 4 / 1000 + 0.2))
@@ -72,7 +74,8 @@ extension ClientSession {
         let askedAt = Self.monotonicNow()
         let (isReady, roundTrip) = lock.withLock { (state == .ready, latency.reported) }
         guard isReady else { return }
-        let grace = Self.answerGrace(roundTripMilliseconds: roundTrip)
+        // A QUIC session first moves its connection to the new network (a relay route asked for, a path validated), which takes longer than a round trip.
+        let grace = isOnQuic ? Self.quicMoveGrace : Self.answerGrace(roundTripMilliseconds: roundTrip)
         sendPing()
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(grace))

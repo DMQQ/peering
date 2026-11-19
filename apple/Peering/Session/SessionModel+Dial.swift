@@ -141,6 +141,9 @@ extension SessionModel {
         wire.takesOver = takesOverNextDial
         let takesOver = takesOverNextDial
         takesOverNextDial = false
+        if let hostID = target.hostID, allowsRelay, pins.hostIDs.contains(hostID) {
+            wire.relayAccess = RelayAccess(hostID: hostID, entitlement: relayEntitlement)
+        }
         session.wire = wire
         place(session, replacing: old)
         publishOpenMacs()

@@ -116,7 +116,7 @@ extension ClientPairingTests {
                 let listener = try QuicListener(port: 0, configuration: QuicConfiguration(identity: mac), label: "test.listener")
                 defer { listener.cancel() }
                 let accepted = Counter()
-                listener.onLink = { link in
+                listener.onLink = { link, _ in
                     accepted.add()
                     link.onFrame = { [weak link] frame in link?.send(Frame(kind: .pong, payload: frame.payload)) }
                 }
@@ -144,7 +144,7 @@ extension ClientPairingTests {
                 let listener = try QuicListener(port: 0, configuration: QuicConfiguration(identity: mac), label: "test.listener")
                 defer { listener.cancel() }
                 let links = Box<QuicFrameLink>()
-                listener.onLink = { links.value = $0 }
+                listener.onLink = { link, _ in links.value = link }
                 let connection = ClientConnection(label: "test.phone")
                 try await connection.connectQuic(to: QuicAddress(host: "127.0.0.1", port: listener.localPort)!, relay: nil, identity: client, pinnedServerKey: nil, timeout: 5)
                 let hello = Frame(kind: .clientHello, payload: Data("first".utf8))

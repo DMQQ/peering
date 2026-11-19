@@ -97,4 +97,28 @@ struct QuicDirectPathPolicyTests {
         policy.announcedAddresses([peer])
         #expect(policy.tick(now: start, silence: nil) == [.askRelay])
     }
+
+    @Test("a session carried over from the LAN probes the relay first, then moves onto it")
+    func aCarriedSessionMovesOntoTheRelay() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, startsOnRelay: false, now: start)
+        #expect(policy.tick(now: start, silence: nil) == [.probe(relay)])
+        #expect(policy.handle(.validated(local: relay, peer: relay)) == [.migrate(to: relay), .onPath(.relay)])
+        #expect(policy.tick(now: start, silence: nil) == [.askRelay])
+    }
+
+    @Test("leaving the LAN asks for a new relay route instead of trusting one that may have lapsed")
+    func leavingTheLANRenewsTheRelay() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        policy.announcedAddresses([lan])
+        _ = policy.handle(.validated(local: relay, peer: lan))
+        #expect(policy.networkChanged(now: start) == [.renewRelay, .report(.notTried)])
+    }
+
+    @Test("the relay route is not kept alive while the session is on the LAN, so relay time is not spent there")
+    func noRelayRefreshOnTheLAN() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        policy.announcedAddresses([lan])
+        _ = policy.handle(.validated(local: relay, peer: lan))
+        #expect(policy.tick(now: start + .seconds(11), silence: .zero).isEmpty)
+    }
 }

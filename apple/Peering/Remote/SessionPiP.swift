@@ -94,6 +94,11 @@ final class SessionPiP: NSObject {
             lastAttempt = String(localized: "app left screen with no session up")
             return
         }
+        // The switch has to be read here: this start is the one that happens, the system's automatic one never does.
+        guard autoStart else {
+            lastAttempt = String(localized: "turned off in settings")
+            return
+        }
         start()
     }
 

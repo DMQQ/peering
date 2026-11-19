@@ -16,6 +16,8 @@ public struct QuicDirectPathPolicy: Sendable {
         /// The attempt has run its time without opening.
         case verdictDue
         case onPath(ClientSession.DatagramPath)
+        /// The session is leaving the LAN and the relay route it last had may have lapsed: the owner asks the relay for a new one and starts a new mover on it.
+        case renewRelay
     }
 
     /// A direct path this long without a single packet is gone (a NAT mapping expired, a network went): back to the relay, whose route is kept warm for this.
@@ -35,10 +37,14 @@ public struct QuicDirectPathPolicy: Sendable {
     public private(set) var direct: QuicAddress?
     private var lastRefresh: ContinuousClock.Instant
     private var verdictGiven = false
+    /// A session carried over from the LAN: the relay path is probed and moved to before anything else.
+    private var relayPending: Bool
 
-    public init(role: Role, relay: QuicAddress, now: ContinuousClock.Instant = .now) {
+    /// `startsOnRelay` is false for a session that began on the LAN and is being carried onto `relay`.
+    public init(role: Role, relay: QuicAddress, startsOnRelay: Bool = true, now: ContinuousClock.Instant = .now) {
         self.role = role
         self.relay = relay
+        relayPending = role == .dialer && !startsOnRelay
         schedule = DirectPathSchedule(now: now)
         lastRefresh = now
     }
@@ -54,11 +60,13 @@ public struct QuicDirectPathPolicy: Sendable {
     }
 
     public mutating func tick(now: ContinuousClock.Instant, silence: Duration?) -> [Action] {
+        if relayPending { return [.probe(relay)] }
         var actions: [Action] = []
         if direct != nil, role == .dialer, let silence, silence > Self.silenceBeforeFallback {
             actions += fallBack()
         }
-        if now - lastRefresh >= Self.relayRefreshInterval {
+        // Not while on the LAN: a route kept alive there is relay time metered for nothing, and leaving the LAN asks for a new one.
+        if now - lastRefresh >= Self.relayRefreshInterval, direct.map(Self.isLocal) != true {
             lastRefresh = now
             actions.append(.refreshRelayBinding)
         }
@@ -90,6 +98,9 @@ public struct QuicDirectPathPolicy: Sendable {
 
     public mutating func handle(_ event: QuicConnection.PathEvent) -> [Action] {
         switch (role, event) {
+        case (.dialer, .validated(_, let peer)) where relayPending && peer == relay:
+            relayPending = false
+            return [.migrate(to: relay), .onPath(.relay)]
         case (.dialer, .validated(_, let peer)) where peer != relay && Self.beats(peer, direct):
             direct = peer
             return [.migrate(to: peer), .report(.open(peer: Self.text(peer))), .onPath(Self.kind(of: peer))]
@@ -110,6 +121,10 @@ public struct QuicDirectPathPolicy: Sendable {
         schedule.restart(now: now)
         candidate = nil
         verdictGiven = false
+        if role == .dialer, let direct, Self.isLocal(direct) {
+            self.direct = nil
+            return [.renewRelay, .report(.notTried)]
+        }
         return fallBack() + [.report(.notTried)]
     }
 

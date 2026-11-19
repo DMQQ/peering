@@ -175,8 +175,8 @@ extension ClientPairingTests {
                 try await bringUp(mac, session, log)
                 session.verifyStillAnswering()
 
-                // The grace is at most 1.5 seconds.
-                let failed = await log.wait(within: 3) { $0.failure != nil }
+                // Over QUIC the grace is five seconds, the time a move to a new network may take.
+                let failed = await log.wait(within: 7) { $0.failure != nil }
                 #expect(failed, "a Mac that answered nothing was still called ready")
                 #expect(log.failure?.hasPrefix("The Mac stopped answering") == true)
             }

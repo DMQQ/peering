@@ -5,31 +5,16 @@ import os
 private let quicLog = Logger(subsystem: "pl.dmq.peering.host", category: "quic")
 
 extension HostServer {
-    /// How long a relay allocation waits for the phone's first QUIC packet before it is given up.
-    private static let quicArrivalWindow: TimeInterval = 30
-
-    /// Waits for the phone over QUIC behind the relay's UDP port, with this Mac's relay token in front of every packet. The whole session (control, picture, sound) then runs on that one connection.
+    /// Waits for the phone behind the relay as well as on the LAN: the allocation becomes one more socket of the QUIC listener. A phone connecting through it opens a new session; one whose session began on the LAN arrives on the connection it already has.
     func listenOverQuic(_ relaySession: RelaySession) {
         queue.async { [weak self] in
-            guard let self, isListening else { return }
+            guard let self, isListening, let listener = quicListener else { return }
+            guard let relayAddress = QuicAddress.resolve(host: relaySession.videoHost, port: relaySession.videoPort) else {
+                emit(.failed("The relay's address could not be resolved"))
+                return
+            }
             do {
-                let configuration = try QuicConfiguration(identity: identity)
-                guard let relayAddress = QuicAddress.resolve(host: relaySession.videoHost, port: relaySession.videoPort) else {
-                    emit(.failed("The relay's address could not be resolved"))
-                    return
-                }
-                let link = try QuicFrameLink.listen(
-                    port: 0,
-                    relay: QuicEndpoint.RelayRoute(address: relayAddress, token: relaySession.videoToken),
-                    configuration: configuration,
-                    label: "pl.dmq.peering.host.quic"
-                )
-                awaitHandshake(of: link, relay: (relaySession, relayAddress))
-                queue.asyncAfter(deadline: .now() + Self.quicArrivalWindow) { [link] in
-                    guard !link.isEstablished else { return }
-                    link.onEstablished = nil
-                    link.close(reason: "no phone arrived")
-                }
+                try listener.attachRelay(QuicEndpoint.RelayRoute(address: relayAddress, token: relaySession.videoToken))
             } catch {
                 Analytics.failed(error, in: .network)
                 emit(.failed("Could not wait for the phone over QUIC: \(error.localizedDescription)"))
@@ -37,16 +22,23 @@ extension HostServer {
         }
     }
 
-    /// Held by its own callback until the handshake finishes or the link closes; nothing else owns a link that has no session yet.
-    /// `relay` is nil for a phone on the LAN.
-    func awaitHandshake(of link: QuicFrameLink, relay: (session: RelaySession, address: QuicAddress)?) {
+    /// Held by its own callback until the handshake finishes or the link closes; nothing else owns a link that has no session yet. `relay` is nil for a phone on the LAN.
+    func awaitHandshake(of link: QuicFrameLink, relay: QuicEndpoint.RelayRoute?) {
         link.onEstablished = { [weak self, link] in
             link.onEstablished = nil
             self?.queue.async { self?.acceptQuic(link, relay: relay) }
         }
     }
 
-    private func acceptQuic(_ link: QuicFrameLink, relay: (session: RelaySession, address: QuicAddress)?) {
+    /// A session that began on the LAN came through a relay port: from now on the Mac knocks and keeps the route, as for one that began there.
+    func adoptRelay(_ route: QuicEndpoint.RelayRoute, for link: QuicFrameLink) {
+        queue.async { [weak self] in
+            guard let self, let peer = quicPeers[ObjectIdentifier(link)]?.peer else { return }
+            peer.run(directPath(for: link, route: route))
+        }
+    }
+
+    private func acceptQuic(_ link: QuicFrameLink, relay: QuicEndpoint.RelayRoute?) {
         let relayed = relay != nil
         let address = relayed ? "relay-quic-\(UUID().uuidString.prefix(8))" : (link.peerAddress?.hostText ?? "lan-quic")
         guard admitBeforeAuthentication(address: address) else {
@@ -55,26 +47,39 @@ extension HostServer {
         }
         quicLog.notice("a phone arrived over QUIC \(relayed ? "through the relay" : "on the LAN", privacy: .public)")
         let peer = PeerConnection(quic: link, queue: queue)
-        if relay != nil, let port = link.localPort {
-            // A phone on this Mac's own network reaches it here; the relay's view of this Mac is the router's public address, which a phone behind the same router usually cannot loop back to.
-            let addresses = privateIPv4Addresses().map { "\($0):\(port)" }
-            if !addresses.isEmpty, let payload = try? MessageCodec.encode(DirectCandidates(addresses: addresses)) {
-                link.send(Frame(kind: .directCandidates, payload: payload))
-            }
-        }
-        if let relay {
-            // The Mac knocks so its NAT lets the phone's probes in, and follows the phone onto a direct path once one validates.
-            peer.directPath = QuicDirectPath(link: link, relay: relay.address, role: .listener, videoToken: relay.session.videoToken) { change in
-                switch change {
-                case .onPath(let path):
-                    quicLog.notice("the session moved to the \(String(describing: path), privacy: .public) path")
-                case .report(let outcome):
-                    quicLog.notice("direct path: \(outcome.summary, privacy: .public)")
-                case .verdictDue:
-                    quicLog.notice("direct path: no answer within \(Int(ClientSession.DirectPath.verdictAfter), privacy: .public) seconds")
-                }
-            }
-        }
+        quicPeers = quicPeers.filter { $0.value.peer != nil }
+        quicPeers[ObjectIdentifier(link)] = WeakPeer(peer: peer)
+        announceLANAddresses(on: link)
+        if let relay { peer.directPath = directPath(for: link, route: relay) }
         start(peer, address: address, tunnel: nil, relayed: relayed)
     }
+
+    /// Where a phone on this Mac's network reaches it: the way back to the LAN for a session on the relay, whose view of this Mac is the router's public address, which a phone behind the same router usually cannot loop back to.
+    private func announceLANAddresses(on link: QuicFrameLink) {
+        guard let port = quicListener?.localPort else { return }
+        let addresses = privateIPv4Addresses().map { "\($0):\(port)" }
+        guard !addresses.isEmpty, let payload = try? MessageCodec.encode(DirectCandidates(addresses: addresses)) else { return }
+        link.send(Frame(kind: .directCandidates, payload: payload))
+    }
+
+    /// The Mac knocks so its NAT lets the phone's probes in, and follows the phone onto whichever path validates.
+    private func directPath(for link: QuicFrameLink, route: QuicEndpoint.RelayRoute) -> QuicDirectPath {
+        QuicDirectPath(link: link, relay: route.address, role: .listener, videoToken: route.token) { change in
+            switch change {
+            case .onPath(let path):
+                quicLog.notice("the session moved to the \(String(describing: path), privacy: .public) path")
+            case .report(let outcome):
+                quicLog.notice("direct path: \(outcome.summary, privacy: .public)")
+            case .verdictDue:
+                quicLog.notice("direct path: no answer within \(Int(ClientSession.DirectPath.verdictAfter), privacy: .public) seconds")
+            case .renewRelay:
+                break
+            }
+        }
+    }
+}
+
+/// A QUIC session's connection, held weakly so the table of them never keeps a finished one alive.
+struct WeakPeer {
+    weak var peer: PeerConnection?
 }

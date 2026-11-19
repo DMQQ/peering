@@ -14,6 +14,17 @@ public final class QuicFrameLink: @unchecked Sendable {
         let flush: @Sendable () -> Void
         /// Stops carrying this link's packets; runs on `queue`.
         let cancel: @Sendable () -> Void
+        /// The socket-side half of ``PathContext``; runs on `queue`. Nil when the carrier cannot move paths.
+        var paths: (@Sendable () -> PathSockets?)?
+    }
+
+    /// What a path mover needs from the socket under a link, on the carrier's queue.
+    struct PathSockets {
+        let local: QuicAddress
+        let relay: QuicAddress?
+        let silence: Duration?
+        let knock: (QuicAddress) -> Void
+        let refreshRelayBinding: () -> Void
     }
 
     private let carrier: Carrier
@@ -81,7 +92,21 @@ public final class QuicFrameLink: @unchecked Sendable {
     private init(endpoint: QuicEndpoint) {
         self.endpoint = endpoint
         peerAddress = nil
-        carrier = Carrier(queue: endpoint.queue, flush: { [weak endpoint] in endpoint?.flush() }, cancel: { [weak endpoint] in endpoint?.cancel() })
+        carrier = Carrier(
+            queue: endpoint.queue,
+            flush: { [weak endpoint] in endpoint?.flush() },
+            cancel: { [weak endpoint] in endpoint?.cancel() },
+            paths: { [weak endpoint] in
+                guard let endpoint else { return nil }
+                return PathSockets(
+                    local: endpoint.localAddress,
+                    relay: endpoint.relayAddress,
+                    silence: endpoint.silence,
+                    knock: { endpoint.knock($0) },
+                    refreshRelayBinding: { endpoint.refreshRelayBinding() }
+                )
+            }
+        )
         endpoint.onActivity = { [weak self] connection in self?.activity(on: connection) }
         endpoint.onFlushed = { [weak self] in self?.afterFlush() }
         endpoint.onClosed = { [weak self] _ in self?.closed() }
@@ -153,27 +178,31 @@ public final class QuicFrameLink: @unchecked Sendable {
 
     // MARK: - Paths
 
-    /// What path work sees on the carrier's queue, for a link with a socket of its own.
+    /// What path work sees on the carrier's queue.
     public struct PathContext {
         public let connection: QuicConnection
         public let local: QuicAddress
         public let relay: QuicAddress?
         /// Since any packet last arrived.
         public let silence: Duration?
-        let endpoint: QuicEndpoint
+        let sockets: PathSockets
 
-        public func knock(_ address: QuicAddress) { endpoint.knock(address) }
-        public func refreshRelayBinding() { endpoint.refreshRelayBinding() }
+        public func knock(_ address: QuicAddress) { sockets.knock(address) }
+        public func refreshRelayBinding() { sockets.refreshRelayBinding() }
     }
 
-    /// Runs `work` on the carrier's queue, then sends what it queued. `work` gets nil for a link sharing a listener's socket, or before the connection exists.
+    /// Runs `work` on the carrier's queue, then sends what it queued. `work` gets nil before the connection exists, or when the carrier cannot move paths.
     public func onPath(_ work: @escaping @Sendable (PathContext?) -> Void) {
-        guard let endpoint else { return work(nil) }
-        endpoint.queue.async { [weak self] in
-            guard let self, let connection = lock.withLock({ session })?.connection else { return work(nil) }
-            work(PathContext(connection: connection, local: endpoint.localAddress, relay: endpoint.relayAddress, silence: endpoint.silence, endpoint: endpoint))
-            endpoint.flush()
+        carrier.queue.async { [weak self] in
+            guard let self, let connection = lock.withLock({ session })?.connection, let sockets = carrier.paths?() else { return work(nil) }
+            work(PathContext(connection: connection, local: sockets.local, relay: sockets.relay, silence: sockets.silence, sockets: sockets))
+            carrier.flush()
         }
+    }
+
+    /// Sends this end's packets for `route`'s address through the relay from now on, the relay told where this end is by a bare-token bind. For a phone whose session started on the LAN and is about to move there.
+    public func useRelay(_ route: QuicEndpoint.RelayRoute) {
+        endpoint?.useRelay(route)
     }
 
     // MARK: - On the carrier's queue

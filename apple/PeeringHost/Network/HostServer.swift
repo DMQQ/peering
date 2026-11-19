@@ -18,7 +18,9 @@ final class HostServer: @unchecked Sendable {
 
     private var listener: NWListener?
     /// The LAN's QUIC sessions, on UDP at the same port number as `listener`.
-    private var quicListener: QuicListener?
+    var quicListener: QuicListener?
+    /// QUIC sessions by their link, for a relay port that a LAN session later arrives through. Touched only on `queue`.
+    var quicPeers: [ObjectIdentifier: WeakPeer] = [:]
 
     /// Ends sessions whose client has stopped answering, so a dead connection cannot outlive it.
     private var reaper: DispatchSourceTimer?
@@ -139,11 +141,15 @@ final class HostServer: @unchecked Sendable {
         startReaper()
     }
 
-    /// LAN sessions arrive over QUIC on UDP at the TCP port's number, which Bonjour already advertises. A Mac that cannot bind it still serves relayed sessions.
+    /// Every session arrives over QUIC here: on the LAN at UDP on the TCP port's number, which Bonjour already advertises, and from the relay through the ports ``listenOverQuic(_:)`` attaches.
     private func startQuicListener() {
         do {
-            let quic = try QuicListener(port: port, configuration: QuicConfiguration(identity: identity), label: "pl.dmq.peering.host.quic.lan")
-            quic.onLink = { [weak self] link in self?.awaitHandshake(of: link, relay: nil) }
+            let configuration = try QuicConfiguration(identity: identity)
+            // Relayed sessions arrive through this listener too, so a taken LAN port must not cost them: any free port still serves the relay.
+            let quic = try (try? QuicListener(port: port, configuration: configuration, label: "pl.dmq.peering.host.quic"))
+                ?? QuicListener(port: 0, configuration: configuration, label: "pl.dmq.peering.host.quic")
+            quic.onLink = { [weak self] link, relay in self?.awaitHandshake(of: link, relay: relay) }
+            quic.onRelayAdopted = { [weak self] link, relay in self?.adoptRelay(relay, for: link) }
             quicListener = quic
         } catch {
             Analytics.failed(error, in: .network, context: ["operation": "start the QUIC listener"])
