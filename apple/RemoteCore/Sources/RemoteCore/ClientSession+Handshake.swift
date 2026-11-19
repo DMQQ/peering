@@ -7,6 +7,10 @@ import os
 
 extension ClientSession {
     func handle(_ frame: Frame) {
+        if frame.kind == .directCandidates {
+            handleDirectCandidates(frame)
+            return
+        }
         lock.lock()
         let current = state
         lock.unlock()

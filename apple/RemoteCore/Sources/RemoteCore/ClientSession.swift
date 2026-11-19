@@ -108,6 +108,8 @@ public final class ClientSession: @unchecked Sendable {
     var wantsVideoDatagrams = false
     var videoDatagrams: VideoDatagramSocket?
     var directPathTask: Task<Void, Never>?
+    /// The QUIC session's path mover, for the Mac's address announcements; ended with ``directPathTask``.
+    var quicDirectPath: QuicDirectPath?
     /// Bumped by ``restartDirectPath()``; the probe loop restarts its schedule when it sees a new value.
     var directPathRestarts = 0
     /// The last path reported to the owner. Seeded with `.relay` since every session starts there.

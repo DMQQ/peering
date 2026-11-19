@@ -59,6 +59,7 @@ extension SessionModel {
 
         // Cleared for every new session: a punched path belongs to the session that proved it, and a stale `true` would report a direct path not in use.
         session.usedDirectPath = false
+        session.movedToLAN = false
         switch target {
         case .discovered(let host):
             session.connectionPath = .lan

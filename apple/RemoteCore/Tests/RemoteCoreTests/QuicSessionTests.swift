@@ -139,6 +139,20 @@ extension ClientPairingTests {
             }
         }
 
+        @Test("a pong is not held behind a queue of pictures waiting for the congestion window")
+        func aPongIsNotHeldBehindPictures() async throws {
+            try await withNetwork { network, _, _ in
+                let picture = Frame(kind: .videoFrame, payload: Data(repeating: 0x55, count: 200_000))
+                for _ in 0..<20 { network.mac?.send(picture) }
+                let pong = Frame(kind: .pong, payload: Data("1".utf8))
+                network.mac?.send(pong)
+                try network.run(until: { network.arrived.phone.contains(pong) })
+                let picturesFirst = network.arrived.phone.filter { $0.kind == .videoFrame }.count
+                #expect(network.arrived.phone.contains(pong))
+                #expect(picturesFirst < 3, "the pong arrived after \(picturesFirst) of 20 pictures")
+            }
+        }
+
         @Test("every frame still arrives in order when one packet in seven is lost")
         func lossIsRepaired() async throws {
             try await withNetwork { network, _, _ in

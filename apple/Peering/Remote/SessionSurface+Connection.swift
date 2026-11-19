@@ -41,6 +41,6 @@ extension SessionSurface {
     private var connectionPathTitle: String {
         let connection = model.connectionPath?.rawValue ?? "None"
         guard model.usedDirectPath, model.connectionPath == .relay else { return connection }
-        return "\(connection)·P2P"
+        return model.movedToLAN ? ConnectionPath.lan.rawValue : "\(connection)·P2P"
     }
 }

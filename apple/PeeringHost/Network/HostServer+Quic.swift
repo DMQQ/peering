@@ -55,12 +55,19 @@ extension HostServer {
         }
         quicLog.notice("a phone arrived over QUIC \(relayed ? "through the relay" : "on the LAN", privacy: .public)")
         let peer = PeerConnection(quic: link, queue: queue)
+        if relay != nil, let port = link.localPort {
+            // A phone on this Mac's own network reaches it here; the relay's view of this Mac is the router's public address, which a phone behind the same router usually cannot loop back to.
+            let addresses = privateIPv4Addresses().map { "\($0):\(port)" }
+            if !addresses.isEmpty, let payload = try? MessageCodec.encode(DirectCandidates(addresses: addresses)) {
+                link.send(Frame(kind: .directCandidates, payload: payload))
+            }
+        }
         if let relay {
             // The Mac knocks so its NAT lets the phone's probes in, and follows the phone onto a direct path once one validates.
             peer.directPath = QuicDirectPath(link: link, relay: relay.address, role: .listener, videoToken: relay.session.videoToken) { change in
                 switch change {
-                case .onDirect(let direct):
-                    quicLog.notice("the session moved \(direct ? "straight to the phone" : "back to the relay", privacy: .public)")
+                case .onPath(let path):
+                    quicLog.notice("the session moved to the \(String(describing: path), privacy: .public) path")
                 case .report(let outcome):
                     quicLog.notice("direct path: \(outcome.summary, privacy: .public)")
                 case .verdictDue:

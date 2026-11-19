@@ -82,6 +82,8 @@ extension ClientSession {
     public enum DatagramPath: Sendable, Equatable {
         case relay
         case direct
+        /// Straight to the Mac on the network both share, reached by moving the connection rather than starting a new one.
+        case lan
     }
 
     /// What the attempt at a path straight to the Mac has come to. Failures are reported, since a NAT dropping packets and a failed lookup need different fixes.

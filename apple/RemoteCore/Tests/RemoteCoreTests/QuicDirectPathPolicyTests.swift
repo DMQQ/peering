@@ -15,7 +15,7 @@ struct QuicDirectPathPolicyTests {
         #expect(policy.peerAddressAnswered(peer) == [.report(.probing(peer: "203.0.113.7:50000"))])
         #expect(policy.tick(now: start, silence: nil) == [.knock(peer), .probe(peer)])
         let moved = policy.handle(.validated(local: relay, peer: peer))
-        #expect(moved == [.migrate(to: peer), .report(.open(peer: "203.0.113.7:50000")), .onDirect(true)])
+        #expect(moved == [.migrate(to: peer), .report(.open(peer: "203.0.113.7:50000")), .onPath(.direct)])
         #expect(policy.direct == peer)
     }
 
@@ -32,7 +32,7 @@ struct QuicDirectPathPolicyTests {
         _ = policy.handle(.validated(local: relay, peer: peer))
         #expect(policy.tick(now: start, silence: .milliseconds(500)).isEmpty)
         let actions = policy.tick(now: start, silence: .seconds(3))
-        #expect(actions.starts(with: [.migrate(to: relay), .onDirect(false)]))
+        #expect(actions.starts(with: [.migrate(to: relay), .onPath(.relay)]))
         #expect(policy.direct == nil)
     }
 
@@ -41,7 +41,7 @@ struct QuicDirectPathPolicyTests {
         var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
         _ = policy.peerAddressAnswered(peer)
         _ = policy.handle(.validated(local: relay, peer: peer))
-        #expect(policy.networkChanged(now: start) == [.migrate(to: relay), .onDirect(false), .report(.notTried)])
+        #expect(policy.networkChanged(now: start) == [.migrate(to: relay), .onPath(.relay), .report(.notTried)])
         #expect(policy.tick(now: start, silence: nil) == [.askRelay])
     }
 
@@ -50,8 +50,8 @@ struct QuicDirectPathPolicyTests {
         var policy = QuicDirectPathPolicy(role: .listener, relay: relay, now: start)
         _ = policy.peerAddressAnswered(peer)
         #expect(policy.tick(now: start, silence: nil) == [.askRelay, .knock(peer)])
-        #expect(policy.handle(.peerMigrated(local: relay, peer: peer)) == [.report(.open(peer: "203.0.113.7:50000")), .onDirect(true)])
-        #expect(policy.handle(.peerMigrated(local: relay, peer: relay)) == [.onDirect(false)])
+        #expect(policy.handle(.peerMigrated(local: relay, peer: peer)) == [.report(.open(peer: "203.0.113.7:50000")), .onPath(.direct)])
+        #expect(policy.handle(.peerMigrated(local: relay, peer: relay)) == [.onPath(.relay)])
     }
 
     @Test("the relay route is refreshed while the session runs direct, so there is somewhere to fall back to")
@@ -67,5 +67,34 @@ struct QuicDirectPathPolicyTests {
         let late = start + .seconds(9)
         #expect(policy.tick(now: late, silence: nil).contains(.verdictDue))
         #expect(!policy.tick(now: late, silence: nil).contains(.verdictDue))
+    }
+
+    private let lan = QuicAddress(host: "192.168.1.20", port: 50_001)!
+
+    @Test("on the Mac's own network the phone probes the Mac's LAN address too, and a working one is a LAN path")
+    func theLANAddressIsProbed() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        policy.announcedAddresses([lan])
+        _ = policy.peerAddressAnswered(peer)
+        #expect(policy.tick(now: start, silence: nil) == [.askRelay, .knock(peer), .probe(lan), .probe(peer)])
+        #expect(policy.handle(.validated(local: relay, peer: lan)) == [.migrate(to: lan), .report(.open(peer: "192.168.1.20:50001")), .onPath(.lan)])
+    }
+
+    @Test("a session on a public direct path moves to the LAN when that validates, and not the other way")
+    func theLANBeatsAPublicPath() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        policy.announcedAddresses([lan])
+        _ = policy.handle(.validated(local: relay, peer: peer))
+        #expect(policy.tick(now: start, silence: .zero) == [.probe(lan)])
+        #expect(policy.handle(.validated(local: relay, peer: lan)).first == .migrate(to: lan))
+        #expect(policy.handle(.validated(local: relay, peer: peer)).isEmpty)
+        #expect(policy.tick(now: start, silence: .zero).isEmpty)
+    }
+
+    @Test("an announced address that is public is not taken for the LAN")
+    func onlyPrivateAddressesAreAnnouncedLAN() {
+        var policy = QuicDirectPathPolicy(role: .dialer, relay: relay, now: start)
+        policy.announcedAddresses([peer])
+        #expect(policy.tick(now: start, silence: nil) == [.askRelay])
     }
 }

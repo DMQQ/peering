@@ -7,7 +7,7 @@ public final class QuicDirectPath: @unchecked Sendable {
     public enum Change: Sendable, Equatable {
         case report(ClientSession.DirectPath)
         case verdictDue
-        case onDirect(Bool)
+        case onPath(ClientSession.DatagramPath)
     }
 
     private let link: QuicFrameLink
@@ -34,6 +34,12 @@ public final class QuicDirectPath: @unchecked Sendable {
     }
 
     public var isDirect: Bool { lock.withLock { policy.direct != nil } }
+
+    /// The Mac's announcement of where it can be reached besides the relay.
+    public func announced(_ candidates: DirectCandidates) {
+        let addresses = candidates.addresses.compactMap(DirectCandidates.parse).compactMap { QuicAddress(host: $0.host, port: $0.port) }
+        lock.withLock { policy.announcedAddresses(addresses) }
+    }
 
     /// Until the task is cancelled.
     public func run() async {
@@ -102,7 +108,7 @@ public final class QuicDirectPath: @unchecked Sendable {
             case .refreshRelayBinding: context?.refreshRelayBinding()
             case .report(let outcome): onChange(.report(outcome))
             case .verdictDue: onChange(.verdictDue)
-            case .onDirect(let direct): onChange(.onDirect(direct))
+            case .onPath(let path): onChange(.onPath(path))
             }
         }
         return asksRelay

@@ -16,6 +16,7 @@ extension ClientSession {
         )
         let task = Task { await mover.run() }
         let previous = lock.withLock { () -> Task<Void, Never>? in
+            quicDirectPath = mover
             defer { directPathTask = task }
             return directPathTask
         }
@@ -28,8 +29,7 @@ extension ClientSession {
             reportDirectPath(outcome)
         case .verdictDue:
             reportDirectPath(lock.withLock { reportedDirectPath }.verdict())
-        case .onDirect(let direct):
-            let path: DatagramPath = direct ? .direct : .relay
+        case .onPath(let path):
             let changed = lock.withLock { () -> Bool in
                 guard reportedPath != path else { return false }
                 reportedPath = path
@@ -37,7 +37,17 @@ extension ClientSession {
             }
             guard changed else { return }
             emit(.path(path))
-            emit(.note(direct ? "The connection moved straight to the Mac." : "The connection moved back to the relay."))
+            switch path {
+            case .relay: emit(.note("The connection moved back to the relay."))
+            case .direct: emit(.note("The connection moved straight to the Mac."))
+            case .lan: emit(.note("The connection moved to the Mac on this network."))
+            }
         }
+    }
+
+    /// Where the Mac says it can be reached on its own network: handled in any state, since it may arrive before the handshake is done.
+    func handleDirectCandidates(_ frame: Frame) {
+        guard let candidates = try? MessageCodec.decode(DirectCandidates.self, from: frame.payload) else { return }
+        lock.withLock { quicDirectPath }?.announced(candidates)
     }
 }

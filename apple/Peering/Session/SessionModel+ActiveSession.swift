@@ -125,6 +125,8 @@ extension SessionModel {
         set { activeSession?.connectionPath = newValue }
     }
 
+    var movedToLAN: Bool { activeSession?.movedToLAN ?? false }
+
     var usedDirectPath: Bool {
         get { activeSession?.usedDirectPath ?? false }
         set { activeSession?.usedDirectPath = newValue }

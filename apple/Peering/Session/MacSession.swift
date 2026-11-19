@@ -49,6 +49,8 @@ final class MacSession: Identifiable {
     /// Resolved per Mac: the bitrate on the wire depends on this session's path and plan.
     var connectionPath: ConnectionPath?
     var usedDirectPath = false
+    /// A relayed QUIC session that moved onto the Mac's own network without starting over.
+    var movedToLAN = false
     var directPathStatus: ClientSession.DirectPath = .notTried
     var recordedDirectPathResult = false
 

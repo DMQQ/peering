@@ -1,4 +1,5 @@
 import Foundation
+import RemoteCore
 
 /// This Mac's own IPv4 address on the local network, for the person who has to type it into the
 /// iPhone by hand because discovery did not find this Mac. `en0` first, since that is Wi-Fi on
@@ -25,4 +26,25 @@ func localIPv4Address() -> String? {
         if fallback == nil { fallback = ip }
     }
     return fallback
+}
+
+/// Every private IPv4 address this Mac has on an interface that is up: where a phone on the same network can reach it without the relay.
+func privateIPv4Addresses() -> [String] {
+    var ifaddrPointer: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&ifaddrPointer) == 0, let firstAddr = ifaddrPointer else { return [] }
+    defer { freeifaddrs(ifaddrPointer) }
+    var found: [String] = []
+    for cursor in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+        let flags = Int32(cursor.pointee.ifa_flags)
+        guard flags & IFF_UP == IFF_UP, flags & IFF_LOOPBACK == 0,
+              let socketAddress = cursor.pointee.ifa_addr,
+              socketAddress.pointee.sa_family == UInt8(AF_INET) else { continue }
+        var address = sockaddr_in()
+        memcpy(&address, socketAddress, MemoryLayout<sockaddr_in>.size)
+        var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+        guard inet_ntop(AF_INET, &address.sin_addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else { continue }
+        let ip = String(decoding: buffer.prefix { $0 != 0 }.map(UInt8.init(bitPattern:)), as: UTF8.self)
+        if !DirectCandidates.isPubliclyRoutable(ipv4: ip), !found.contains(ip) { found.append(ip) }
+    }
+    return found
 }
