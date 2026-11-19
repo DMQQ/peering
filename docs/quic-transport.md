@@ -1,12 +1,12 @@
 # One QUIC connection on every path
 
-Status (2026-11-19, branch `quic`): stages 1 to 3 done; stage 4 has LAN over UDP and a relayed
-session moving onto a direct path and back on the same connection (`QuicDirectPathPolicy`, tested
-over real sockets). Still to do in stage 4: moving a LAN session onto the relay without a new
-session, and the TCP fallback. Earlier note: The spike passed on a phone (LAN: 94 ms
-handshake, 12 ms stream round trip, 225 Mbit/s of datagrams at 99.7 %); relayed sessions run over
-one QUIC connection and were tried on a device (picture, pointer, sound). Pending: the relay change
-for liveness and metering of UDP-only sessions, then stage 4. Replaces `docs/lane-streams.md`.
+Status (2026-11-19, branch `quic`): stages 1 to 4 done except the TCP fallback, and tried on a
+device. Every session is one QUIC connection on the Mac's single listener; relay allocations join
+it as extra sockets. A session moves between LAN, P2P and the relay on that connection (ranked
+LAN > P2P > relay, `QuicDirectPathPolicy`), including a LAN session carried onto the relay when the
+phone leaves the network. Open: the TCP fallback, stage 6 deletions, the relay deploy (until then
+the live relay sweeps relayed QUIC sessions at five minutes and does not meter them), an
+unexplained 2.5 s ping seen once on 5G, and a crash on connect with no report yet.
 
 ## Why
 
