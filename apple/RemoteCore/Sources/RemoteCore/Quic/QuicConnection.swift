@@ -4,10 +4,10 @@ import Security
 
 /// One QUIC connection, without I/O: packets go in through ``receive(_:from:to:)`` and come out of ``outgoing()``; whoever owns the socket moves them.
 ///
-/// `@unchecked Sendable`: every call into quiche happens under `lock`.
+/// `@unchecked Sendable`: every call into quiche happens under `lock`, including in the extensions that see it.
 public final class QuicConnection: @unchecked Sendable {
-    private let lock = NSLock()
-    private let connection: OpaquePointer
+    let lock = NSLock()
+    let connection: OpaquePointer
     /// Kept alive for as long as the connection, which reads it.
     private let configuration: QuicConfiguration
 
@@ -158,8 +158,10 @@ public final class QuicConnection: @unchecked Sendable {
         }
     }
 
-    public func setPriority(ofStream stream: UInt64, urgency: UInt8, incremental: Bool) {
-        lock.withLock { _ = quiche_conn_stream_priority(connection, stream, urgency, incremental) }
+    /// False until the stream exists, which is after its first write.
+    @discardableResult
+    public func setPriority(ofStream stream: UInt64, urgency: UInt8, incremental: Bool) -> Bool {
+        lock.withLock { quiche_conn_stream_priority(connection, stream, urgency, incremental) == 0 }
     }
 
     /// Everything readable now, by stream.

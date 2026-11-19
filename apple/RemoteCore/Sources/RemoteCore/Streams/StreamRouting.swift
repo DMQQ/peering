@@ -20,6 +20,11 @@ public enum StreamRouting {
         }
     }
 
+    /// Whether a terminal frame is file work (listings, transfers, file operations) rather than a terminal's own traffic.
+    static func isFileWork(_ payload: Data) -> Bool {
+        fileCases.contains(firstKey(of: payload) ?? "")
+    }
+
     /// The Codable enums for terminal traffic encode as `{"caseName":{...}}`, so the case is the first key. Read from the bytes: decoding a sixteen kilobyte transfer chunk to learn which stream it goes on would cost more than sending it.
     static func firstKey(of payload: Data) -> String? {
         let bytes = [UInt8](payload.prefix(48))

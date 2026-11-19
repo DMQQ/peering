@@ -51,6 +51,9 @@ public final class QuicConfiguration: @unchecked Sendable {
         quiche_config_set_initial_max_stream_data_bidi_local(pointer, 4 * 1024 * 1024)
         quiche_config_set_initial_max_stream_data_bidi_remote(pointer, 4 * 1024 * 1024)
         quiche_config_set_initial_max_streams_bidi(pointer, 64)
+        // Sessions use one unidirectional stream per class each way (``QuicStreamClass``); left at quiche's default of none, every stream frame is refused silently.
+        quiche_config_set_initial_max_stream_data_uni(pointer, 4 * 1024 * 1024)
+        quiche_config_set_initial_max_streams_uni(pointer, 16)
         quiche_config_set_active_connection_id_limit(pointer, 4)
         quiche_config_enable_dgram(pointer, true, 4096, 4096)
         quiche_config_set_cc_algorithm(pointer, QUICHE_CC_BBR2)
