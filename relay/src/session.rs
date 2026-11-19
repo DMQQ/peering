@@ -28,8 +28,11 @@ use rand::Rng;
 use tokio::net::TcpStream;
 use tokio::sync::{oneshot, Mutex};
 
+use tracing::info;
+
 use crate::limits::Permit;
-use crate::quota::Account;
+use crate::quota::{Account, Meter};
+use crate::redact::tag;
 
 /// A 128-bit addressing hint. See the module comment for what it is and is not.
 pub type Token = [u8; 16];
@@ -130,6 +133,18 @@ struct Route {
     /// When this end's first forwarded payload arrived, for the time-to-first-picture a session
     /// line reports.
     first_forwarded: Option<Instant>,
+    /// When any datagram first arrived from this end.
+    first_heard: Option<Instant>,
+}
+
+/// When a session's two ends have been heard over UDP, for liveness and for metering a session
+/// that has no control splice.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Heard {
+    /// The latest datagram from either end.
+    pub last: Option<Instant>,
+    /// The moment both ends had been heard, which is when a UDP-only session's meter starts.
+    pub both_since: Option<Instant>,
 }
 
 /// What crossed the video socket for one session, read when the session ends. A relayed session
@@ -230,6 +245,7 @@ impl VideoRoutes {
                     datagrams: 0,
                     bytes: 0,
                     first_forwarded: None,
+                    first_heard: None,
                 },
             );
         }
@@ -309,6 +325,7 @@ impl VideoRoutes {
         if let Some(route) = inner.routes.get_mut(token) {
             route.addr = Some(from);
             route.last_active = Some(now);
+            route.first_heard.get_or_insert(now);
             if forwarded {
                 route.datagrams += 1;
                 route.bytes += payload_len as u64;
@@ -407,6 +424,19 @@ impl VideoRoutes {
         expired.len()
     }
 
+    /// When a session's ends were heard. Default when its routes are gone.
+    pub fn heard(&self, tokens: &[Token; 2]) -> Heard {
+        let inner = lock(&self.inner);
+        let [client, host] = tokens.map(|token| inner.routes.get(&token));
+        let ends = [client, host];
+        let last = ends.iter().flatten().filter_map(|route| route.last_active).max();
+        let both_since = match (client.and_then(|r| r.first_heard), host.and_then(|r| r.first_heard)) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            _ => None,
+        };
+        Heard { last, both_since }
+    }
+
     /// The number of live sessions. Two routes each, so half the table.
     pub fn len(&self) -> usize {
         lock(&self.inner).routes.len() / 2
@@ -456,6 +486,17 @@ fn fold(address: SocketAddr) -> SocketAddr {
     }
 }
 
+/// Ends a session's UDP meter at its last datagram and charges up to there, so neither removal nor
+/// a splice taking over bills the time after it.
+fn settle_datagrams(routes: &VideoRoutes, session: &mut Session) {
+    let Some(mut meter) = session.datagram_meter.take() else { return };
+    let last = session.last_datagram.max(routes.heard(&session.video_tokens).last);
+    if let Some(last) = last {
+        meter.stop_at(last);
+        meter.charge_through(last);
+    }
+}
+
 fn lock(inner: &StdMutex<Table>) -> MutexGuard<'_, Table> {
     inner.lock().unwrap_or_else(PoisonError::into_inner)
 }
@@ -483,6 +524,12 @@ struct Session {
     video_tokens: [Token; 2],
     control: ControlPairing,
     last_activity: Instant,
+    /// Charges a session carried only over UDP; `None` until both ends have been heard, and again
+    /// once a control splice pairs, which meters the session from then on.
+    datagram_meter: Option<Meter>,
+    /// The latest datagram seen by a meter tick, kept because the routes can be reaped before the
+    /// session is, and the final charge must stop at the last datagram rather than at removal.
+    last_datagram: Option<Instant>,
     /// The allocating address's slot for a session nobody has joined; given back when both control
     /// ends arrive or the session goes.
     unspliced: Option<Permit>,
@@ -589,14 +636,14 @@ impl Registry {
 
         // Superseded sessions are collected rather than merely dropped: their video routes have to
         // leave the table with them, and there is no `Drop` on a route that would do it.
-        let mut retired: Vec<[Token; 2]> = Vec::new();
-        inner.sessions.retain(|_, session| {
-            let superseded = session.host_id == host_id && session.client_id == client_id;
-            if superseded {
-                retired.push(session.video_tokens);
-            }
-            !superseded
-        });
+        let superseded: Vec<Token> = inner
+            .sessions
+            .iter()
+            .filter(|(_, session)| session.host_id == host_id && session.client_id == client_id)
+            .map(|(token, _)| *token)
+            .collect();
+        let retired: Vec<Session> =
+            superseded.iter().filter_map(|token| inner.sessions.remove(token)).collect();
 
         // **After the retain, not before it.** A phone reconnecting to a Mac it already has a
         // session with is not asking for a new one, and refusing it because the relay happens to be
@@ -614,6 +661,8 @@ impl Registry {
                 video_tokens,
                 control: ControlPairing::default(),
                 last_activity: Instant::now(),
+                datagram_meter: None,
+                last_datagram: None,
                 unspliced,
             },
         );
@@ -623,8 +672,8 @@ impl Registry {
         // which two allocations for one pair could have the loser open routes the winner had
         // already closed, and a route nothing will ever retire is exactly the leak this is for.
         self.routes.open(&video_tokens);
-        for tokens in &retired {
-            self.routes.close(tokens);
+        for session in retired {
+            self.retire(session);
         }
 
         Some(Allocated {
@@ -655,6 +704,7 @@ impl Registry {
         Some(match waiting {
             Some(peer) => {
                 session.control.paired = true;
+                settle_datagrams(&self.routes, session);
                 session.unspliced = None;
                 let _ = peer.send(mine);
                 Join::HandedOver
@@ -675,8 +725,53 @@ impl Registry {
     /// socket closing behind it to make that harmless.
     pub async fn release(&self, token: &Token) -> Option<VideoUsage> {
         let mut inner = self.inner.lock().await;
-        let retired = inner.sessions.remove(token).map(|session| session.video_tokens)?;
-        Some(self.routes.close(&retired))
+        let session = inner.sessions.remove(token)?;
+        Some(self.retire(session))
+    }
+
+    /// Takes a session's routes out of the table, settling its UDP meter first.
+    fn retire(&self, mut session: Session) -> VideoUsage {
+        settle_datagrams(&self.routes, &mut session);
+        self.routes.close(&session.video_tokens)
+    }
+
+    /// Charges every session that has no running splice for the UDP datagrams it carried, and ends
+    /// any whose plan has spent its allowance by closing its routes. Returns how many were ended.
+    ///
+    /// Called on the quota's charge period. The rules are the splice's: the clock starts when both
+    /// ends are present (here, both heard over UDP) and runs only up to the last datagram, so a
+    /// session that falls silent stops costing at its last datagram.
+    pub async fn meter_datagrams(&self) -> usize {
+        let mut inner = self.inner.lock().await;
+        let mut spent: Vec<Token> = Vec::new();
+        for (token, session) in inner.sessions.iter_mut() {
+            if session.control.paired {
+                continue;
+            }
+            let heard = self.routes.heard(&session.video_tokens);
+            session.last_datagram = session.last_datagram.max(heard.last);
+            let Some(last) = session.last_datagram else { continue };
+            let meter = match &mut session.datagram_meter {
+                Some(meter) => meter,
+                None => {
+                    let Some(started) = heard.both_since else { continue };
+                    session.datagram_meter.insert(session.account.clone().start_at(started))
+                }
+            };
+            if meter.charge_through(last) == Some(0) {
+                spent.push(*token);
+            }
+        }
+
+        for token in &spent {
+            let Some(session) = inner.sessions.remove(token) else { continue };
+            info!(
+                client_id = %tag(&session.client_id),
+                "session ended: the plan's relay allowance for this window is spent (UDP only)"
+            );
+            self.retire(session);
+        }
+        spent.len()
     }
 
     /// Says that a session's own splice is still running.
@@ -700,25 +795,31 @@ impl Registry {
         }
     }
 
-    /// Drops sessions with no activity for `ttl`, returning how many went.
+    /// Drops sessions with no activity for `ttl`, returning how many went. A datagram on either of
+    /// a session's routes is activity, so a session carried only over UDP lives as long as it talks.
     pub async fn sweep(&self, ttl: Duration) -> usize {
+        self.sweep_at(Instant::now(), ttl).await
+    }
+
+    async fn sweep_at(&self, now: Instant, ttl: Duration) -> usize {
         let mut inner = self.inner.lock().await;
+        let expired: Vec<Token> = inner
+            .sessions
+            .iter()
+            .filter(|(_, session)| {
+                let heard = self.routes.heard(&session.video_tokens).last;
+                let last = heard.map_or(session.last_activity, |at| at.max(session.last_activity));
+                now.saturating_duration_since(last) >= ttl
+            })
+            .map(|(token, _)| *token)
+            .collect();
 
-        let mut retired: Vec<[Token; 2]> = Vec::new();
-        let before = inner.sessions.len();
-        inner.sessions.retain(|_, session| {
-            let expired = session.last_activity.elapsed() >= ttl;
-            if expired {
-                retired.push(session.video_tokens);
+        for token in &expired {
+            if let Some(session) = inner.sessions.remove(token) {
+                self.retire(session);
             }
-            !expired
-        });
-
-        for tokens in &retired {
-            self.routes.close(tokens);
         }
-
-        before - inner.sessions.len()
+        expired.len()
     }
 
     pub async fn len(&self) -> usize {
@@ -1461,5 +1562,136 @@ mod tests {
         assert_eq!(registry.sweep(Duration::from_secs(300)).await, 0);
         assert_eq!(registry.sweep(Duration::ZERO).await, 1);
         assert!(registry.is_empty().await);
+    }
+
+    /// A free account on an allowance of `free_seconds`, with its tracker to read what was charged.
+    fn metered(free_seconds: u64) -> (Arc<QuotaTracker>, Account) {
+        let allowances = PlanAllowances { free_seconds: Some(free_seconds), relay_seconds: None };
+        let tracker = Arc::new(QuotaTracker::new(allowances, Default::default()));
+        let account = tracker.account("phone", None, Plan::Free);
+        (tracker, account)
+    }
+
+    fn charged(tracker: &QuotaTracker, allowance: u64) -> u64 {
+        allowance - tracker.remaining("phone", None, Plan::Free).expect("a free plan is bounded")
+    }
+
+    /// An instant far enough back that a test can place datagrams in the past: a meter never
+    /// charges beyond the real present.
+    fn an_hour_ago() -> Instant {
+        Instant::now() - Duration::from_secs(3600)
+    }
+
+    #[tokio::test]
+    async fn a_udp_only_session_with_recent_datagrams_survives_the_sweep() {
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
+        let [client, host] = allocated.video_tokens;
+        let ttl = Duration::from_secs(300);
+        let later = Instant::now() + Duration::from_secs(600);
+
+        registry.routes().route_at(&client, addr(1, 4000), 100, later);
+        registry.routes().route_at(&host, addr(2, 5000), 100, later + Duration::from_secs(250));
+
+        assert_eq!(registry.sweep_at(later + Duration::from_secs(400), ttl).await, 0);
+        assert_eq!(registry.len().await, 1);
+        assert_eq!(registry.routes().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_udp_only_session_silent_past_the_ttl_is_swept() {
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
+        let [client, host] = allocated.video_tokens;
+        let ttl = Duration::from_secs(300);
+        let later = Instant::now() + Duration::from_secs(600);
+
+        registry.routes().route_at(&client, addr(1, 4000), 100, later);
+        registry.routes().route_at(&host, addr(2, 5000), 100, later);
+
+        assert_eq!(registry.sweep_at(later + ttl, ttl).await, 1);
+        assert!(registry.is_empty().await);
+        assert!(registry.routes().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_udp_only_session_is_charged_while_datagrams_flow_and_not_while_silent() {
+        let (tracker, account) = metered(1800);
+        let registry = Registry::new(usize::MAX);
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
+        let [client, host] = allocated.video_tokens;
+        let routes = registry.routes();
+        let start = an_hour_ago();
+
+        routes.route_at(&client, addr(1, 4000), 100, start);
+        registry.meter_datagrams().await;
+        assert_eq!(charged(&tracker, 1800), 0, "one end alone is not a session yet");
+
+        routes.route_at(&host, addr(2, 5000), 100, start + Duration::from_secs(5));
+        routes.route_at(&client, addr(1, 4000), 100, start + Duration::from_secs(20));
+        registry.meter_datagrams().await;
+        assert_eq!(charged(&tracker, 1800), 15, "from both ends present to the last datagram");
+
+        routes.route_at(&host, addr(2, 5000), 100, start + Duration::from_secs(35));
+        registry.meter_datagrams().await;
+        assert_eq!(charged(&tracker, 1800), 30);
+
+        registry.meter_datagrams().await;
+        registry.meter_datagrams().await;
+        assert_eq!(charged(&tracker, 1800), 30, "silence costs nothing");
+
+        registry.release(&allocated.control_token).await;
+        assert_eq!(charged(&tracker, 1800), 30, "nor does the session ending later");
+    }
+
+    #[tokio::test]
+    async fn a_udp_only_session_whose_allowance_is_spent_loses_its_routes() {
+        let (tracker, account) = metered(60);
+        let registry = Registry::new(usize::MAX);
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
+        let [client, host] = allocated.video_tokens;
+        let routes = registry.routes();
+        let start = an_hour_ago();
+
+        routes.route_at(&client, addr(1, 4000), 100, start);
+        routes.route_at(&host, addr(2, 5000), 100, start + Duration::from_secs(30));
+        assert_eq!(registry.meter_datagrams().await, 0, "allowance left");
+
+        routes.route_at(&client, addr(1, 4000), 100, start + Duration::from_secs(90));
+        assert_eq!(registry.meter_datagrams().await, 1);
+        assert_eq!(charged(&tracker, 60), 60);
+        assert!(registry.is_empty().await);
+        assert_eq!(routes.route(&client, addr(1, 4000)), Routed::Dropped, "nothing forwards any more");
+    }
+
+    #[tokio::test]
+    async fn a_session_with_a_splice_is_not_charged_for_its_datagrams_as_well() {
+        let (tracker, account) = metered(1800);
+        let registry = Registry::new(usize::MAX);
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
+        let [client, host] = allocated.video_tokens;
+        let routes = registry.routes();
+        let start = an_hour_ago();
+
+        routes.route_at(&client, addr(1, 4000), 100, start);
+        routes.route_at(&host, addr(2, 5000), 100, start + Duration::from_secs(10));
+        registry.meter_datagrams().await;
+        assert_eq!(charged(&tracker, 1800), 1, "the run is floored at a second");
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let tcp = listener.local_addr().unwrap();
+        let token = allocated.control_token;
+        let first = registry.join_control(&token, TcpStream::connect(tcp).await.unwrap()).await;
+        assert!(matches!(first, Some(Join::Waiting { .. })));
+        routes.route_at(&host, addr(2, 5000), 100, start + Duration::from_secs(20));
+        let second = registry.join_control(&token, TcpStream::connect(tcp).await.unwrap()).await;
+        assert!(matches!(second, Some(Join::HandedOver)));
+        assert_eq!(charged(&tracker, 1800), 10, "settled at the last datagram when the splice took over");
+
+        routes.route_at(&client, addr(1, 4000), 100, start + Duration::from_secs(60));
+        registry.meter_datagrams().await;
+        assert_eq!(charged(&tracker, 1800), 10, "the splice's own meter charges from here");
     }
 }

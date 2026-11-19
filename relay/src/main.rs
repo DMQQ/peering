@@ -99,6 +99,20 @@ fn spawn_core_tasks(
     tasks.spawn("video", video_forwarder);
     tasks.spawn("stats", stats::report_forever());
 
+    // A session with no control splice is charged here instead of by one.
+    let meter_registry = Arc::clone(registry);
+    tasks.spawn("udp-meter", async move {
+        let period = peeringd::quota::CHARGE_PERIOD;
+        let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
+        loop {
+            ticker.tick().await;
+            let ended = meter_registry.meter_datagrams().await;
+            if ended > 0 {
+                info!(ended, "ended UDP-only sessions whose relay allowance is spent");
+            }
+        }
+    });
+
     // Abandoned sessions are normal residue, and sweeping is also what retires the video routes of
     // a session whose control connection died.
     let sweep_registry = Arc::clone(registry);

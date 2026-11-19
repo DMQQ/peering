@@ -454,9 +454,15 @@ impl Account {
     /// turn up; a meter that ran from allocation would charge for the waiting. What is being paid
     /// for is the splice.
     pub fn start(self) -> Meter {
+        self.start_at(Instant::now())
+    }
+
+    /// [`start`](Self::start) for a session whose two ends were both present from `started`, which
+    /// is how a session carried only over UDP is metered: its start is the later end's first datagram.
+    pub fn start_at(self, started: Instant) -> Meter {
         Meter {
             account: self,
-            started: Instant::now(),
+            started,
             recorded: 0,
             ceiling: None,
         }
