@@ -172,7 +172,10 @@ extension ClientPairingTests {
                 network.macAnswersFrom = network.directAddress
                 try network.run(until: { network.phone.connection.isPathValidated(local: local, peer: network.directAddress) })
                 #expect(network.phone.connection.isPathValidated(local: local, peer: network.directAddress))
+                let sentOnRelay = network.phone.connection.pathSample?.sentBytes ?? 0
                 #expect(network.phone.connection.migrate(local: local, peer: network.directAddress))
+                // The measurements follow the move: the relay path's figures would set the bitrate for the new one.
+                #expect((network.phone.connection.pathSample?.sentBytes ?? .max) < sentOnRelay)
 
                 let after = Frame(kind: .command, payload: Data("direct".utf8))
                 network.phone.send(after)

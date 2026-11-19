@@ -58,8 +58,13 @@ extension HostServer {
         if let relay {
             // The Mac knocks so its NAT lets the phone's probes in, and follows the phone onto a direct path once one validates.
             peer.directPath = QuicDirectPath(link: link, relay: relay.address, role: .listener, videoToken: relay.session.videoToken) { change in
-                if case .onDirect(let direct) = change {
+                switch change {
+                case .onDirect(let direct):
                     quicLog.notice("the session moved \(direct ? "straight to the phone" : "back to the relay", privacy: .public)")
+                case .report(let outcome):
+                    quicLog.notice("direct path: \(outcome.summary, privacy: .public)")
+                case .verdictDue:
+                    quicLog.notice("direct path: no answer within \(Int(ClientSession.DirectPath.verdictAfter), privacy: .public) seconds")
                 }
             }
         }

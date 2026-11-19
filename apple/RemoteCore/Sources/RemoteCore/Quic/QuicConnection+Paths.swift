@@ -112,8 +112,15 @@ extension QuicConnection {
 
     public var pathSample: PathSample? {
         lock.withLock {
+            // The path sending now, found by its flag: index 0 is the first path, which after a move is the one left behind, and its stale figures set the bitrate for the new one.
             var stats = quiche_path_stats()
-            guard quiche_conn_path_stats(connection, 0, &stats) == 0 else { return nil }
+            var index = 0
+            var found = false
+            while quiche_conn_path_stats(connection, index, &stats) == 0 {
+                if stats.active { found = true; break }
+                index += 1
+            }
+            guard found || quiche_conn_path_stats(connection, 0, &stats) == 0 else { return nil }
             return PathSample(
                 roundTrip: .nanoseconds(Int64(stats.rtt)),
                 minimumRoundTrip: .nanoseconds(Int64(stats.min_rtt)),

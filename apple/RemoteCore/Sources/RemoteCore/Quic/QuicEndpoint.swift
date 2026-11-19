@@ -39,6 +39,8 @@ public final class QuicEndpoint: @unchecked Sendable {
     public var onClosed: (@Sendable (QuicConnection) -> Void)?
     private var reportedClosed = false
     private var lastHeard: ContinuousClock.Instant?
+    /// The last address other than the relay a packet came from, logged once per change: the sign a direct path's packets get through.
+    private var lastStranger: QuicAddress?
     private lazy var pacer = QuicPacer(queue: queue) { [unowned self] packet in send(packet) }
 
     public enum Failure: Error {
@@ -170,6 +172,10 @@ public final class QuicEndpoint: @unchecked Sendable {
                 } catch {
                     continue
                 }
+            }
+            if from != relay?.address, from != lastStranger, connection?.isEstablished == true {
+                lastStranger = from
+                quicLog.notice("a packet from \(from.description, privacy: .public), not the relay")
             }
             connection?.receive(Data(buffer[0..<read]), from: from, to: local)
             received = true

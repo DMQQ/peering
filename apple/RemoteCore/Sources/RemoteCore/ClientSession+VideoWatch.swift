@@ -101,12 +101,14 @@ extension ClientSession {
 
     func evaluateVideoTransport() {
         let now = Self.monotonicNow()
+        // Over QUIC the picture and the control channel are one connection, so moving between them cures nothing and costs a keyframe.
+        let onQuic = connection()?.isQuic == true
         lock.lock()
         let decision = fallbackPolicy.advance(
             now: now,
             lastPictureAt: lastPictureAt,
             lastControlReplyAt: lastControlReplyAt,
-            applies: _videoFallbackEnabled && state == .ready && !clientBackgrounded
+            applies: _videoFallbackEnabled && !onQuic && state == .ready && !clientBackgrounded
         )
         lock.unlock()
 
