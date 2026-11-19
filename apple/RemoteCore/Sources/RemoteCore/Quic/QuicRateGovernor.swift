@@ -7,8 +7,13 @@ public struct QuicRateGovernor: Sendable, Equatable {
     static let queueTolerance: Duration = .milliseconds(40)
     /// Fraction of the measured delivery rate the picture is allowed after a queue.
     static let backoffShare = 0.7
-    /// Growth per decision while the path keeps up.
+    /// Growth per decision while the path keeps up and nothing better is known.
     static let climb = 1.08
+    /// Share of the congestion controller's capacity estimate the picture may jump to at once when the path is clear.
+    static let estimateShare = 0.6
+    /// Decisions at the start during which a backlog is ignored: the first keyframe always queues, and read as congestion it sent the bitrate to the floor.
+    static let warmUpDecisions = 3
+    private var decisions = 0
 
     public private(set) var targetKbps: Int
 
@@ -35,7 +40,8 @@ public struct QuicRateGovernor: Sendable, Equatable {
         let ceiling = max(Self.floorKbps, reading.ceilingKbps)
         let pathBytesPerSecond = max(reading.bandwidthBytesPerSecond, reading.deliveryRateBytesPerSecond)
         let tolerated = Double(pathBytesPerSecond) * Self.queueTolerance.seconds
-        let queued = reading.backlogBytes > max(16_384, Int(tolerated))
+        decisions += 1
+        let queued = decisions > Self.warmUpDecisions && reading.backlogBytes > max(16_384, Int(tolerated))
 
         let next: Int
         if queued {
@@ -43,7 +49,9 @@ public struct QuicRateGovernor: Sendable, Equatable {
             let delivered = Int(Double(reading.deliveryRateBytesPerSecond) * 8 / 1000 * Self.backoffShare)
             next = min(targetKbps, max(Self.floorKbps, delivered > 0 ? delivered : targetKbps / 2))
         } else {
-            next = min(ceiling, Int(Double(targetKbps) * Self.climb) + 100)
+            // The capacity estimate lets a clear path be used within a second instead of climbing for fifteen.
+            let estimate = Int(Double(reading.bandwidthBytesPerSecond) * 8 / 1000 * Self.estimateShare)
+            next = min(ceiling, max(Int(Double(targetKbps) * Self.climb) + 100, estimate))
         }
         let previous = targetKbps
         targetKbps = min(ceiling, max(Self.floorKbps, next))

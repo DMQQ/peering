@@ -38,6 +38,7 @@ public final class QuicEndpoint: @unchecked Sendable {
     /// Called once on `queue` when the connection has closed, by either end or by its idle timeout.
     public var onClosed: (@Sendable (QuicConnection) -> Void)?
     private var reportedClosed = false
+    private lazy var pacer = QuicPacer(queue: queue) { [unowned self] packet in send(packet) }
 
     public enum Failure: Error {
         case socket(Int32)
@@ -82,6 +83,15 @@ public final class QuicEndpoint: @unchecked Sendable {
         write(relay.token, to: relay.address)
     }
 
+    private func send(_ packet: QuicConnection.Packet) {
+        guard !closed else { return }
+        if let relay, packet.destination == relay.address {
+            write(relay.token + packet.bytes, to: packet.destination)
+        } else {
+            write(packet.bytes, to: packet.destination)
+        }
+    }
+
     private func write(_ bytes: Data, to destination: QuicAddress) {
         bytes.withUnsafeBytes { buffer in
             destination.withSockaddr { pointer, length in
@@ -98,13 +108,7 @@ public final class QuicEndpoint: @unchecked Sendable {
     /// Sends what the connection has queued. Call on `queue` after writing to it.
     public func flush() {
         guard let connection, !closed else { return }
-        for packet in connection.outgoing() {
-            if let relay, packet.destination == relay.address {
-                write(relay.token + packet.bytes, to: packet.destination)
-            } else {
-                write(packet.bytes, to: packet.destination)
-            }
-        }
+        pacer.submit(connection.outgoing())
         onFlushed?()
         rearmTimer()
     }

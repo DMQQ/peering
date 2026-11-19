@@ -14,6 +14,8 @@ public final class QuicConnection: @unchecked Sendable {
     public struct Packet: Sendable {
         public let bytes: Data
         public let destination: QuicAddress
+        /// How long quiche wants it held before writing, to spread a burst over the round trip.
+        public let delay: Duration
     }
 
     public enum Failure: Error {
@@ -112,10 +114,16 @@ public final class QuicConnection: @unchecked Sendable {
             var packets: [Packet] = []
             var buffer = [UInt8](repeating: 0, count: 1500)
             while true {
-                var info = quiche_send_info()
-                let written = quiche_conn_send(connection, &buffer, buffer.count, &info)
+                var destination = sockaddr_storage()
+                var destinationLength = socklen_t(0)
+                var delayNanos: UInt64 = 0
+                let written = peering_quic_conn_send(connection, &buffer, buffer.count, &destination, &destinationLength, &delayNanos)
                 guard written > 0 else { break }
-                packets.append(Packet(bytes: Data(buffer[0..<written]), destination: QuicAddress(storage: info.to, length: info.to_len)))
+                packets.append(Packet(
+                    bytes: Data(buffer[0..<written]),
+                    destination: QuicAddress(storage: destination, length: destinationLength),
+                    delay: .nanoseconds(Int64(min(delayNanos, UInt64(Int64.max))))
+                ))
             }
             return packets
         }

@@ -22,6 +22,7 @@ public final class QuicListener: @unchecked Sendable {
         let link: QuicFrameLink
         var timer: DispatchSourceTimer?
         var knownIDs = 0
+        var pacer: QuicPacer?
 
         init(connection: QuicConnection, link: QuicFrameLink) {
             self.connection = connection
@@ -139,13 +140,17 @@ public final class QuicListener: @unchecked Sendable {
     }
 
     private func flush(_ entry: Entry) {
-        for packet in entry.connection.outgoing() {
+        let pacer = entry.pacer ?? QuicPacer(queue: queue) { [weak self, fd] packet in
+            // A paced packet can fall due after the listener closed its descriptor, whose number may already belong to another file.
+            guard let self, !closed else { return }
             packet.bytes.withUnsafeBytes { bytes in
                 packet.destination.withSockaddr { pointer, length in
                     _ = sendto(fd, bytes.baseAddress, bytes.count, 0, pointer, length)
                 }
             }
         }
+        entry.pacer = pacer
+        pacer.submit(entry.connection.outgoing())
         entry.link.afterFlush()
         rearmTimer(entry)
     }

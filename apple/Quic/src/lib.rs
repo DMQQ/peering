@@ -68,3 +68,68 @@ fn p256_key(x963: &[u8]) -> Option<PKey<boring::pkey::Private>> {
     key.check_key().ok()?;
     PKey::from_ec_key(key).ok()
 }
+
+/// Like `quiche_conn_send`, but also says how long to hold the packet before writing it, which is
+/// how quiche paces a burst over the round trip. quiche's own C API reports a send time of zero on
+/// Apple platforms (its `std_time_to_c` is unimplemented there), so pacing is lost without this.
+///
+/// Returns the packet's length, or a negative value when nothing was written (-1 when there is
+/// simply nothing to send). `to` receives the destination, `delay_nanos` the wait before sending it.
+///
+/// # Safety
+/// `conn` must be a live `quiche_conn`, `out` valid for `out_len` bytes, the others writable.
+#[no_mangle]
+pub unsafe extern "C" fn peering_quic_conn_send(
+    conn: *mut quiche::Connection,
+    out: *mut u8,
+    out_len: usize,
+    to: *mut libc::sockaddr_storage,
+    to_len: *mut libc::socklen_t,
+    delay_nanos: *mut u64,
+) -> isize {
+    let conn = &mut *conn;
+    let buffer = std::slice::from_raw_parts_mut(out, out_len);
+    match conn.send(buffer) {
+        Ok((written, info)) => {
+            *to_len = write_address(info.to, &mut *to);
+            let wait = info.at.saturating_duration_since(std::time::Instant::now());
+            *delay_nanos = u64::try_from(wait.as_nanos()).unwrap_or(u64::MAX);
+            written as isize
+        }
+        // QUICHE_ERR_DONE when there is nothing to send; any other failure is reported as one negative value, which the caller treats the same way.
+        Err(quiche::Error::Done) => -1,
+        Err(_) => -10,
+    }
+}
+
+fn write_address(address: std::net::SocketAddr, out: &mut libc::sockaddr_storage) -> libc::socklen_t {
+    use std::net::SocketAddr;
+    match address {
+        SocketAddr::V4(v4) => {
+            let raw = out as *mut libc::sockaddr_storage as *mut libc::sockaddr_in;
+            // SAFETY: sockaddr_storage is large and aligned enough for any sockaddr.
+            unsafe {
+                *raw = std::mem::zeroed();
+                (*raw).sin_len = std::mem::size_of::<libc::sockaddr_in>() as u8;
+                (*raw).sin_family = libc::AF_INET as libc::sa_family_t;
+                (*raw).sin_port = v4.port().to_be();
+                (*raw).sin_addr = libc::in_addr { s_addr: u32::from_ne_bytes(v4.ip().octets()) };
+            }
+            std::mem::size_of::<libc::sockaddr_in>() as libc::socklen_t
+        }
+        SocketAddr::V6(v6) => {
+            let raw = out as *mut libc::sockaddr_storage as *mut libc::sockaddr_in6;
+            // SAFETY: as above.
+            unsafe {
+                *raw = std::mem::zeroed();
+                (*raw).sin6_len = std::mem::size_of::<libc::sockaddr_in6>() as u8;
+                (*raw).sin6_family = libc::AF_INET6 as libc::sa_family_t;
+                (*raw).sin6_port = v6.port().to_be();
+                (*raw).sin6_addr = libc::in6_addr { s6_addr: v6.ip().octets() };
+                (*raw).sin6_scope_id = v6.scope_id();
+                (*raw).sin6_flowinfo = v6.flowinfo();
+            }
+            std::mem::size_of::<libc::sockaddr_in6>() as libc::socklen_t
+        }
+    }
+}

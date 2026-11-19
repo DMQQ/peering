@@ -11,6 +11,7 @@ crate-type = ["staticlib", "lib"]
 [dependencies]
 quiche = { version = "0.24", features = ["ffi", "boringssl-boring-crate"] }
 boring = "4"
+libc = "0.2"
 
 [profile.release]
 lto = true

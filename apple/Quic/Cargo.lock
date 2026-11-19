@@ -295,6 +295,7 @@ name = "peering-quic"
 version = "0.1.0"
 dependencies = [
  "boring",
+ "libc",
  "quiche",
 ]
 
