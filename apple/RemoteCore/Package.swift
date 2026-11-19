@@ -6,6 +6,8 @@ import PackageDescription
 // Anything macOS-only (ScreenCaptureKit, VideoToolbox, AppKit) belongs in the host
 // target; this module is compiled for iOS too, where those frameworks do not exist.
 //
+// quiche (QUIC) comes in as a prebuilt binary from `apple/Quic`.
+//
 // swift-certificates is the one external dependency, and it is shared rather than
 // host-only because both sides mint a self-signed identity and pin the peer's SPKI.
 let package = Package(
@@ -24,9 +26,12 @@ let package = Package(
             dependencies: [
                 .product(name: "X509", package: "swift-certificates"),
                 .product(name: "SwiftASN1", package: "swift-asn1"),
+                "PeeringQuicFFI",
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // quiche with Peering's in-memory TLS identity; built by `apple/Quic/build-xcframework.sh`.
+        .binaryTarget(name: "PeeringQuicFFI", path: "Binaries/PeeringQuic.xcframework"),
         .testTarget(
             name: "RemoteCoreTests",
             dependencies: ["RemoteCore"],

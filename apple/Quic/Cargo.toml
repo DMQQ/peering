@@ -1,0 +1,18 @@
+[package]
+name = "peering-quic"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# quiche's own C API, linked into the Apple apps as one static library.
+[lib]
+crate-type = ["staticlib", "lib"]
+
+[dependencies]
+quiche = { version = "0.24", features = ["ffi", "boringssl-boring-crate"] }
+boring = "4"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "debuginfo"

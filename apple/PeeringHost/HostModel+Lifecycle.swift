@@ -46,6 +46,7 @@ extension HostModel {
         wireClipboard(of: server)
         self.server = server
         startListening(server, device: device, identity: identity)
+        QuicSpike.start(identity: identity)
 
         // No display is made here: starting the host is not a phone asking for one, see managedVirtualDisplays.
     }

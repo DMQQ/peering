@@ -1,0 +1,160 @@
+import Darwin
+import Foundation
+import os
+
+private let quicLog = Logger(subsystem: "pl.dmq.peering", category: "quic")
+
+/// A UDP socket that drives one QUIC connection: it reads packets into it, writes what it produces, and runs its timer.
+///
+/// The phone dials with ``connect(to:configuration:queue:)``; the Mac waits with ``listen(port:configuration:queue:)`` and serves the first peer that arrives. `@unchecked Sendable`: all mutable state is touched only on `queue`.
+public final class QuicEndpoint: @unchecked Sendable {
+    public let queue: DispatchQueue
+    private let fd: Int32
+    private let configuration: QuicConfiguration
+    private let local: QuicAddress
+    private var source: DispatchSourceRead?
+    private var timer: DispatchSourceTimer?
+    private var connection: QuicConnection?
+    private var closed = false
+
+    /// Called on `queue` after every batch of packets or a timeout, so the owner can read streams and datagrams and queue replies.
+    public var onActivity: (@Sendable (QuicConnection) -> Void)?
+
+    public enum Failure: Error {
+        case socket(Int32)
+    }
+
+    private init(fd: Int32, local: QuicAddress, configuration: QuicConfiguration, queue: DispatchQueue) {
+        self.fd = fd
+        self.local = local
+        self.configuration = configuration
+        self.queue = queue
+    }
+
+    public static func connect(to peer: QuicAddress, configuration: QuicConfiguration, queue: DispatchQueue) throws -> QuicEndpoint {
+        let (fd, local) = try openSocket(port: 0)
+        let endpoint = QuicEndpoint(fd: fd, local: local, configuration: configuration, queue: queue)
+        let connection = try QuicConnection.connect(local: local, peer: peer, configuration: configuration)
+        queue.async {
+            endpoint.connection = connection
+            endpoint.startReading()
+            endpoint.flush()
+        }
+        return endpoint
+    }
+
+    public static func listen(port: UInt16, configuration: QuicConfiguration, queue: DispatchQueue) throws -> QuicEndpoint {
+        let (fd, local) = try openSocket(port: port)
+        let endpoint = QuicEndpoint(fd: fd, local: local, configuration: configuration, queue: queue)
+        queue.async { endpoint.startReading() }
+        return endpoint
+    }
+
+    public var localPort: UInt16 { local.port }
+
+    /// The connection once there is one. Not for use on `queue`.
+    public var currentConnection: QuicConnection? { queue.sync { connection } }
+
+    /// Sends what the connection has queued. Call on `queue` after writing to it.
+    public func flush() {
+        guard let connection, !closed else { return }
+        for packet in connection.outgoing() {
+            packet.bytes.withUnsafeBytes { bytes in
+                packet.destination.withSockaddr { pointer, length in
+                    _ = sendto(fd, bytes.baseAddress, bytes.count, 0, pointer, length)
+                }
+            }
+        }
+        rearmTimer()
+    }
+
+    public func cancel() {
+        queue.async { [self] in
+            guard !closed else { return }
+            closed = true
+            timer?.cancel()
+            source?.cancel()
+        }
+    }
+
+    // MARK: - On `queue`
+
+    private func startReading() {
+        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
+        source.setEventHandler { [weak self] in self?.readAll() }
+        source.setCancelHandler { [fd] in Darwin.close(fd) }
+        self.source = source
+        source.resume()
+    }
+
+    private func readAll() {
+        var buffer = [UInt8](repeating: 0, count: 2048)
+        var received = false
+        while true {
+            var storage = sockaddr_storage()
+            var length = socklen_t(MemoryLayout<sockaddr_storage>.size)
+            let read = withUnsafeMutablePointer(to: &storage) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { recvfrom(fd, &buffer, buffer.count, MSG_DONTWAIT, $0, &length) }
+            }
+            guard read > 0 else { break }
+            let from = QuicAddress(storage: storage, length: length)
+            if connection == nil {
+                do {
+                    connection = try QuicConnection.accept(local: local, peer: from, configuration: configuration)
+                    quicLog.notice("a peer arrived from \(from.description, privacy: .public)")
+                } catch {
+                    continue
+                }
+            }
+            connection?.receive(Data(buffer[0..<read]), from: from, to: local)
+            received = true
+        }
+        guard received, let connection else { return }
+        onActivity?(connection)
+        flush()
+    }
+
+    private func rearmTimer() {
+        timer?.cancel()
+        timer = nil
+        guard let connection, let timeout = connection.timeout else { return }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        let (seconds, attoseconds) = timeout.components
+        let nanoseconds = Int(seconds) * 1_000_000_000 + Int(attoseconds / 1_000_000_000)
+        timer.schedule(deadline: .now() + .nanoseconds(max(0, nanoseconds)))
+        timer.setEventHandler { [weak self] in
+            guard let self, let connection = self.connection else { return }
+            connection.onTimeout()
+            self.onActivity?(connection)
+            self.flush()
+        }
+        self.timer = timer
+        timer.resume()
+    }
+
+    private static func openSocket(port: UInt16) throws -> (Int32, QuicAddress) {
+        let fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)
+        guard fd >= 0 else { throw Failure.socket(errno) }
+        var no: Int32 = 0
+        setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &no, socklen_t(MemoryLayout<Int32>.size))
+        var address = sockaddr_in6()
+        address.sin6_len = UInt8(MemoryLayout<sockaddr_in6>.size)
+        address.sin6_family = sa_family_t(AF_INET6)
+        address.sin6_port = port.bigEndian
+        address.sin6_addr = in6addr_any
+        let bound = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in6>.size)) }
+        }
+        guard bound == 0 else {
+            let code = errno
+            Darwin.close(fd)
+            throw Failure.socket(code)
+        }
+        var storage = sockaddr_storage()
+        var length = socklen_t(MemoryLayout<sockaddr_storage>.size)
+        _ = withUnsafeMutablePointer(to: &storage) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &length) }
+        }
+        return (fd, QuicAddress(storage: storage, length: length))
+    }
+}

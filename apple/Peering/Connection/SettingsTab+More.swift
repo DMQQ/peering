@@ -44,6 +44,10 @@ extension SettingsTab {
                 .accessibilityLabel("Plan override")
                 .accessibilityValue(model.storeManager.planOverride?.name ?? String(localized: "Real"))
             }
+
+            Controls.divider
+
+            QuicProbeRow(model: model)
         }
     }
 #endif

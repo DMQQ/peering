@@ -1,0 +1,5 @@
+module PeeringQuicFFI {
+    header "peering_quic.h"
+    link "c++"
+    export *
+}
