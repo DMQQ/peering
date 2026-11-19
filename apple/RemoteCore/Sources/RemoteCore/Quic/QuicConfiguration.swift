@@ -44,7 +44,8 @@ public final class QuicConfiguration: @unchecked Sendable {
         var alpn = Data([UInt8(Self.applicationProtocol.utf8.count)])
         alpn.append(contentsOf: Self.applicationProtocol.utf8)
         alpn.withUnsafeBytes { _ = quiche_config_set_application_protos(pointer, $0.bindMemory(to: UInt8.self).baseAddress, $0.count) }
-        quiche_config_set_max_idle_timeout(pointer, 15_000)
+        // Past the session's own silence limits, which know when the phone said it went to the background: at 15 s QUIC ended every session iOS froze, long before the 180 s a backgrounded phone is allowed.
+        quiche_config_set_max_idle_timeout(pointer, UInt64(SessionSilenceLimits.backgrounded * 1000) + 10_000)
         quiche_config_set_max_recv_udp_payload_size(pointer, 1350)
         quiche_config_set_max_send_udp_payload_size(pointer, 1350)
         quiche_config_set_initial_max_data(pointer, 32 * 1024 * 1024)

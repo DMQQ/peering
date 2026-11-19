@@ -15,9 +15,16 @@ struct QuicRateGovernorTests {
 
     @Test("the first keyframe's backlog is not read as congestion")
     func theStartIsNotCongestion() {
-        var governor = QuicRateGovernor(startingKbps: 12_000)
+        var governor = QuicRateGovernor(startingKbps: 3_000)
         _ = governor.decide(reading(backlog: 400_000, delivered: 250_000, bandwidth: 250_000))
-        #expect(governor.targetKbps > 12_000)
+        #expect(governor.targetKbps == 3_000)
+    }
+
+    @Test("a path not yet measured is not climbed blindly during the warm-up")
+    func theWarmUpHoldsWithoutAMeasurement() {
+        var governor = QuicRateGovernor(startingKbps: 3_000)
+        for _ in 0..<3 { _ = governor.decide(reading()) }
+        #expect(governor.targetKbps == 3_000)
     }
 
     @Test("a clear path is used up to the capacity estimate at once, not climbed to slowly")
@@ -40,7 +47,7 @@ struct QuicRateGovernorTests {
 
     @Test("with no queue the bitrate climbs gradually and stops at the user's ceiling")
     func climbsToTheCeiling() {
-        var governor = QuicRateGovernor(startingKbps: 5_000)
+        var governor = warmedUp(5_000, ceiling: 8_000)
         _ = governor.decide(reading(ceiling: 8_000))
         #expect(governor.targetKbps == 5_500)
         for _ in 0..<20 { _ = governor.decide(reading(ceiling: 8_000)) }
@@ -49,7 +56,7 @@ struct QuicRateGovernorTests {
 
     @Test("a backlog within the tolerated sending time is not a queue")
     func aSmallBacklogIsTolerated() {
-        var governor = QuicRateGovernor(startingKbps: 20_000)
+        var governor = warmedUp(20_000)
         // 40 ms of 10 MB/s is 400 KB.
         _ = governor.decide(reading(backlog: 300_000, delivered: 10_000_000, bandwidth: 10_000_000))
         #expect(governor.targetKbps > 20_000)
@@ -70,7 +77,7 @@ struct QuicRateGovernorTests {
 
     @Test("a change too small to matter is not reported")
     func smallStepsAreNotReported() {
-        var governor = QuicRateGovernor(startingKbps: 7_900)
+        var governor = warmedUp(7_900, ceiling: 7_900)
         #expect(governor.decide(reading(ceiling: 8_000)) == nil)
         #expect(governor.targetKbps == 8_000)
     }

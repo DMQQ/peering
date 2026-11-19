@@ -51,7 +51,8 @@ public struct QuicRateGovernor: Sendable, Equatable {
         decisions += 1
         let backlogged = reading.backlogBytes > max(16_384, Int(tolerated))
         let networkQueued = reading.minimumRoundTrip > .zero && reading.networkQueueDelay > max(Self.networkQueueTolerance, reading.minimumRoundTrip / 2)
-        let queued = decisions > Self.warmUpDecisions && (backlogged || networkQueued)
+        let warmingUp = decisions <= Self.warmUpDecisions
+        let queued = !warmingUp && (backlogged || networkQueued)
 
         let next: Int
         if queued {
@@ -61,7 +62,9 @@ public struct QuicRateGovernor: Sendable, Equatable {
         } else {
             // The capacity estimate lets a clear path be used within a second instead of climbing for fifteen.
             let estimate = Int(Double(reading.bandwidthBytesPerSecond) * 8 / 1000 * Self.estimateShare)
-            next = min(ceiling, max(Int(Double(targetKbps) * Self.climb) + 100, estimate))
+            // While a queue would be ignored, only a measurement raises the rate: a blind climb on a path never seen can flood it.
+            let climbed = warmingUp ? targetKbps : Int(Double(targetKbps) * Self.climb) + 100
+            next = min(ceiling, max(climbed, estimate))
         }
         let previous = targetKbps
         targetKbps = min(ceiling, max(Self.floorKbps, next))

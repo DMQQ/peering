@@ -6,8 +6,8 @@ private let rateLog = Logger(subsystem: "pl.dmq.peering.host", category: "encode
 
 extension VideoCoordinator {
     private static let rateInterval: DispatchTimeInterval = .milliseconds(500)
-    /// Where a new QUIC client starts: high enough to look sharp at once, low enough not to flood a link before it has been measured.
-    private static let startingKbps = 12_000
+    /// Where a new QUIC client starts, before the link is measured: 12 Mbit/s flooded a phone network for the first seconds of every relayed session. A fast link's capacity estimate lifts it within a second.
+    private static let startingKbps = 3_000
 
     /// Over QUIC, sets the picture's bitrate twice a second from what the link is measured to carry. Without a QUIC client it holds nothing, and the client's own figure applies.
     func startRateGovernor() {
