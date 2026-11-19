@@ -28,9 +28,8 @@ extension ClientConnection {
             let frame = Frame(kind: kind, payload: try MessageCodec.encode(value))
             if let router, router(frame, completion) { return }
             if let quic {
-                // Taken by quiche's buffers at once; QUIC's own flow control is what paces a transfer now.
-                quic.send(frame)
-                return completion(nil)
+                quic.send(frame, completion: completion)
+                return
             }
             guard let connection else { return completion(Failure.cancelled) }
             connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { completion($0) })

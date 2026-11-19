@@ -14,8 +14,10 @@ public final class QuicFrameLink: @unchecked Sendable {
     private var _onClose: (@Sendable (String?) -> Void)?
     private var _onEstablished: (@Sendable () -> Void)?
     private var announcedEstablished = false
-    /// Frames already split from bytes handed to ``send(bytes:)``, which may cut a frame in two.
+    /// Frames already split from bytes handed to ``send(bytes:completion:)``, which may cut a frame in two.
     private var outgoingDecoder = FrameDecoder()
+    /// Frames sent before the first packet created the session; sent the moment it exists.
+    private var early: [(frame: Frame, completion: QuicSession.Completion?)] = []
 
     public var onFrame: (@Sendable (Frame) -> Void)? {
         get { lock.withLock { _onFrame } }
@@ -33,6 +35,9 @@ public final class QuicFrameLink: @unchecked Sendable {
         get { lock.withLock { _onEstablished } }
         set { lock.withLock { _onEstablished = newValue } }
     }
+
+    /// What a waiting send is told when the connection ends before quiche took its bytes.
+    public struct Closed: Error {}
 
     private init(endpoint: QuicEndpoint) {
         self.endpoint = endpoint
@@ -54,24 +59,36 @@ public final class QuicFrameLink: @unchecked Sendable {
 
     // MARK: - Sending
 
-    public func send(_ frame: Frame) {
-        guard let session = lock.withLock({ session }) else { return }
-        session.send(frame)
+    /// `completion` runs once quiche has taken the frame (see ``QuicSession/send(_:completion:)``), or with an error if the link closes first.
+    public func send(_ frame: Frame, completion: QuicSession.Completion? = nil) {
+        let session = lock.withLock { () -> QuicSession? in
+            if session == nil { early.append((frame, completion)) }
+            return session
+        }
+        guard let session else { return }
+        session.send(frame, completion: completion)
         endpoint.queue.async { [endpoint] in endpoint.flush() }
     }
 
-    /// Bytes already framed by ``FrameEncoder``, as the picture's sender produces them: split back into frames so each goes where its kind belongs.
-    public func send(bytes: Data) {
+    /// Bytes already framed by ``FrameEncoder``, as the picture's sender produces them: split back into frames so each goes where its kind belongs. `completion` runs once the last whole frame in them has been taken.
+    public func send(bytes: Data, completion: QuicSession.Completion? = nil) {
         let frames = lock.withLock { () -> [Frame] in
             outgoingDecoder.append(bytes)
             var frames: [Frame] = []
             while let frame = try? outgoingDecoder.next() { frames.append(frame) }
             return frames
         }
-        guard let session = lock.withLock({ session }) else { return }
-        for frame in frames { session.send(frame) }
-        endpoint.queue.async { [endpoint] in endpoint.flush() }
+        guard !frames.isEmpty else {
+            completion?(nil)
+            return
+        }
+        for (index, frame) in frames.enumerated() {
+            send(frame, completion: index == frames.count - 1 ? completion : nil)
+        }
     }
+
+    /// Bytes queued on streams that quiche has not taken yet.
+    public var unsentBytes: Int { lock.withLock { session }?.unsentBytes ?? 0 }
 
     public var peerPublicKey: Data? { lock.withLock { session }?.peerPublicKey }
 
@@ -88,16 +105,19 @@ public final class QuicFrameLink: @unchecked Sendable {
     // MARK: - On the endpoint's queue
 
     private func activity(on connection: QuicConnection) {
-        let (session, established) = lock.withLock { () -> (QuicSession, (@Sendable () -> Void)?) in
+        let (session, established, held) = lock.withLock { () -> (QuicSession, (@Sendable () -> Void)?, [(frame: Frame, completion: QuicSession.Completion?)]) in
             let session = self.session ?? QuicSession(connection: connection, isClient: !connection.isServer)
             self.session = session
+            let held = early
+            early = []
             var announce: (@Sendable () -> Void)?
             if connection.isEstablished, !announcedEstablished, _onEstablished != nil {
                 announcedEstablished = true
                 announce = _onEstablished
             }
-            return (session, announce)
+            return (session, announce, held)
         }
+        for item in held { session.send(item.frame, completion: item.completion) }
         established?()
         do {
             let frames = try session.takeFrames()
@@ -111,13 +131,18 @@ public final class QuicFrameLink: @unchecked Sendable {
     }
 
     private func closed() {
-        let handler = lock.withLock { () -> (@Sendable (String?) -> Void)? in
+        let (handler, session, held) = lock.withLock { () -> ((@Sendable (String?) -> Void)?, QuicSession?, [(frame: Frame, completion: QuicSession.Completion?)]) in
             let handler = _onClose
+            let held = early
+            early = []
             _onClose = nil
             _onFrame = nil
             _onEstablished = nil
-            return handler
+            return (handler, session, held)
         }
+        let error = QuicFrameLink.Closed()
+        session?.failWaiting(error)
+        for item in held { item.completion?(error) }
         endpoint.cancel()
         handler?(nil)
     }

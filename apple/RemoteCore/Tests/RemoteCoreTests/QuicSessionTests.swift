@@ -181,5 +181,38 @@ extension ClientPairingTests {
                 #expect(network.lastPhoneDestination == network.directAddress)
             }
         }
+
+        @Test("a large transfer's completions arrive as quiche takes it, not all at once, and the backlog drains")
+        func completionsFollowTheCongestionWindow() async throws {
+            try await withNetwork { network, _, _ in
+                let done = Counter()
+                let chunk = Data(#"{"writeChunk":{"bytes":""#.utf8) + Data(repeating: 0x42, count: 60_000) + Data(#""}}"#.utf8)
+                for _ in 0..<40 { network.phone.send(Frame(kind: .terminalRequest, payload: chunk)) { _ in done.add() } }
+                #expect(done.value < 40, "only what the window allows is taken at once (\(done.value) of 40)")
+                #expect(network.phone.unsentBytes > 0)
+                try network.run(until: { done.value == 40 }, within: 10)
+                #expect(done.value == 40)
+                #expect(network.phone.unsentBytes == 0)
+            }
+        }
+
+        @Test("sends still waiting when the connection ends are told so")
+        func waitingSendsFailWhenTheConnectionEnds() async throws {
+            try await withNetwork { network, _, _ in
+                let failed = Counter()
+                let chunk = Data(repeating: 0x43, count: 200_000)
+                for _ in 0..<30 { network.phone.send(Frame(kind: .clipboardContent, payload: chunk)) { if $0 != nil { failed.add() } } }
+                network.phone.failWaiting(QuicFrameLink.Closed())
+                #expect(failed.value > 0)
+                #expect(network.phone.unsentBytes == 0)
+            }
+        }
     }
+}
+
+final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func add() { lock.withLock { count += 1 } }
+    var value: Int { lock.withLock { count } }
 }

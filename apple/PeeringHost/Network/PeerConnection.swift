@@ -81,14 +81,20 @@ final class PeerConnection: @unchecked Sendable {
 
     /// The completion runs when the network stack has taken the bytes, which is what the count of bytes in flight is built on.
     func send(_ data: Data, completion: @escaping @Sendable (Error?) -> Void) {
-        if let quic {
-            // quiche takes the bytes into its own buffers; its flow and congestion control pace what follows.
-            quic.send(bytes: data)
-            return completion(nil)
-        }
-        guard let connection else { return completion(nil) }
         let size = data.count
         notify(lock.withLock { pressure.queued(size) })
+        if let quic {
+            // Completes once quiche has taken the bytes, which waits on the congestion window: the same signal TCP's send buffer gives, so the pause on terminal and agent output works unchanged.
+            quic.send(bytes: data) { [weak self] error in
+                if let self { notify(lock.withLock { pressure.completed(size) }) }
+                completion(error)
+            }
+            return
+        }
+        guard let connection else {
+            notify(lock.withLock { pressure.completed(size) })
+            return completion(nil)
+        }
         connection.send(content: data, completion: .contentProcessed { [weak self] error in
             if let self { notify(lock.withLock { pressure.completed(size) }) }
             completion(error)

@@ -15,6 +15,12 @@ public final class QuicSession: @unchecked Sendable {
     private var chunkFrameID: UInt32 = 0
     private var sparesIssued = false
     private var prioritised: Set<UInt64> = []
+    /// Per stream, bytes ever queued and bytes quiche has taken; a frame's completion runs once `taken` passes the end of it.
+    private var queuedTotal: [UInt64: UInt64] = [:]
+    private var takenTotal: [UInt64: UInt64] = [:]
+    private var waiting: [UInt64: [(end: UInt64, completion: @Sendable (Error?) -> Void)]] = [:]
+
+    public typealias Completion = @Sendable (Error?) -> Void
 
     /// Parity chunks per this many picture chunks; the sender lowers it as measured loss rises.
     public var parityGroup: Int {
@@ -30,37 +36,67 @@ public final class QuicSession: @unchecked Sendable {
 
     // MARK: - Sending
 
-    /// Queues a frame. False only when a datagram could not be queued (it is dropped, as a lost one would be).
+    /// Queues a frame. False only when a datagram could not be queued (it is dropped, as a lost one would be). `completion` runs once quiche has taken the whole frame into its send buffer, which is what a sender pacing a long transfer waits on; a datagram's runs at once.
     @discardableResult
-    public func send(_ frame: Frame) -> Bool {
-        guard let streamClass = QuicStreamClass.of(frame) else { return sendAsDatagrams(frame) }
+    public func send(_ frame: Frame, completion: Completion? = nil) -> Bool {
+        guard let streamClass = QuicStreamClass.of(frame) else {
+            let queued = sendAsDatagrams(frame)
+            completion?(nil)
+            return queued
+        }
         let stream = streamClass.streamID(sentByClient: isClient)
-        lock.withLock {
-            unsent[stream, default: Data()].append(FrameEncoder.encode(frame))
-            writeUnsentLocked(stream)
+        let encoded = FrameEncoder.encode(frame)
+        let due = lock.withLock { () -> [Completion] in
+            unsent[stream, default: Data()].append(encoded)
+            let end = queuedTotal[stream, default: 0] + UInt64(encoded.count)
+            queuedTotal[stream] = end
+            if let completion { waiting[stream, default: []].append((end, completion)) }
+            let due = writeUnsentLocked(stream)
             // After the write: quiche refuses a priority for a stream its first write has not created.
             if !prioritised.contains(stream),
                connection.setPriority(ofStream: stream, urgency: streamClass.urgency, incremental: streamClass.isIncremental) {
                 prioritised.insert(stream)
             }
+            return due
         }
+        for completion in due { completion(nil) }
         return true
     }
 
     /// Retries what quiche held back, most urgent stream first: it takes new stream data only up to what the congestion window allows, so whichever stream asks first gets the room.
     public func writeUnsent() {
-        lock.withLock {
+        let due = lock.withLock { () -> [Completion] in
             let byUrgency = unsent.keys.sorted {
                 (QuicStreamClass(streamID: $0)?.urgency ?? .max) < (QuicStreamClass(streamID: $1)?.urgency ?? .max)
             }
-            for stream in byUrgency { writeUnsentLocked(stream) }
+            return byUrgency.flatMap { writeUnsentLocked($0) }
         }
+        for completion in due { completion(nil) }
     }
 
-    private func writeUnsentLocked(_ stream: UInt64) {
-        guard let pending = unsent[stream], !pending.isEmpty else { return }
+    /// Bytes queued on streams that quiche has not taken yet: the measure of a sender running ahead of the path.
+    public var unsentBytes: Int { lock.withLock { unsent.values.reduce(0) { $0 + $1.count } } }
+
+    /// Ends every waiting completion, for a connection that will never send them.
+    public func failWaiting(_ error: Error) {
+        let all = lock.withLock { () -> [Completion] in
+            defer { waiting = [:]; unsent = [:] }
+            return waiting.values.flatMap { $0.map(\.completion) }
+        }
+        for completion in all { completion(error) }
+    }
+
+    /// Returns the completions now due; the caller runs them after releasing the lock.
+    private func writeUnsentLocked(_ stream: UInt64) -> [Completion] {
+        guard let pending = unsent[stream], !pending.isEmpty else { return [] }
         let taken = connection.send(pending, onStream: stream)
         unsent[stream] = taken >= pending.count ? nil : Data(pending.dropFirst(taken))
+        let total = takenTotal[stream, default: 0] + UInt64(taken)
+        takenTotal[stream] = total
+        guard let queue = waiting[stream] else { return [] }
+        let firstLater = queue.firstIndex { $0.end > total } ?? queue.endIndex
+        waiting[stream] = Array(queue[firstLater...])
+        return queue[..<firstLater].map(\.completion)
     }
 
     private func sendAsDatagrams(_ frame: Frame) -> Bool {
