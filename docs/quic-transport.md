@@ -1,6 +1,9 @@
 # One QUIC connection on every path
 
-Status: plan, not started. Replaces `docs/lane-streams.md` (the hand-built streams engine).
+Status (2026-11-19, branch `quic`): stages 1 to 3 done. The spike passed on a phone (LAN: 94 ms
+handshake, 12 ms stream round trip, 225 Mbit/s of datagrams at 99.7 %); relayed sessions run over
+one QUIC connection and were tried on a device (picture, pointer, sound). Pending: the relay change
+for liveness and metering of UDP-only sessions, then stage 4. Replaces `docs/lane-streams.md`.
 
 ## Why
 

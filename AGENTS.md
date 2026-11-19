@@ -542,29 +542,38 @@ recent commits/notes for the outcome before re-investigating from scratch.
 
 ---
 
-## Independent streams on the datagram lane
+## QUIC transport (branch `quic`, in progress)
 
-Design and work list: `docs/lane-streams.md`. What is not obvious from the code:
+Design, stages and what gets deleted: `docs/quic-transport.md`. It replaces the hand-built streams
+(`Streams/`, `docs/lane-streams.md`), which stay only until stage 6 removes them. What is not
+obvious from the code:
 
-- On a relayed session the frame protocol rides five independent streams (`StreamID`), on the lane
-  while the direct path is live and inside the TLS control connection otherwise. Each stream is a
-  `ControlPipeSender` and `ControlPipeReceiver` pair, so a loss stalls only its own stream.
-- Both ends must say so in the hello (`supportsStreams`), and only a relayed client does. A LAN
-  session, and a peer that does not implement streams (Android and Windows for now), keeps plain
-  frames. When streams are on, the control connection no longer rides the lane (`attachDirect` is
-  skipped), so nothing ordered lives on UDP.
-- Input shares the `interactive` stream with the commands that change what it acts on. Splitting
-  them would let a click overtake a source or space change.
-- File work is told apart from terminal work by the first JSON key of the payload
-  (`StreamRouting.firstKey`). A new `TerminalRequest` or `TerminalEvent` case for files must be added
-  to `fileCases`, or it travels with the terminal.
-- Never on a stream: the handshake and pairing, `error`, the lane's bootstrap (`videoKeyRequest`,
-  `videoKey`, `videoTransport`), video, audio and the lane-native kinds.
-- Audio and video are not interleaved inside a picture. Datagram counters are the AEAD nonce and
-  the receiver rejects anything more than 64 behind the newest, so a later-sealed datagram jumping
-  into the middle of a keyframe would get the rest of it dropped as a replay.
-- The pipe's retransmit timer runs from the oldest unacknowledged segment. Run from the latest
-  send, steady traffic postponed it for as long as it lasted.
+- **Library.** quiche (Cloudflare), sans-IO, through a small Rust crate in `apple/Quic` that adds
+  one C function, `peering_quic_config_new`, building the TLS context from the keychain's DER
+  certificate and X9.63 P-256 key. `apple/Quic/build-xcframework.sh` builds
+  `RemoteCore/Binaries/PeeringQuic.xcframework` (iPhone, Simulator, Mac universal), which is
+  gitignored: run the script on a fresh checkout before building the apps.
+- **Never call `verify_peer` on the config.** quiche implements it by resetting the TLS verify mode
+  with no callback, which silently stops the Mac asking for the phone's certificate. Each end checks
+  the other's key against its pin after the handshake (`QuicSession.peerPublicKey`).
+- **Unidirectional streams must be allowed explicitly** (`initial_max_streams_uni`). At quiche's
+  default of zero every stream frame is dropped without an error; datagrams still work, which makes
+  it look like a framing bug.
+- **A stream's priority can only be set after its first write**: quiche refuses one for a stream
+  that does not exist yet.
+- **quiche takes new stream data only up to the congestion window.** Bytes it refuses wait in
+  `QuicSession.unsent` and are retried most urgent stream first; retried in dictionary order, a
+  file transfer took the room and held a command back for the whole transfer.
+- **Moving paths needs spare connection ids** on both ends (`issueSpareConnectionIDs`, done once
+  the handshake completes); without them `probe_path` fails with `OutOfIdentifiers`.
+- **Relay.** QUIC packets ride the relay's existing UDP forwarding: each end puts its 16-byte video
+  token in front of every packet it sends to the relay (`QuicEndpoint.RelayRoute`) and the relay
+  strips it. The Mac sends the bare token first so the relay knows where it is. The relay's session
+  liveness and relay-time metering used to come only from the TCP control splice, which QUIC
+  sessions never open; see the relay change in `relay/` for how UDP traffic now counts.
+- **Debug probe.** Developer › QUIC test on the phone measures handshake, round trips and datagram
+  throughput against a Mac echo server on UDP 51517, which starts only after
+  `defaults write pl.dmq.peering.host quicSpike -bool YES` (the installed host is a Release build).
 
 ## 9. Reference
 
