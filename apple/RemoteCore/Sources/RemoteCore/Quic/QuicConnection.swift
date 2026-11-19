@@ -157,11 +157,24 @@ public final class QuicConnection: @unchecked Sendable {
     }
 
     /// The smoothed round trip of the active path.
-    public var roundTrip: Duration? {
+    public var roundTrip: Duration? { pathSample?.roundTrip }
+
+    /// Why a closed connection closed, in words for the log: which end ended it and with what, or the idle timeout, which means the path stopped carrying packets.
+    public var closeReason: String {
         lock.withLock {
-            var stats = quiche_path_stats()
-            guard quiche_conn_path_stats(connection, 0, &stats) == 0 else { return nil }
-            return .nanoseconds(Int64(stats.rtt))
+            if quiche_conn_is_timed_out(connection) { return "idle timeout: nothing arrived for the idle period" }
+            var isApp = false
+            var code: UInt64 = 0
+            var reason: UnsafePointer<UInt8>?
+            var length = 0
+            let text = { reason.map { String(decoding: UnsafeBufferPointer(start: $0, count: length), as: UTF8.self) } ?? "" }
+            if quiche_conn_peer_error(connection, &isApp, &code, &reason, &length) {
+                return "the peer closed it (\(isApp ? "application" : "transport") code \(code)) \(text())"
+            }
+            if quiche_conn_local_error(connection, &isApp, &code, &reason, &length) {
+                return "this end closed it (\(isApp ? "application" : "transport") code \(code)) \(text())"
+            }
+            return "no reason recorded"
         }
     }
 

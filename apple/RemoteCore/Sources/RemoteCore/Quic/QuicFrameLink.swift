@@ -265,6 +265,8 @@ public final class QuicFrameLink: @unchecked Sendable {
         session?.failWaiting(error)
         for item in held { item.completion?(error) }
         carrier.cancel()
-        handler?(nil)
+        let reason = session?.connection.closeReason
+        if let reason { linkLog.notice("the connection closed: \(reason, privacy: .public)") }
+        handler?(reason)
     }
 }

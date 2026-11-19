@@ -60,6 +60,8 @@ extension SessionModel {
     func dropLANSessionsWhoseNetworkLeft() {
         guard !LANUpgradePolicy.canReachLAN(interface: networkContext.interface) else { return }
         for session in sessions where session.phase == .ready && session.connectionPath == .lan {
+            // A QUIC session that may use the relay is carried onto it instead (``restartDirectPaths()``); ending it first threw the carry-over away.
+            if session.wire?.isOnQuic == true, session.wire?.relayAccess != nil { continue }
             session.logEvent("The Wi-Fi or cable is gone, ending the LAN session")
             session.wire?.abandonBecauseNetworkLeft()
         }
