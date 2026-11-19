@@ -153,58 +153,29 @@ final class SessionLog: @unchecked Sendable {
     }
 }
 
+/// A Mac the tests script frame by frame, listening over QUIC as the real one does on the LAN.
 final class ScriptedMac: @unchecked Sendable {
-    private let listener: NWListener
-    private let queue = DispatchQueue(label: "test.scripted-mac")
+    private let listener: QuicListener
     private let lock = NSLock()
     private var accepted: [MacLink] = []
 
     init(identity: SelfSignedIdentity) throws {
-        let tcp = NWProtocolTCP.Options()
-        tcp.noDelay = true
-        let parameters = NWParameters(
-            tls: try TLSConfig.serverOptions(identity: identity, queue: queue),
-            tcp: tcp
-        )
-        parameters.allowLocalEndpointReuse = true
-        listener = try NWListener(using: parameters, on: .any)
-
-        listener.newConnectionHandler = { [weak self] connection in
-            guard let self else { return connection.cancel() }
-            let link = MacLink(connection)
-            // Started here rather than when the test takes it, and that is load bearing: a
-            // connection a listener hands over is not started for you, and until it is the TLS
-            // handshake the client is waiting on has nothing to talk to. Starting it on the way
-            // out of `nextConnection` would be a deadlock with the client's own connect, which
-            // does not return until that handshake finishes.
-            link.start()
+        listener = try QuicListener(port: 0, configuration: QuicConfiguration(identity: identity), label: "test.scripted-mac")
+        listener.onLink = { [weak self] quic in
+            guard let self else { return quic.close() }
+            // Taken from here rather than when the test asks, so a frame the client sends before the test looks is still collected.
+            let link = MacLink(quic)
             self.lock.withLock { self.accepted.append(link) }
         }
     }
 
-    var port: UInt16 { listener.port?.rawValue ?? 0 }
+    var port: UInt16 { listener.localPort }
 
-    func start() async {
-        await withCheckedContinuation { continuation in
-            let resumed = LockedFlag()
-            listener.stateUpdateHandler = { state in
-                switch state {
-                case .ready, .failed, .cancelled:
-                    guard !resumed.value else { return }
-                    resumed.set()
-                    continuation.resume()
-                default:
-                    break
-                }
-            }
-            listener.start(queue: queue)
-        }
-    }
+    func start() async {}
 
     func stop() { listener.cancel() }
 
-    /// A session that reaches ready opens a second socket for video, so this takes them in the
-    /// order they arrive and the callers that only care about the control channel take the first.
+    /// Takes connections in the order they arrive.
     func nextConnection(within seconds: TimeInterval = 10) async -> MacLink? {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
@@ -225,39 +196,25 @@ final class ScriptedMac: @unchecked Sendable {
 }
 
 final class MacLink: @unchecked Sendable {
-    private let connection: NWConnection
-    private let queue = DispatchQueue(label: "test.scripted-mac.link")
+    private let quic: QuicFrameLink
     private let lock = NSLock()
-    private var decoder = FrameDecoder()
     private var arrived: [Frame] = []
     private var ready = false
     private var ended = false
     private var failureReason: String?
     private var readyWaiter: CheckedContinuation<Void, Never>?
 
-    init(_ connection: NWConnection) { self.connection = connection }
-
-    func start() {
-        connection.stateUpdateHandler = { [weak self] state in
-            guard let self else { return }
-            switch state {
-            case .ready: self.becameReady()
-            case .failed(let error): self.end(reason: "\(error)")
-            case .cancelled: self.end(reason: "the client cancelled the connection")
-            default: break
-            }
-        }
-        connection.start(queue: queue)
-        receive()
+    init(_ quic: QuicFrameLink) {
+        self.quic = quic
+        quic.onFrame = { [weak self] frame in self?.lock.withLock { self?.arrived.append(frame) } }
+        quic.onClose = { [weak self] _ in self?.end(reason: "the connection closed") }
+        quic.onEstablished = { [weak self] in self?.becameReady() }
     }
 
-    /// The same wait `RelayByteSpliceTests` makes, for the same reason: a `send` on a connection
-    /// that is still setting up is accepted and then dropped, which here would be a scripted Mac
-    /// that answered nothing and a test that failed for a reason it could not name.
     func waitUntilReady() async {
         await withCheckedContinuation { continuation in
             lock.lock()
-            if ready || ended {
+            if ready || ended || quic.isEstablished {
                 lock.unlock()
                 continuation.resume()
             } else {
@@ -289,7 +246,7 @@ final class MacLink: @unchecked Sendable {
     // MARK: - Sending
 
     func send(_ frame: Frame) {
-        connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { _ in })
+        quic.send(frame)
     }
 
     func send<T: Encodable>(_ kind: MessageKind, _ value: T) {
@@ -297,16 +254,10 @@ final class MacLink: @unchecked Sendable {
         send(Frame(kind: kind, payload: payload))
     }
 
-    /// **The difference from `ClientSession.disconnect()` is the whole reason this exists.** The
-    /// client's own teardown closes its sockets as *cancelled*, and a cancelled socket must not be
-    /// dialled again; a socket this end closed arrives as a transport failure, which is what the
-    /// video reconnect is armed by. A test that could only close sockets from the client's side
-    /// could not tell those two apart.
-    /// The reason is written before the cancel, because `end` keeps the first one and the
-    /// cancellation path names itself as the client's doing.
+    /// Closes from this end, which the client reads as the Mac ending the session rather than its own cancel. The reason is written first because `end` keeps the first one.
     func hangUp() {
         lock.withLock { if failureReason == nil { failureReason = "this Mac hung up" } }
-        connection.cancel()
+        quic.close(reason: "hung up")
     }
 
     func sendHello(serverID: String, alreadyPaired: Bool) {
@@ -342,27 +293,6 @@ final class MacLink: @unchecked Sendable {
             throw TestSetupError("expected \(kind) from the client, got \(frame.kind)")
         }
         return frame
-    }
-
-    private func receive() {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 16) {
-            [weak self] data, _, isComplete, error in
-            guard let self else { return }
-            if let data, !data.isEmpty { self.ingest(data) }
-            if isComplete || error != nil { self.end(); return }
-            self.receive()
-        }
-    }
-
-    private func ingest(_ data: Data) {
-        lock.lock()
-        defer { lock.unlock() }
-        decoder.append(data)
-        do {
-            while let frame = try decoder.next() { arrived.append(frame) }
-        } catch {
-            ended = true
-        }
     }
 
     private func dequeue() -> Frame? {
@@ -805,111 +735,5 @@ struct ClientPairingTests {
         }
     }
 
-    /// **What it covers is the half of a session that can go without the session going with it.** On
-    /// a direct connection the picture travels a socket of its own, and for a long time nothing
-    /// re-dialled it: `openVideoIfNeeded()` had one caller, `becomeReady()`, which runs once, so the
-    /// first drop was also the last frame. The control channel stayed healthy throughout, which is
-    /// what made the failure read as "paused" rather than as "disconnected", and left the phone
-    /// showing a frozen picture it could still tap on.
-    @Suite("Reconnecting the video socket")
-    struct VideoReconnect {
-        private func withLiveVideo(
-            _ body: (ScriptedMac, ClientSession, SessionLog, MacLink) async throws -> Void
-        ) async throws {
-            let pins = TestPins()
-            defer { pins.destroy() }
-
-            try await withTestEnds { client, macIdentity in
-                let hostID = "paired-mac"
-                #expect(
-                    pins.store.record(hostID: hostID, publicKey: macIdentity.publicKeyBytes),
-                    "the pin could not be stored"
-                )
-
-                let mac = try ScriptedMac(identity: macIdentity)
-                await mac.start()
-                defer { mac.stop() }
-
-                let log = SessionLog()
-                let session = ClientSession(
-                    identity: client,
-                    clientID: "phone-1",
-                    clientName: "Test iPhone",
-                    pins: pins.store,
-                    onEvent: { log.record($0) }
-                )
-                defer { session.disconnect() }
-
-                await session.connect(to: .address(host: "127.0.0.1", port: mac.port), timeout: 10)
-                let control = try #require(await mac.nextConnection(), "the client never connected")
-                _ = try await greet(control, serverID: hostID, alreadyPaired: true)
-                let ready = await log.wait { $0.isReady }
-                #expect(ready, "the session did not get past the pin check")
-
-                let video = try #require(
-                    await mac.nextConnection(),
-                    "the session became ready and never opened a video connection"
-                )
-                let role = try await video.expect(.connectionRole)
-                #expect(role.payload == Data([ConnectionRole.video.rawValue]))
-
-                try await body(mac, session, log, video)
-            }
-        }
-
-        @Test func aDroppedVideoSocketIsDialledAgain() async throws {
-            try await withLiveVideo { mac, _, log, video in
-                video.hangUp()
-
-                let replacement = try #require(
-                    await mac.nextConnection(within: 5),
-                    "the video socket was dropped and never dialled again"
-                )
-                let replacementRole = try await replacement.expect(.connectionRole)
-                #expect(
-                    replacementRole.payload == Data([ConnectionRole.video.rawValue]),
-                    "the client dialled again and asked for the wrong connection role"
-                )
-
-                let reopened = await log.wait {
-                    $0.notes.filter { $0.hasPrefix("Video channel open") }.count == 2
-                }
-                #expect(reopened, "the session never reported the channel opening again: \(log.notes)")
-            }
-        }
-
-        /// **The half of the rule that keeps the pause meaningful.** A video socket is what makes the
-        /// Mac capture, so a client that has asked for no picture and then loses its socket must not
-        /// dial another one: the Mac would start capturing again for a phone that told it to stop,
-        /// which is the whole of what the pause is for.
-        @Test func aPausedSessionDoesNotDialForAPictureItRefused() async throws {
-            try await withLiveVideo { mac, session, _, video in
-                session.send(.setVideoEnabled(false))
-                video.hangUp()
-
-                let dialled = await mac.nextConnection(within: 2)
-                #expect(
-                    dialled == nil,
-                    "the client dialled again for a picture it had just asked not to be sent"
-                )
-            }
-        }
-
-        @Test func askingForThePictureAgainOpensASocket() async throws {
-            try await withLiveVideo { mac, session, _, video in
-                session.send(.setVideoEnabled(false))
-                video.hangUp()
-                #expect(await mac.nextConnection(within: 2) == nil)
-
-                session.send(.setVideoEnabled(true))
-                let reopened = try #require(
-                    await mac.nextConnection(within: 5),
-                    "the picture was asked for again and no socket was opened for it"
-                )
-                let role = try await reopened.expect(.connectionRole)
-                #expect(role.payload == Data([ConnectionRole.video.rawValue]))
-            }
-        }
-    }
 
 }

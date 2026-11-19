@@ -138,13 +138,19 @@ extension VideoCoordinator {
 
 /// What the encoder should be running at: the client's choice, and the control channel's ceiling on top
 /// of it.
+    /// The client's ceiling, before the link's measurement is applied.
+    var askedBitrateKbps: Int {
+        lock.withLock { requestedBitrateKbps > 0 ? requestedBitrateKbps : VideoFallbackPolicy.preferredTransportBitrateKbps }
+    }
+
     var effectiveBitrateKbps: Int {
         lock.withLock {
             let asked = requestedBitrateKbps > 0
                 ? requestedBitrateKbps
                 : VideoFallbackPolicy.preferredTransportBitrateKbps
-            guard videoTransport == .control else { return asked }
-            return min(asked, VideoFallbackPolicy.controlChannelBitrateKbps)
+            let linked = linkCapKbps.map { min(asked, $0) } ?? asked
+            guard videoTransport == .control else { return linked }
+            return min(linked, VideoFallbackPolicy.controlChannelBitrateKbps)
         }
     }
 

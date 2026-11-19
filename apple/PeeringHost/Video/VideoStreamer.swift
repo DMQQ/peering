@@ -26,6 +26,9 @@ final class VideoStreamer: @unchecked Sendable {
 
     let lock = NSLock()
     var peer: PeerConnection?
+
+    /// The served client's QUIC link, when it has one.
+    var quicLink: QuicFrameLink? { lock.withLock { peer?.quic } }
     var pending: EncodedVideoFrame?
     var pendingAudio = AudioSendQueue<EncodedAudioFrame>()
     /// What the viewer last asked for. Not reset when the picture pauses and resumes, or a muted phone would hear the Mac again until it asked twice; reset when the client goes.

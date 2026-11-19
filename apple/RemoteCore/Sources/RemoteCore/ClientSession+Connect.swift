@@ -126,20 +126,16 @@ extension ClientSession {
         do {
             switch target {
             case .discovered(let host):
-                try await connection.connect(
-                    to: host.endpoint,
-                    identity: identity,
-                    pinnedServerKey: pinned,
-                    timeout: timeout
-                )
+                // The Mac listens for QUIC on its TCP port number, on UDP.
+                guard let address = await QuicLANAddress.resolve(host.endpoint) else {
+                    throw ClientConnection.Failure.transport("The Mac's address on this network could not be found.")
+                }
+                try await connection.connectQuic(to: address, relay: nil, identity: identity, pinnedServerKey: pinned, timeout: timeout)
             case .address(let host, let port):
-                try await connection.connect(
-                    host: host,
-                    port: port,
-                    identity: identity,
-                    pinnedServerKey: nil,
-                    timeout: timeout
-                )
+                guard let address = QuicAddress.resolve(host: host, port: port) else {
+                    throw ClientConnection.Failure.transport("\(host) is not an address this phone can reach.")
+                }
+                try await connection.connectQuic(to: address, relay: nil, identity: identity, pinnedServerKey: nil, timeout: timeout)
             case .relay(let hostID, _, let entitlement):
                 guard let pin = pins.pin(for: hostID) else {
                     throw pins.isUnreadable ? Failure.pinsUnreadable : Failure.noPinOnFile(hostID: hostID)

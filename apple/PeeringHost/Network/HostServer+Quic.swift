@@ -24,11 +24,7 @@ extension HostServer {
                     configuration: configuration,
                     label: "pl.dmq.peering.host.quic"
                 )
-                // Held by its own callback until the phone arrives or the window closes; nothing else owns a link that has no session yet.
-                link.onEstablished = { [weak self, link] in
-                    link.onEstablished = nil
-                    self?.queue.async { self?.acceptQuic(link) }
-                }
+                awaitHandshake(of: link, relayed: true)
                 queue.asyncAfter(deadline: .now() + Self.quicArrivalWindow) { [link] in
                     guard !link.isEstablished else { return }
                     link.onEstablished = nil
@@ -41,14 +37,22 @@ extension HostServer {
         }
     }
 
-    private func acceptQuic(_ link: QuicFrameLink) {
-        let address = "relay-quic-\(UUID().uuidString.prefix(8))"
+    /// Held by its own callback until the handshake finishes or the link closes; nothing else owns a link that has no session yet.
+    func awaitHandshake(of link: QuicFrameLink, relayed: Bool) {
+        link.onEstablished = { [weak self, link] in
+            link.onEstablished = nil
+            self?.queue.async { self?.acceptQuic(link, relayed: relayed) }
+        }
+    }
+
+    private func acceptQuic(_ link: QuicFrameLink, relayed: Bool) {
+        let address = relayed ? "relay-quic-\(UUID().uuidString.prefix(8))" : (link.peerAddress?.hostText ?? "lan-quic")
         guard admitBeforeAuthentication(address: address) else {
             link.close(reason: "refused")
             return
         }
-        quicLog.notice("a phone arrived over QUIC through the relay")
+        quicLog.notice("a phone arrived over QUIC \(relayed ? "through the relay" : "on the LAN", privacy: .public)")
         let peer = PeerConnection(quic: link, queue: queue)
-        start(peer, address: address, tunnel: nil, relayed: true)
+        start(peer, address: address, tunnel: nil, relayed: relayed)
     }
 }

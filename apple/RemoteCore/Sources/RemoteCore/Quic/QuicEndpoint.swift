@@ -32,6 +32,9 @@ public final class QuicEndpoint: @unchecked Sendable {
     /// Called on `queue` after every batch of packets or a timeout, so the owner can read streams and datagrams and queue replies.
     public var onActivity: (@Sendable (QuicConnection) -> Void)?
 
+    /// Called on `queue` after packets have been written.
+    public var onFlushed: (@Sendable () -> Void)?
+
     /// Called once on `queue` when the connection has closed, by either end or by its idle timeout.
     public var onClosed: (@Sendable (QuicConnection) -> Void)?
     private var reportedClosed = false
@@ -102,6 +105,7 @@ public final class QuicEndpoint: @unchecked Sendable {
                 write(packet.bytes, to: packet.destination)
             }
         }
+        onFlushed?()
         rearmTimer()
     }
 
@@ -177,7 +181,7 @@ public final class QuicEndpoint: @unchecked Sendable {
         timer.resume()
     }
 
-    private static func openSocket(port: UInt16) throws -> (Int32, QuicAddress) {
+    static func openSocket(port: UInt16) throws -> (Int32, QuicAddress) {
         let fd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)
         guard fd >= 0 else { throw Failure.socket(errno) }
         var no: Int32 = 0

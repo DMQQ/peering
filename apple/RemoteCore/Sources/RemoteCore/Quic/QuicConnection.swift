@@ -21,9 +21,14 @@ public final class QuicConnection: @unchecked Sendable {
         case quiche(Int)
     }
 
-    private init(connection: OpaquePointer, configuration: QuicConfiguration) {
+    /// Every connection id this end has given the peer, the first one included; a packet's destination id is one of these.
+    public var sourceIDs: [Data] { lock.withLock { _sourceIDs } }
+    var _sourceIDs: [Data]
+
+    private init(connection: OpaquePointer, configuration: QuicConfiguration, sourceID: Data) {
         self.connection = connection
         self.configuration = configuration
+        _sourceIDs = [sourceID]
     }
 
     /// The phone's end.
@@ -37,7 +42,7 @@ public final class QuicConnection: @unchecked Sendable {
             }
         }
         guard let made else { throw Failure.couldNotCreate }
-        return QuicConnection(connection: made, configuration: configuration)
+        return QuicConnection(connection: made, configuration: configuration, sourceID: scid)
     }
 
     /// The Mac's end, for a first packet from a peer it does not know yet.
@@ -51,11 +56,25 @@ public final class QuicConnection: @unchecked Sendable {
             }
         }
         guard let made else { throw Failure.couldNotCreate }
-        return QuicConnection(connection: made, configuration: configuration)
+        return QuicConnection(connection: made, configuration: configuration, sourceID: scid)
     }
 
     deinit {
         quiche_conn_free(connection)
+    }
+
+    /// The destination connection id of a received packet, and whether it opens a connection (an Initial), read without decrypting.
+    public static func header(of packet: Data) -> (destinationID: Data, isInitial: Bool)? {
+        var bytes = [UInt8](packet)
+        var version: UInt32 = 0
+        var type: UInt8 = 0
+        var scid = [UInt8](repeating: 0, count: 20), scidLength = 20
+        var dcid = [UInt8](repeating: 0, count: 20), dcidLength = 20
+        var token = [UInt8](repeating: 0, count: 256), tokenLength = 256
+        let parsed = quiche_header_info(&bytes, bytes.count, 16, &version, &type, &scid, &scidLength, &dcid, &dcidLength, &token, &tokenLength)
+        guard parsed >= 0 else { return nil }
+        // quiche numbers an Initial packet 1.
+        return (Data(dcid[0..<dcidLength]), type == 1)
     }
 
     static func randomConnectionID() -> Data {

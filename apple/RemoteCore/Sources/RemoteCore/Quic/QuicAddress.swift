@@ -64,15 +64,17 @@ public struct QuicAddress: Sendable, Equatable, CustomStringConvertible {
         }
     }
 
-    public var description: String {
+    /// The numeric host alone, without the port.
+    public var hostText: String {
         var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
         let found = withSockaddr { pointer, length in
             getnameinfo(pointer, length, &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0
         }
         guard found else { return "unknown" }
-        let text = String(decoding: host.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
-        return "[\(text)]:\(port)"
+        return String(decoding: host.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
+
+    public var description: String { "[\(hostText)]:\(port)" }
 
     public static func == (lhs: QuicAddress, rhs: QuicAddress) -> Bool {
         guard lhs.length == rhs.length else { return false }

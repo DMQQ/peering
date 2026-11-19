@@ -10,11 +10,12 @@ extension QuicConnection {
         case closed(local: QuicAddress, peer: QuicAddress)
     }
 
-    /// Gives the peer spare connection ids, so either end can move to a new path: quiche refuses to probe one without a fresh id (`OutOfIdentifiers`).
+    /// Gives the peer spare connection ids, so either end can move to a new path: quiche refuses to probe one without a fresh id (`OutOfIdentifiers`). Each one is added to ``sourceIDs``, which a listener routes by.
     public func issueSpareConnectionIDs(_ count: Int = 2) {
         lock.withLock {
             for _ in 0..<count where quiche_conn_scids_left(connection) > 0 {
                 let id = Self.randomConnectionID()
+                _sourceIDs.append(id)
                 let resetToken = Self.randomConnectionID()
                 var sequence: UInt64 = 0
                 id.withUnsafeBytes { idBytes in
@@ -94,6 +95,40 @@ extension QuicConnection {
             }
             return events
         }
+    }
+
+    /// What quiche has measured about the active path.
+    public struct PathSample: Sendable, Equatable {
+        public var roundTrip: Duration
+        public var minimumRoundTrip: Duration
+        public var congestionWindowBytes: Int
+        /// Bytes a second the peer has acknowledged recently; low when little was sent.
+        public var deliveryRateBytesPerSecond: UInt64
+        /// The congestion controller's estimate of the path's capacity, bytes a second.
+        public var bandwidthBytesPerSecond: UInt64
+        public var lostBytes: UInt64
+        public var sentBytes: UInt64
+    }
+
+    public var pathSample: PathSample? {
+        lock.withLock {
+            var stats = quiche_path_stats()
+            guard quiche_conn_path_stats(connection, 0, &stats) == 0 else { return nil }
+            return PathSample(
+                roundTrip: .nanoseconds(Int64(stats.rtt)),
+                minimumRoundTrip: .nanoseconds(Int64(stats.min_rtt)),
+                congestionWindowBytes: stats.cwnd,
+                deliveryRateBytesPerSecond: stats.delivery_rate,
+                bandwidthBytesPerSecond: stats.max_bandwidth,
+                lostBytes: stats.lost_bytes,
+                sentBytes: stats.sent_bytes
+            )
+        }
+    }
+
+    /// Bytes of datagrams queued in quiche and not yet sent.
+    public var datagramBacklogBytes: Int {
+        max(0, lock.withLock { quiche_conn_dgram_send_queue_byte_size(connection) })
     }
 
     /// The largest datagram payload the current path takes, or nil before the peer has said it accepts datagrams.

@@ -65,9 +65,6 @@ extension ClientPairingTests {
             await attempt.value
             let ready = await log.wait { $0.phases.filter { $0 == .ready }.count > readyBefore }
             try #require(ready, "the session did not reach ready: \(log.phases)")
-
-            let video = try #require(await mac.nextConnection(), "a ready session opened no video socket")
-            _ = try await video.expect(.connectionRole)
             return (control, hello)
         }
 

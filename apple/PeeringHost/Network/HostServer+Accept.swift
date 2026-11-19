@@ -52,7 +52,7 @@ extension HostServer {
         }
         session.streamLink = tunnel?.bridge.streamLink
         installVideoHandlers(on: session, peer: peer, tunnel: tunnel)
-        installLifecycleHandlers(on: session, relayed: relayed, relayBridge: tunnel?.bridge)
+        installLifecycleHandlers(on: session, relayed: relayed, picturesOnSessionConnection: relayed || peer.quic != nil, relayBridge: tunnel?.bridge)
         connections.add(session)
         session.start()
     }
@@ -116,7 +116,7 @@ extension HostServer {
         }
     }
 
-    private func installLifecycleHandlers(on session: HostSession, relayed: Bool, relayBridge: RelayControlBridge?) {
+    private func installLifecycleHandlers(on session: HostSession, relayed: Bool, picturesOnSessionConnection: Bool, relayBridge: RelayControlBridge?) {
         // Set for every session, not only relayed ones: this is both the moment the advertisement
         // is withdrawn and the moment a relayed video connection is handed over.
         session.onAuthorized = bind(to: session) { server, session, controlPeer in
@@ -126,7 +126,7 @@ extension HostServer {
             server.updateAdvertisement()
             // The remote transport multiplexes encoded video onto this same TLS stream; it is the
             // same authenticated connection as control, and the relay still cannot read it.
-            if relayed { server.callbacks.onVideoConnection?(controlPeer) }
+            if picturesOnSessionConnection { server.callbacks.onVideoConnection?(controlPeer) }
         }
         // Strong in `session`: a session removed from the table while it closes must still be around to report its end.
         session.onEnded = { [weak self] in

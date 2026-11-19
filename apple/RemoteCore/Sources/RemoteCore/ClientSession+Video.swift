@@ -149,7 +149,8 @@ extension ClientSession {
         lock.lock()
         let alreadyOpen = video != nil
         // A relayed session has no second socket: its control connection is its video connection, and the loopback this would dial is a consumed one-shot listener, which fails as "video connection ended" on a streaming session. See ``usesRelayedSingleStream``.
-        guard !alreadyOpen, !usesRelayedSingleStream, wantsPicture, state == .ready,
+        // Over QUIC the picture rides the session's own connection as datagrams.
+        guard !alreadyOpen, !usesRelayedSingleStream, control?.isQuic != true, wantsPicture, state == .ready,
               let serverKey = _serverKey,
               let hello = _serverHello, let endpoint = control?.remoteEndpoint
         else {

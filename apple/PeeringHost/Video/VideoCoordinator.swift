@@ -126,6 +126,7 @@ final class VideoCoordinator: @unchecked Sendable {
             }
             self.streamer.sendAudioFrame(prepared.frame)
         }
+        startRateGovernor()
     }
 
     static func prepareAudio(
@@ -211,6 +212,10 @@ final class VideoCoordinator: @unchecked Sendable {
     var requestedFramesPerSecond: Int?
     var requestedBitrateKbps = 0
     var videoTransport: VideoTransport = .primary
+    /// Over QUIC, the bitrate the link is measured to carry (see ``QuicRateGovernor``); nil otherwise.
+    var linkCapKbps: Int?
+    var rateGovernor: QuicRateGovernor?
+    var rateTimer: DispatchSourceTimer?
 
     var statistics: CapturePipeline.Statistics { pipeline.statistics }
     var streamStatistics: VideoStreamer.Stats { streamer.stats }

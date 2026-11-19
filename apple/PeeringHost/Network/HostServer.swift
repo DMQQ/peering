@@ -17,6 +17,8 @@ final class HostServer: @unchecked Sendable {
     let port: UInt16
 
     private var listener: NWListener?
+    /// The LAN's QUIC sessions, on UDP at the same port number as `listener`.
+    private var quicListener: QuicListener?
 
     /// Ends sessions whose client has stopped answering, so a dead connection cannot outlive it.
     private var reaper: DispatchSourceTimer?
@@ -133,7 +135,20 @@ final class HostServer: @unchecked Sendable {
         }
         self.listener = listener
         listener.start(queue: queue)
+        startQuicListener()
         startReaper()
+    }
+
+    /// LAN sessions arrive over QUIC on UDP at the TCP port's number, which Bonjour already advertises. A Mac that cannot bind it still serves relayed sessions.
+    private func startQuicListener() {
+        do {
+            let quic = try QuicListener(port: port, configuration: QuicConfiguration(identity: identity), label: "pl.dmq.peering.host.quic.lan")
+            quic.onLink = { [weak self] link in self?.awaitHandshake(of: link, relayed: false) }
+            quicListener = quic
+        } catch {
+            Analytics.failed(error, in: .network, context: ["operation": "start the QUIC listener"])
+            emit(.failed("LAN sessions over QUIC are unavailable: \(error.localizedDescription)"))
+        }
     }
 
     private func wireManagers() {
@@ -195,6 +210,8 @@ final class HostServer: @unchecked Sendable {
             reaper = nil
             listener?.cancel()
             listener = nil
+            quicListener?.cancel()
+            quicListener = nil
             HostSessionFacts.shared.hostStopped()
             for session in connections.sessions { session.endBecauseHostStopped() }
             for peer in connections.takeAllVideo() { peer.cancel() }

@@ -21,6 +21,7 @@ public final class QuicSession: @unchecked Sendable {
     private var waiting: [UInt64: [(end: UInt64, completion: @Sendable (Error?) -> Void)]] = [:]
 
     public typealias Completion = @Sendable (Error?) -> Void
+    private var datagramWaiting: [Completion] = []
 
     /// Parity chunks per this many picture chunks; the sender lowers it as measured loss rises.
     public var parityGroup: Int {
@@ -41,7 +42,14 @@ public final class QuicSession: @unchecked Sendable {
     public func send(_ frame: Frame, completion: Completion? = nil) -> Bool {
         guard let streamClass = QuicStreamClass.of(frame) else {
             let queued = sendAsDatagrams(frame)
-            completion?(nil)
+            guard let completion else { return queued }
+            // A picture's sender waits on this before handing over the next one, so a link that cannot keep up holds one picture back instead of a growing queue of them.
+            let runNow = lock.withLock { () -> Bool in
+                guard connection.datagramBacklogBytes > datagramBacklogLimitLocked() else { return true }
+                datagramWaiting.append(completion)
+                return false
+            }
+            if runNow { completion(nil) }
             return queued
         }
         let stream = streamClass.streamID(sentByClient: isClient)
@@ -74,14 +82,30 @@ public final class QuicSession: @unchecked Sendable {
         for completion in due { completion(nil) }
     }
 
+    /// Runs the datagram senders' completions once quiche's datagram queue is short again. Call after packets have gone out.
+    public func releaseDatagramWaiters() {
+        let due = lock.withLock { () -> [Completion] in
+            guard !datagramWaiting.isEmpty, connection.datagramBacklogBytes <= datagramBacklogLimitLocked() else { return [] }
+            defer { datagramWaiting = [] }
+            return datagramWaiting
+        }
+        for completion in due { completion(nil) }
+    }
+
+    /// About 40 ms of the path's measured capacity, so the wait tracks the link rather than a constant.
+    private func datagramBacklogLimitLocked() -> Int {
+        let bandwidth = connection.pathSample?.bandwidthBytesPerSecond ?? 0
+        return min(2_000_000, max(32_768, Int(bandwidth / 25)))
+    }
+
     /// Bytes queued on streams that quiche has not taken yet: the measure of a sender running ahead of the path.
     public var unsentBytes: Int { lock.withLock { unsent.values.reduce(0) { $0 + $1.count } } }
 
     /// Ends every waiting completion, for a connection that will never send them.
     public func failWaiting(_ error: Error) {
         let all = lock.withLock { () -> [Completion] in
-            defer { waiting = [:]; unsent = [:] }
-            return waiting.values.flatMap { $0.map(\.completion) }
+            defer { waiting = [:]; unsent = [:]; datagramWaiting = [] }
+            return waiting.values.flatMap { $0.map(\.completion) } + datagramWaiting
         }
         for completion in all { completion(error) }
     }

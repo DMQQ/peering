@@ -3,23 +3,35 @@ import Foundation
 extension ClientConnection {
     public var isQuic: Bool { quic != nil }
 
-    /// Opens the session over QUIC through the relay's UDP port, with this end's relay token in front of every packet. The Mac's key is checked against `pinnedServerKey` once the handshake shows it.
+    /// Opens the session over QUIC through the relay's UDP port, with this end's relay token in front of every packet.
     public func connectQuic(
         relay: RelaySession,
         identity: SelfSignedIdentity,
         pinnedServerKey: Data?,
         timeout: TimeInterval
     ) async throws {
-        let configuration = try QuicConfiguration(identity: identity)
         guard let relayAddress = QuicAddress.resolve(host: relay.videoHost, port: relay.videoPort) else {
             throw Failure.transport("The relay's address could not be resolved.")
         }
-        let link = try QuicFrameLink.dial(
-            relayAddress,
+        try await connectQuic(
+            to: relayAddress,
             relay: QuicEndpoint.RelayRoute(address: relayAddress, token: relay.videoToken),
-            configuration: configuration,
-            label: "pl.dmq.peering.client.quic"
+            identity: identity,
+            pinnedServerKey: pinnedServerKey,
+            timeout: timeout
         )
+    }
+
+    /// Opens the session over QUIC to `address`: the Mac itself on the LAN, or the relay when `relay` is given. The Mac's key is checked against `pinnedServerKey` once the handshake shows it.
+    public func connectQuic(
+        to address: QuicAddress,
+        relay: QuicEndpoint.RelayRoute?,
+        identity: SelfSignedIdentity,
+        pinnedServerKey: Data?,
+        timeout: TimeInterval
+    ) async throws {
+        let configuration = try QuicConfiguration(identity: identity)
+        let link = try QuicFrameLink.dial(address, relay: relay, configuration: configuration, label: "pl.dmq.peering.client.quic")
         quic = link
         link.onFrame = { [weak self] frame in
             let handler = self?.lock.withLock { self?._onFrame }

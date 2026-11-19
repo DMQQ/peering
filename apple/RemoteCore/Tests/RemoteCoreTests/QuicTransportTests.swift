@@ -109,6 +109,34 @@ extension ClientPairingTests {
                 #expect(await received.wait { $0.contains(early) })
             }
         }
+
+        @Test("one LAN listener serves two phones at once, each on its own connection")
+        func aListenerServesTwoPhones() async throws {
+            try await withTestEnds { client, mac in
+                let listener = try QuicListener(port: 0, configuration: QuicConfiguration(identity: mac), label: "test.listener")
+                defer { listener.cancel() }
+                let accepted = Counter()
+                listener.onLink = { link in
+                    accepted.add()
+                    link.onFrame = { [weak link] frame in link?.send(Frame(kind: .pong, payload: frame.payload)) }
+                }
+                let address = QuicAddress(host: "127.0.0.1", port: listener.localPort)!
+                var phones: [(ClientConnection, Received)] = []
+                for name in ["first", "second"] {
+                    let connection = ClientConnection(label: "test.\(name)")
+                    let received = Received()
+                    connection.onFrame = { received.add($0) }
+                    try await connection.connectQuic(to: address, relay: nil, identity: client, pinnedServerKey: Self.pin(of: mac), timeout: 5)
+                    connection.send(Frame(kind: .ping, payload: Data(name.utf8)))
+                    phones.append((connection, received))
+                }
+                for (index, name) in ["first", "second"].enumerated() {
+                    #expect(await phones[index].1.wait { $0 == [Frame(kind: .pong, payload: Data(name.utf8))] }, "\(name) got only its own answer")
+                }
+                #expect(accepted.value == 2)
+                for phone in phones { phone.0.cancel() }
+            }
+        }
     }
 }
 

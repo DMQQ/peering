@@ -5,9 +5,20 @@ private let linkLog = Logger(subsystem: "pl.dmq.peering", category: "quic")
 
 /// A Peering session's whole transport over QUIC, shaped like the framed TLS connections it replaces: frames in through ``send(_:)``, frames out through ``onFrame``, the peer's key for the pin check, and one ``onClose``.
 ///
-/// `@unchecked Sendable`: callbacks are guarded by `lock`; the endpoint and session are themselves safe to call from any thread.
+/// `@unchecked Sendable`: callbacks are guarded by `lock`; the carrier and session are themselves safe to call from any thread.
 public final class QuicFrameLink: @unchecked Sendable {
-    public let endpoint: QuicEndpoint
+    /// What moves this link's packets: a socket of its own (``QuicEndpoint``) or a share of a listener's (``QuicListener``).
+    struct Carrier: Sendable {
+        let queue: DispatchQueue
+        /// Sends what the connection has queued; runs on `queue`.
+        let flush: @Sendable () -> Void
+        /// Stops carrying this link's packets; runs on `queue`.
+        let cancel: @Sendable () -> Void
+    }
+
+    private let carrier: Carrier
+    /// Owned when the link has a socket of its own, so the socket lives as long as the link.
+    private let endpoint: QuicEndpoint?
     private let lock = NSLock()
     private var session: QuicSession?
     private var _onFrame: (@Sendable (Frame) -> Void)?
@@ -39,9 +50,21 @@ public final class QuicFrameLink: @unchecked Sendable {
     /// What a waiting send is told when the connection ends before quiche took its bytes.
     public struct Closed: Error {}
 
+    /// Where the peer's first packet came from, for a link a listener accepted. Admission limits count attempts per address.
+    public let peerAddress: QuicAddress?
+
+    init(carrier: Carrier, peerAddress: QuicAddress) {
+        self.carrier = carrier
+        self.peerAddress = peerAddress
+        endpoint = nil
+    }
+
     private init(endpoint: QuicEndpoint) {
         self.endpoint = endpoint
+        peerAddress = nil
+        carrier = Carrier(queue: endpoint.queue, flush: { [weak endpoint] in endpoint?.flush() }, cancel: { [weak endpoint] in endpoint?.cancel() })
         endpoint.onActivity = { [weak self] connection in self?.activity(on: connection) }
+        endpoint.onFlushed = { [weak self] in self?.afterFlush() }
         endpoint.onClosed = { [weak self] _ in self?.closed() }
     }
 
@@ -67,7 +90,7 @@ public final class QuicFrameLink: @unchecked Sendable {
         }
         guard let session else { return }
         session.send(frame, completion: completion)
-        endpoint.queue.async { [endpoint] in endpoint.flush() }
+        carrier.queue.async { [carrier] in carrier.flush() }
     }
 
     /// Bytes already framed by ``FrameEncoder``, as the picture's sender produces them: split back into frames so each goes where its kind belongs. `completion` runs once the last whole frame in them has been taken.
@@ -97,14 +120,23 @@ public final class QuicFrameLink: @unchecked Sendable {
     public func close(reason: String = "closed") {
         if let session = lock.withLock({ session }) {
             session.connection.close(reason: reason)
-            endpoint.queue.async { [endpoint] in endpoint.flush() }
+            carrier.queue.async { [carrier] in carrier.flush() }
         }
-        endpoint.queue.asyncAfter(deadline: .now() + 0.2) { [endpoint] in endpoint.cancel() }
+        carrier.queue.asyncAfter(deadline: .now() + 0.2) { [carrier] in carrier.cancel() }
     }
 
-    // MARK: - On the endpoint's queue
+    /// What quiche measures about the path, and the datagrams it has not sent yet: what the picture's bitrate is set from.
+    public var pathSample: QuicConnection.PathSample? { lock.withLock { session }?.connection.pathSample }
+    public var datagramBacklogBytes: Int { lock.withLock { session }?.connection.datagramBacklogBytes ?? 0 }
 
-    private func activity(on connection: QuicConnection) {
+    // MARK: - On the carrier's queue
+
+    /// After the carrier has sent what was queued.
+    func afterFlush() {
+        lock.withLock { session }?.releaseDatagramWaiters()
+    }
+
+    func activity(on connection: QuicConnection) {
         let (session, established, held) = lock.withLock { () -> (QuicSession, (@Sendable () -> Void)?, [(frame: Frame, completion: QuicSession.Completion?)]) in
             let session = self.session ?? QuicSession(connection: connection, isClient: !connection.isServer)
             self.session = session
@@ -130,7 +162,7 @@ public final class QuicFrameLink: @unchecked Sendable {
         session.writeUnsent()
     }
 
-    private func closed() {
+    func closed() {
         let (handler, session, held) = lock.withLock { () -> ((@Sendable (String?) -> Void)?, QuicSession?, [(frame: Frame, completion: QuicSession.Completion?)]) in
             let handler = _onClose
             let held = early
@@ -143,7 +175,7 @@ public final class QuicFrameLink: @unchecked Sendable {
         let error = QuicFrameLink.Closed()
         session?.failWaiting(error)
         for item in held { item.completion?(error) }
-        endpoint.cancel()
+        carrier.cancel()
         handler?(nil)
     }
 }
