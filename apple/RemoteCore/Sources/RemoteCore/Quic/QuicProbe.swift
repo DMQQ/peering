@@ -38,7 +38,7 @@ public enum QuicProbe {
         }
     }
 
-    public static func run(host: String, port: UInt16, identity: SelfSignedIdentity) async -> Report {
+    public static func run(host: String, port: UInt16, identity: SelfSignedIdentity, relayToken: Data? = nil) async -> Report {
         var report = Report()
         func say(_ line: String) {
             report.lines.append(line)
@@ -51,7 +51,8 @@ public enum QuicProbe {
         do {
             let configuration = try QuicConfiguration(identity: identity)
             let inbox = Inbox()
-            let endpoint = try QuicEndpoint.connect(to: peer, configuration: configuration, queue: DispatchQueue(label: "pl.dmq.peering.quic.probe"))
+            let relay = relayToken.map { QuicEndpoint.RelayRoute(address: peer, token: $0) }
+            let endpoint = try QuicEndpoint.connect(to: peer, configuration: configuration, queue: DispatchQueue(label: "pl.dmq.peering.quic.probe"), relay: relay)
             endpoint.onActivity = { connection in
                 for read in connection.readStreams() { inbox.add(read.bytes, stream: read.stream) }
             }
@@ -139,9 +140,9 @@ public final class QuicEchoServer: @unchecked Sendable {
 
     public var listeningPort: UInt16 { endpoint.localPort }
 
-    public init(identity: SelfSignedIdentity, port: UInt16 = QuicEchoServer.port) throws {
+    public init(identity: SelfSignedIdentity, port: UInt16 = QuicEchoServer.port, relay: QuicEndpoint.RelayRoute? = nil) throws {
         let configuration = try QuicConfiguration(identity: identity)
-        endpoint = try QuicEndpoint.listen(port: port, configuration: configuration, queue: DispatchQueue(label: "pl.dmq.peering.quic.echo"))
+        endpoint = try QuicEndpoint.listen(port: port, configuration: configuration, queue: DispatchQueue(label: "pl.dmq.peering.quic.echo"), relay: relay)
         endpoint.onActivity = { [weak self] connection in self?.serve(connection) }
         quicLog.notice("QUIC echo server listening on UDP \(port, privacy: .public)")
     }

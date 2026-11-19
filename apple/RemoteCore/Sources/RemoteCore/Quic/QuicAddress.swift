@@ -31,6 +31,23 @@ public struct QuicAddress: Sendable, Equatable, CustomStringConvertible {
         self.init(storage: storage, length: socklen_t(MemoryLayout<sockaddr_in6>.size))
     }
 
+    /// Resolves a name, IPv4 answers as v4-mapped IPv6 to suit the dual-stack socket: asking for AF_INET6 alone refuses an A-only name, and a plain v4 answer cannot be sent from a v6 socket.
+    public static func resolve(host: String, port: UInt16) -> QuicAddress? {
+        if let numeric = QuicAddress(host: host, port: port) { return numeric }
+        var hints = addrinfo()
+        hints.ai_family = AF_INET6
+        hints.ai_socktype = SOCK_DGRAM
+        hints.ai_flags = AI_V4MAPPED | AI_ALL
+        var result: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(host, String(port), &hints, &result) == 0, let first = result else { return nil }
+        defer { freeaddrinfo(result) }
+        var storage = sockaddr_storage()
+        withUnsafeMutableBytes(of: &storage) { raw in
+            raw.copyMemory(from: UnsafeRawBufferPointer(start: first.pointee.ai_addr, count: Int(first.pointee.ai_addrlen)))
+        }
+        return QuicAddress(storage: storage, length: first.pointee.ai_addrlen)
+    }
+
     func withSockaddr<Result>(_ body: (UnsafePointer<sockaddr>, socklen_t) throws -> Result) rethrows -> Result {
         try withUnsafePointer(to: storage) { pointer in
             try pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { try body($0, length) }

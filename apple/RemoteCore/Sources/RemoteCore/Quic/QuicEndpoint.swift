@@ -16,6 +16,18 @@ public final class QuicEndpoint: @unchecked Sendable {
     private var timer: DispatchSourceTimer?
     private var connection: QuicConnection?
     private var closed = false
+    private let relay: RelayRoute?
+
+    /// The relay's UDP port and this end's token: the relay forwards a datagram by the token in front of it and strips it, so the token goes on every packet sent there and never arrives on one.
+    public struct RelayRoute: Sendable {
+        public let address: QuicAddress
+        public let token: Data
+
+        public init(address: QuicAddress, token: Data) {
+            self.address = address
+            self.token = token
+        }
+    }
 
     /// Called on `queue` after every batch of packets or a timeout, so the owner can read streams and datagrams and queue replies.
     public var onActivity: (@Sendable (QuicConnection) -> Void)?
@@ -24,30 +36,51 @@ public final class QuicEndpoint: @unchecked Sendable {
         case socket(Int32)
     }
 
-    private init(fd: Int32, local: QuicAddress, configuration: QuicConfiguration, queue: DispatchQueue) {
+    private init(fd: Int32, local: QuicAddress, configuration: QuicConfiguration, queue: DispatchQueue, relay: RelayRoute?) {
         self.fd = fd
         self.local = local
         self.configuration = configuration
         self.queue = queue
+        self.relay = relay
     }
 
-    public static func connect(to peer: QuicAddress, configuration: QuicConfiguration, queue: DispatchQueue) throws -> QuicEndpoint {
+    /// Dials `peer`, which is the relay's address when `relay` is given.
+    public static func connect(to peer: QuicAddress, configuration: QuicConfiguration, queue: DispatchQueue, relay: RelayRoute? = nil) throws -> QuicEndpoint {
         let (fd, local) = try openSocket(port: 0)
-        let endpoint = QuicEndpoint(fd: fd, local: local, configuration: configuration, queue: queue)
+        let endpoint = QuicEndpoint(fd: fd, local: local, configuration: configuration, queue: queue, relay: relay)
         let connection = try QuicConnection.connect(local: local, peer: peer, configuration: configuration)
         queue.async {
             endpoint.connection = connection
             endpoint.startReading()
+            endpoint.bindRelay()
             endpoint.flush()
         }
         return endpoint
     }
 
-    public static func listen(port: UInt16, configuration: QuicConfiguration, queue: DispatchQueue) throws -> QuicEndpoint {
+    /// Waits for a peer on `port`, or behind the relay when `relay` is given.
+    public static func listen(port: UInt16, configuration: QuicConfiguration, queue: DispatchQueue, relay: RelayRoute? = nil) throws -> QuicEndpoint {
         let (fd, local) = try openSocket(port: port)
-        let endpoint = QuicEndpoint(fd: fd, local: local, configuration: configuration, queue: queue)
-        queue.async { endpoint.startReading() }
+        let endpoint = QuicEndpoint(fd: fd, local: local, configuration: configuration, queue: queue, relay: relay)
+        queue.async {
+            endpoint.startReading()
+            endpoint.bindRelay()
+        }
         return endpoint
+    }
+
+    /// The token alone tells the relay where this end is, so the peer's first packet has somewhere to go.
+    private func bindRelay() {
+        guard let relay else { return }
+        write(relay.token, to: relay.address)
+    }
+
+    private func write(_ bytes: Data, to destination: QuicAddress) {
+        bytes.withUnsafeBytes { buffer in
+            destination.withSockaddr { pointer, length in
+                _ = sendto(fd, buffer.baseAddress, buffer.count, 0, pointer, length)
+            }
+        }
     }
 
     public var localPort: UInt16 { local.port }
@@ -59,10 +92,10 @@ public final class QuicEndpoint: @unchecked Sendable {
     public func flush() {
         guard let connection, !closed else { return }
         for packet in connection.outgoing() {
-            packet.bytes.withUnsafeBytes { bytes in
-                packet.destination.withSockaddr { pointer, length in
-                    _ = sendto(fd, bytes.baseAddress, bytes.count, 0, pointer, length)
-                }
+            if let relay, packet.destination == relay.address {
+                write(relay.token + packet.bytes, to: packet.destination)
+            } else {
+                write(packet.bytes, to: packet.destination)
             }
         }
         rearmTimer()
